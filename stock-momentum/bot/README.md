@@ -39,8 +39,13 @@ both of those are readable by every user on the box:
 sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
+MOMENTUM_CAPITAL=3000
 EOF
 ```
+
+`MOMENTUM_CAPITAL` is optional and cosmetic: set it and the message shows what to
+put in each name (capital ÷ 8). Leave it out and the sizing line is omitted. It
+does not affect the ranking or the strategy in any way.
 
 Mode 600 owned by you: you and root can read it, nobody else. Owning it matters
 only so you can source it by hand to test — systemd reads `EnvironmentFile` as
@@ -155,6 +160,8 @@ Both are gitignored.
 - **Works by hand, silent from the timer** — almost always the environment.
   `sudo systemctl start momentum-bot.service` then read the journal; an
   `EnvironmentFile` that does not exist makes the unit fail before Python runs.
+- **Message arrives as plain text, not a coloured card** — you are running an
+  older copy. `git pull` and restart nothing; the next run picks it up.
 - **Message arrives but the ranks differ from TradingView** — expected, slightly.
   TradingView and Yahoo adjust for dividends differently. Order changes of one
   or two places near the cutoff are normal; the eighth and ninth name are close

@@ -17,6 +17,7 @@ message to Discord, and records the new basket.
 
     pip install yfinance pandas requests
     export DISCORD_WEBHOOK='https://discord.com/api/webhooks/...'
+    export MOMENTUM_CAPITAL=3000            # optional: show euros per position
     python momentum_bot.py                  # the daily run
     python momentum_bot.py --status         # what am I holding?
     python momentum_bot.py --dry            # decide, print, post nothing
@@ -28,9 +29,9 @@ run will then treat every holding as a new buy.
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 import os
-import sys
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -47,6 +48,13 @@ UNIVERSE = ["AAPL", "GOOGL", "AMZN", "GOOG", "MSFT", "BAC", "XOM", "JPM", "INTC"
 LOOKBACK = 126      # trading days of momentum
 SKIP = 21           # skip the most recent month
 HOLD = 8            # positions
+
+# Account size, only ever used to divide by HOLD so the message can show what to
+# put in each name. The strategy does not depend on it.
+CAPITAL = float(os.environ.get("MOMENTUM_CAPITAL", "0") or 0)
+
+GREEN = 0x3BA55D    # something changed
+BLURPLE = 0x5865F2  # ranked, nothing to do
 
 
 def load_state() -> dict:
@@ -102,11 +110,78 @@ def due(px, state) -> bool:
     return state.get("last_rebalance_month") != tag
 
 
-def post(webhook: str, text: str) -> None:
+def post(webhook: str, payload: dict) -> None:
     import requests
-    r = requests.post(webhook, json={"content": text}, timeout=20)
+    r = requests.post(webhook, json=payload, timeout=20)
     if r.status_code not in (200, 204):
         raise SystemExit(f"discord rejected the post ({r.status_code}): {r.text[:200]}")
+
+
+def next_month_label(bar) -> str:
+    """'October 2026' — the month the next rebalance falls in.
+
+    Deliberately not a date. The first trading day of a month is not always the
+    1st, and naming a specific day here would occasionally be a holiday.
+    """
+    y, m = (bar.year + 1, 1) if bar.month == 12 else (bar.year, bar.month + 1)
+    return f"{calendar.month_name[m]} {y}"
+
+
+def render_plain(bar, buys, sells, basket, scores) -> str:
+    """What goes to the console and the journal. Kept readable in a terminal."""
+    lines = [f"Momentum rebalance {bar.date()}",
+             f"  BUY  : {', '.join(buys) or '-'}",
+             f"  SELL : {', '.join(sells) or '-'}",
+             f"  HOLD : {', '.join(basket)}"]
+    if CAPITAL:
+        lines.append(f"  SIZE : EUR {CAPITAL / HOLD:,.0f} per position")
+    lines.append("")
+    for i, (tk, m) in enumerate(scores.head(12).items(), 1):
+        lines.append(f"  {i:>2} {tk:<6} {m * 100:>7.1f}%" + ("  <- hold" if i <= HOLD else ""))
+    return "\n".join(lines)
+
+
+def render_embed(bar, buys, sells, basket, scores, first: bool) -> dict:
+    """The Discord payload. An embed rather than a wall of text: the changes are
+    the thing you act on, so they go at the top in a diff block, where Discord
+    colours additions green and removals red on its own."""
+    changed = bool(buys or sells)
+
+    if first:
+        change = "```diff\n" + "\n".join(f"+ {t}" for t in basket) + "\n```"
+        change_name = f"Opening position — {len(basket)} names"
+    elif changed:
+        rows = [f"+ {t}" for t in buys] + [f"- {t}" for t in sells]
+        change = "```diff\n" + "\n".join(rows) + "\n```"
+        change_name = f"Changes — {len(buys)} in, {len(sells)} out"
+    else:
+        change = "```\nNo change. Same eight names as last month.\n```"
+        change_name = "Changes — none"
+
+    held = [f"{i:>2}  {tk:<5} {m * 100:>7.1f}%"
+            for i, (tk, m) in enumerate(scores.head(HOLD).items(), 1)]
+    bench = [f"{i:>2}  {tk:<5} {m * 100:>7.1f}%"
+             for i, (tk, m) in enumerate(scores.iloc[HOLD:HOLD + 4].items(), HOLD + 1)]
+
+    size = f" · EUR {CAPITAL / HOLD:,.0f} each" if CAPITAL else ""
+    fields = [
+        {"name": change_name, "value": change, "inline": False},
+        {"name": f"Portfolio — equal weight{size}",
+         "value": "```\n" + "\n".join(held) + "\n```", "inline": True},
+        {"name": "Next in line",
+         "value": "```\n" + "\n".join(bench) + "\n```", "inline": True},
+    ]
+
+    return {"embeds": [{
+        "title": ("Opening position" if first else "Monthly rebalance"),
+        "description": f"**{bar.strftime('%-d %B %Y')}** · 6-month momentum, "
+                       f"top {HOLD} of {len(UNIVERSE)}",
+        "color": GREEN if (changed or first) else BLURPLE,
+        "fields": fields,
+        "footer": {"text": f"Buy near the US close · next rebalance "
+                           f"{next_month_label(bar)}"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }]}
 
 
 def log_row(when, buys, sells, basket) -> None:
@@ -144,37 +219,27 @@ def main() -> int:
     buys = [t for t in basket if t not in held]
     sells = [t for t in held if t not in basket]
 
-    lines = [f"**Momentum rebalance** {px.index[-1].date()}",
-             f"BUY: {', '.join(buys) if buys else '—'}",
-             f"SELL: {', '.join(sells) if sells else '—'}",
-             f"Hold: {', '.join(basket)}",
-             "",
-             "```",
-             f"{'#':>2} {'ticker':<7} {'6m momentum':>12}"]
-    for i, (tk, m) in enumerate(scores.head(12).items(), 1):
-        lines.append(f"{i:>2} {tk:<7} {m*100:>11.1f}%" + ("  <-- hold" if i <= HOLD else ""))
-    lines.append("```")
-    msg = "\n".join(lines)
-    print(msg)
+    first = not held
+    bar = px.index[-1]
+    print(render_plain(bar, buys, sells, basket, scores))
 
     if args.dry:
         print("\n[--dry] nothing posted, state unchanged")
         return 0
 
-    if not buys and not sells:
+    if not buys and not sells and not first:
         print("\nbasket unchanged — not posting")
     elif args.webhook:
-        post(args.webhook, msg)
+        post(args.webhook, render_embed(bar, buys, sells, basket, scores, first))
         print("\nposted to Discord")
     else:
         print("\nno webhook set ($DISCORD_WEBHOOK) — printed only")
 
-    last_bar = px.index[-1]
     state.update({"basket": basket,
-                  "last_rebalance": str(last_bar.date()),
-                  "last_rebalance_month": f"{last_bar.year}-{last_bar.month:02d}"})
+                  "last_rebalance": str(bar.date()),
+                  "last_rebalance_month": f"{bar.year}-{bar.month:02d}"})
     save_state(state)
-    log_row(last_bar.date(), buys, sells, basket)
+    log_row(bar.date(), buys, sells, basket)
     return 0
 
 
