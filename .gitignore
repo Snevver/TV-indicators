@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+# Intraday bars are ~500MB and fully rebuildable from build_intraday.py.
+# Price data does not belong in git.
+**/data/*_m5.csv
+**/data/*_m15.csv
+**/data/*_h1.csv
+**/data/*_h4.csv
+**/data/stocks/

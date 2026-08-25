@@ -1,0 +1,101 @@
+//@version=6
+// ─────────────────────────────────────────────────────────────────────────────
+//  ZeroStar Pullback V3 — STRATEGY
+//
+//  The V3 rules wired into the Strategy Tester. The rule block below is copied
+//  verbatim from zerostar-pullback-v3.pine; keep the two in sync.
+//
+//  Entries are market orders, so with "process orders on close" OFF they fill at
+//  the OPEN of the bar after the signal — the same assumption the Python
+//  backtest makes. Set commission and slippage in Properties before believing
+//  any number this produces.
+// ─────────────────────────────────────────────────────────────────────────────
+strategy("ZeroStar Pullback V3 Strategy", shorttitle = "ZS PB V3 ST", overlay = true,
+     pyramiding = 0, initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity, default_qty_value = 10,
+     commission_type = strategy.commission.percent, commission_value = 0.02,
+     slippage = 2, calc_on_every_tick = false)
+
+// ─── Entry ───────────────────────────────────────────────────────────────────
+var string G_E = "Entry"
+rsiLength   = input.int(5,   "RSI length",              minval = 2,  group = G_E)
+rsiThresh   = input.float(35, "RSI must be at or below", minval = 1, maxval = 99, group = G_E)
+downCloses  = input.int(3,   "Consecutive lower closes", minval = 0, maxval = 10, group = G_E)
+stabilityIx = input.float(0.3, "Candle stability index", minval = 0.0, maxval = 1.0, step = 0.05, group = G_E)
+trendLen    = input.int(100, "Trend EMA length",        minval = 1,  group = G_E)
+gapBars     = input.int(1,   "Minimum bars between signals", minval = 0, group = G_E)
+allowShorts = input.bool(false, "Also take short signals", group = G_E)
+
+// ─── Risk ────────────────────────────────────────────────────────────────────
+var string G_R = "Risk"
+atrLength = input.int(14,  "ATR length",         minval = 1, group = G_R)
+tpMult    = input.float(2.0, "Take profit (ATR x)", minval = 0.1, step = 0.1, group = G_R)
+slMult    = input.float(1.0, "Stop loss (ATR x)",   minval = 0.1, step = 0.1, group = G_R)
+
+var string G_W = "Backtest window"
+useWindow = input.bool(false, "Limit to a date range", group = G_W)
+startTime = input.time(timestamp("01 Jan 2000 00:00 +0000"), "From", group = G_W)
+endTime   = input.time(timestamp("01 Jan 2030 00:00 +0000"), "To",   group = G_W)
+inWindow  = not useWindow or (time >= startTime and time <= endTime)
+
+// ─── Ingredients ─────────────────────────────────────────────────────────────
+rsiVal   = ta.rsi(close, rsiLength)
+trendEma = ta.ema(close, trendLen)
+atrVal   = ta.atr(atrLength)
+
+rng       = high - low
+stability = rng > 0 ? math.abs(close - open) / rng : 0.0
+stable    = stability >= stabilityIx
+
+// A run of lower closes (or higher, for the short side).
+pullback = true
+rally    = true
+if downCloses > 0
+    for k = 0 to downCloses - 1
+        pullback := pullback and close[k] < close[k + 1]
+        rally    := rally    and close[k] > close[k + 1]
+
+uptrend = close > trendEma
+
+rawLong  = uptrend      and pullback and rsiVal <= rsiThresh        and stable
+rawShort = not uptrend  and rally    and rsiVal >= 100 - rsiThresh  and stable and allowShorts
+
+var int lastSigBar = na
+gapOk = na(lastSigBar) or bar_index - lastSigBar >= gapBars
+
+longSignal  = rawLong  and gapOk
+shortSignal = rawShort and gapOk and not rawLong
+
+if longSignal or shortSignal
+    lastSigBar := bar_index
+
+// ─── Orders ──────────────────────────────────────────────────────────────────
+var float entryAtr = na
+
+if inWindow and strategy.position_size == 0 and longSignal
+    entryAtr := atrVal
+    strategy.entry("L", strategy.long)
+
+if inWindow and strategy.position_size == 0 and shortSignal
+    entryAtr := atrVal
+    strategy.entry("S", strategy.short)
+
+avgPrice = strategy.position_avg_price
+
+if strategy.position_size > 0 and not na(entryAtr)
+    strategy.exit("L exit", from_entry = "L",
+         limit = avgPrice + entryAtr * tpMult, stop = avgPrice - entryAtr * slMult)
+
+if strategy.position_size < 0 and not na(entryAtr)
+    strategy.exit("S exit", from_entry = "S",
+         limit = avgPrice - entryAtr * tpMult, stop = avgPrice + entryAtr * slMult)
+
+if useWindow and not inWindow and strategy.position_size != 0
+    strategy.close_all(comment = "window end")
+
+// ─── Visuals ─────────────────────────────────────────────────────────────────
+plot(ta.ema(close, trendLen), "Trend EMA", color = color.new(color.orange, 40))
+plotshape(longSignal,  "Buy",  style = shape.triangleup,   location = location.belowbar,
+     color = #089981, size = size.tiny)
+plotshape(shortSignal, "Sell", style = shape.triangledown, location = location.abovebar,
+     color = #f23645, size = size.tiny)
