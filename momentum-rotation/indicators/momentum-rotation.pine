@@ -52,14 +52,13 @@ indicator("Momentum Rotation", shorttitle = "MomRot", overlay = true,
 
 // ─── Strategy ────────────────────────────────────────────────────────────────
 var string G_S = "Strategy"
-lookback = input.int(126, "Momentum lookback (trading days)", minval = 20, group = G_S,
-     tooltip = "126 = about six months. Anything from 63 to 252 tested well.")
+lookback = input.int(168, "Momentum lookback (trading days)", minval = 20, group = G_S,
+     tooltip = "168 = about eight months. Chosen on 2005-2021 only; 63 to 252 all tested similarly.")
 skipDays = input.int(21, "Skip most recent days", minval = 0, group = G_S,
      tooltip = "The standard construction skips the latest month, because very " +
                "recent returns tend to reverse and would contaminate the ranking.")
-holdN    = input.int(3, "How many to hold", minval = 1, maxval = 10, group = G_S,
-     tooltip = "3 is the shipped default. 2 returned more (+30.5%) with nearly " +
-               "double the drawdown; the two were statistically tied when chosen.")
+holdN    = input.int(4, "How many to hold", minval = 1, maxval = 10, group = G_S,
+     tooltip = "4, chosen on train+val alone. Fewer holdings concentrates risk.")
 
 // ─── Display ─────────────────────────────────────────────────────────────────
 var string G_D = "Display"

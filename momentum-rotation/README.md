@@ -31,6 +31,36 @@ $1,000 over the test era became **$1,731** here and **$1,784** in the index.
 **It beats a random monthly pick of four ETFs by ~3 points a year**, so the
 ranking does carry information. **It does not beat buying the index.**
 
+## The Pine implementation is verified correct
+
+Signals were checked against the backtest on USO, using the rank shown in each
+label as a fingerprint. They match exactly:
+
+```
+chart SELL ranks           20, 17, 16, 10, 6, 10, 17, 18, 22
+backtest, month-START      20, 17, 16, 10, 6, 10, 17, 18, 22   <- identical
+backtest, month-END        11, 26, 17,  7, 13,  4, 16, 20, 26
+```
+
+That also settled a question the match itself raised. The indicator ranks on the
+**first bar of a new month** — the earliest a monthly decision is executable —
+while the original backtest ranked on the **last bar of the previous month**. Same
+strategy, one bar apart, and worth measuring rather than assuming:
+
+| Era | month-END (backtest) | month-START (indicator) | SPY |
+|---|---|---|---|
+| TRAIN | 7.6% (dd 34.7%) | 6.5% (dd 43.1%) | 4.9% (dd 52.2%) |
+| VAL | 13.6% (dd 20.3%) | 12.4% (dd 21.3%) | 14.4% (dd 19.9%) |
+| TEST | 11.4% (dd 18.4%) | **10.5% (dd 13.6%)** | 11.9% (dd 24.8%) |
+
+One to three points either way, so the conclusion is unchanged: it does not beat
+the index. The figures above are the month-START ones, which is what the
+indicator actually does.
+
+One thing does stand out in the test era — a 13.6% drawdown against SPY's 24.8%
+for a point less return. If a shallower ride is worth more to you than the last
+point of return, that is the case for it. It is not a claim of outperformance.
+
 ## What it is actually good for
 
 The ranking table. It shows which corners of the market are leading and lagging
@@ -38,9 +68,9 @@ on the same 6-month relative-strength measure the academic literature uses — a
 genuinely useful thing to have on screen. Just don't expect the basket to beat
 SPY, because on this evidence it doesn't.
 
-The Pine implementation is verified correct: its live ranking matches the Python
-backtest to the decimal (USO 90.3%, SMH 39.3%, XLE 21.9%, XLK 21.4%, …). The bug
-was in my backtest, not in the indicator.
+The live ranking also matches the Python backtest to the decimal (USO 90.3%,
+SMH 39.3%, XLE 21.9%, XLK 21.4%, …). The bug was in my backtest, never in the
+indicator.
 
 ## Why it is believable
 
