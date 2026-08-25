@@ -8,3 +8,5 @@ __pycache__/
 **/data/*_h1.csv
 **/data/*_h4.csv
 **/data/stocks/
+__pycache__/
+*.pyc

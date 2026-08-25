@@ -1,43 +1,43 @@
 {
  "cfg": {
   "family": "ma_cross",
-  "rsi_len": 4,
-  "rsi_thr": 5,
-  "z_thr": -2.5,
-  "run_len": 5,
-  "bo_win": 50,
-  "mom_thr": 0.05,
-  "ma_fast": 50,
+  "rsi_len": 2,
+  "rsi_thr": 20,
+  "z_thr": -1.5,
+  "run_len": 6,
+  "bo_win": 20,
+  "mom_thr": 0.1,
+  "ma_fast": 20,
   "ma_slow": 100,
-  "trend": "none",
-  "trend_len": 50,
+  "trend": "below",
+  "trend_len": 200,
   "volfil": "none",
   "vol_thr": 0.3,
-  "gap_bars": 10,
+  "gap_bars": 5,
   "ma_cross_only": true
  },
  "exit": {
   "stop_atr": 1.5,
   "target_r": 1.5,
   "trail_atr": 0.0,
-  "trail_after_r": 0.0,
-  "breakeven_r": 0.0,
-  "time_bars": 20,
+  "trail_after_r": 1.0,
+  "breakeven_r": 1.0,
+  "time_bars": 30,
   "atr_key": "atr14"
  },
  "dir": 1,
  "train": {
-  "cagr": 0.04438999922982867,
-  "dd": 14.866909052569518,
-  "taken": 274,
-  "win": 50.72992700729927,
-  "diff": 0.06845117161077852
+  "cagr": 0.05600497204930055,
+  "dd": 44.512906076451074,
+  "taken": 924,
+  "win": 38.41991341991342,
+  "diff": 0.0316433649442831
  },
  "val": {
-  "cagr": 0.05149011773000289,
-  "dd": 12.452068640454547,
-  "taken": 168,
-  "win": 51.19047619047619,
-  "diff": 0.04504116471057529
+  "cagr": 0.1254970470119101,
+  "dd": 18.660358898915845,
+  "taken": 558,
+  "win": 41.21863799283154,
+  "diff": 0.07073851956212329
  }
 }
