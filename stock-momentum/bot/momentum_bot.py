@@ -48,6 +48,16 @@ import os
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+# Optional broker link. A missing, broken or half-written t212.py must not stop
+# the bot running — the whole point of it is that it is not required.
+try:
+    import t212
+except Exception as _t212_exc:                       # noqa: BLE001
+    t212 = None
+    _T212_IMPORT_ERROR = f"{type(_t212_exc).__name__}: {_t212_exc}"
+else:
+    _T212_IMPORT_ERROR = ""
 STATE = os.path.join(HERE, "state.json")
 LOG = os.path.join(HERE, "rebalances.csv")
 
@@ -284,6 +294,85 @@ def unbuyable(basket, prices, total) -> list:
     return [t for t in basket if prices[t] > total / HOLD]
 
 
+def refresh(state) -> bool:
+    """Before showing or deciding anything, adopt the broker's positions if the
+    link is set up and answering. Returns True if it did.
+
+    Silent when there is no key — that is the normal case and not a problem.
+    """
+    snap = broker()
+    if snap is None:
+        return False
+    # A broker that reports nothing while the book holds positions is far more
+    # likely to be a mapping or permissions problem than a portfolio you emptied
+    # by hand. Never let the automatic path act on it — --t212-sync --force is
+    # how you say you really did sell everything.
+    if state["positions"] and not snap["positions"]:
+        print("  ! Trading 212 reports no positions, but the book holds "
+              f"{len(state['positions'])}. Not adopting that — it would erase "
+              f"the book. Check --t212-probe, or --t212-sync --force if you "
+              f"really did sell everything.")
+        return False
+    diffs = reconcile(state, snap, adopt=True)
+    save_state(state)
+    where = f"pie {t212.PIE_ID}" if snap["scoped_to_pie"] else "account"
+    print(f"  [Trading 212 {t212.ENV}/{where}] {len(snap['positions'])} positions"
+          + (f", {len(diffs)} corrected" if diffs else ", already matching"))
+    return True
+
+
+def broker() -> dict | None:
+    """The broker's view, or None if it is not set up or did not answer."""
+    if t212 is None:
+        if _T212_IMPORT_ERROR:
+            print(f"  ! t212.py did not load ({_T212_IMPORT_ERROR}) — using the "
+                  f"bot's own book")
+        return None
+    try:
+        if not t212.configured():
+            return None
+        return t212.snapshot()
+    except Exception as exc:                          # belt and braces
+        print(f"  ! Trading 212 link failed ({type(exc).__name__}: {exc}) — "
+              f"using the bot's own book")
+        return None
+
+
+def reconcile(state, snap, adopt: bool) -> list:
+    """Compare the bot's book with the broker's. Returns the differences.
+
+    With adopt=False nothing changes — this is the report --t212-check prints.
+    With adopt=True the broker wins, because it is the one that actually holds
+    the shares. Money paid in is never touched: the broker cannot know what you
+    funded versus what you earned, and overwriting it would turn a deposit into
+    a profit.
+    """
+    diffs, mine = [], state["positions"]
+    theirs = snap["positions"]
+    for tk in sorted(set(mine) | set(theirs)):
+        a, b = mine.get(tk, 0.0), theirs.get(tk, {}).get("shares", 0.0)
+        # Scale the tolerance: brokers round share counts for display, and a
+        # difference of a millionth of a share is noise, not a discrepancy.
+        if abs(a - b) > max(1e-6, 1e-4 * max(a, b)):
+            diffs.append((tk, a, b))
+    if abs(state["cash"] - snap["cash"]) > 0.01 and not snap["scoped_to_pie"]:
+        diffs.append(("(cash)", state["cash"], snap["cash"]))
+
+    if adopt:
+        state["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
+        state["book"] = {tk: p["cost"] for tk, p in theirs.items()}
+        if not snap["scoped_to_pie"]:
+            state["cash"] = snap["cash"]
+        if not state["deposited"]:
+            # Nothing was ever declared, so the only honest starting point is
+            # what is there now. Say so rather than quietly inventing a return.
+            state["deposited"] = snap["total"]
+            print(f"  note: nothing was paid in on record, so {money(snap['total'])} "
+                  f"is being treated as the starting balance. Use --deposit if "
+                  f"that is wrong.")
+    return diffs
+
+
 def post(webhook: str, payload: dict) -> None:
     import requests
     r = requests.post(webhook, json=payload, timeout=20)
@@ -480,10 +569,60 @@ def main() -> int:
                    help="record money taken out")
     p.add_argument("--fill", action="append", metavar="TICKER=SHARES@PRICE",
                    help="correct an assumed fill; repeatable")
+    p.add_argument("--t212-probe", action="store_true",
+                   help="print what Trading 212 returns; read-only, changes nothing")
+    p.add_argument("--t212-check", action="store_true",
+                   help="compare the bot's book with the broker; changes nothing")
+    p.add_argument("--t212-sync", action="store_true",
+                   help="adopt the broker's positions and cash as the truth")
     p.add_argument("--webhook", default=os.environ.get("DISCORD_WEBHOOK", ""))
     args = p.parse_args()
 
     state = load_state()
+
+    # --- the optional broker link -------------------------------------------
+    if args.t212_probe:
+        if t212 is None:
+            raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        return t212.probe()
+
+    if args.t212_check or args.t212_sync:
+        if t212 is None:
+            raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        if not t212.configured():
+            raise SystemExit(t212.why_not() + "\n"
+                             "Set T212_API_KEY and T212_ENV in /etc/momentum-bot.env, "
+                             "then: set -a; . /etc/momentum-bot.env; set +a")
+        snap = broker()
+        if snap is None:
+            return 1
+        scope = f"pie {t212.PIE_ID}" if snap["scoped_to_pie"] else "the whole account"
+        print(f"Trading 212 ({t212.ENV}) — {scope}")
+        print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}"
+              + ("" if snap["scoped_to_pie"] else f", cash {money(snap['cash'])}"))
+        if (args.t212_sync and state["positions"] and not snap["positions"]
+                and not args.force):
+            raise SystemExit(
+                f"  the broker reports no positions but the book holds "
+                f"{len(state['positions'])}.\n"
+                f"  Refusing to erase it. If you really did sell everything, "
+                f"repeat with --force.")
+        diffs = reconcile(state, snap, adopt=args.t212_sync)
+        if not diffs:
+            print("  the bot's book already matches. Nothing to do.")
+        else:
+            print(f"\n  {'':<8} {'bot thinks':>14} {'broker says':>14}")
+            for tk, a, b in diffs:
+                print(f"  {tk:<8} {a:>14,.4f} {b:>14,.4f}")
+            if args.t212_sync:
+                save_state(state)
+                m = mark(state, {tk: p["value"] / p["shares"]
+                                 for tk, p in snap["positions"].items() if p["shares"]})
+                print(f"\n  adopted. account {money(m['total'])}, "
+                      f"{money(m['deposited'])} paid in")
+            else:
+                print("\n  nothing changed. --t212-sync adopts the broker's numbers.")
+        return 0
 
     # --- cash in and out -----------------------------------------------------
     for amount, sign, verb in ((args.deposit, 1, "deposited"),
@@ -526,6 +665,7 @@ def main() -> int:
             if not args.report:
                 return 0
         else:
+            refresh(state)
             px = fetch()
             m = mark(state, px.iloc[-1].to_dict())
             print(f"ACCOUNT   {money(m['total'])}   "
@@ -545,6 +685,7 @@ def main() -> int:
             print("\nposted to Discord")
         return 0
 
+    refresh(state)
     px = fetch()
     prices = px.iloc[-1].to_dict()
     scores = rank(px)

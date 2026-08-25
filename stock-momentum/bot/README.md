@@ -132,6 +132,87 @@ fractional order by hand and see whether it fills. If it does, set the flag to
 `1` and any account size works. If it does not, you need roughly $10,000 for the
 eight weights to be even approximately right.
 
+## Trading 212 (optional, off until you turn it on)
+
+The bot works without this and always will. Leave `T212_API_KEY` unset and
+nothing below happens — no calls, no warnings, no mention of it in any message.
+
+When you do switch it on, the bot reads your real positions and cash instead of
+assuming its own fills, so `--fill` becomes unnecessary and the figures stop
+being an estimate.
+
+### Make a pie first
+
+Do this before generating a key. `/equity/portfolio` returns the **whole
+account**, so anything else you hold on Trading 212 gets read as if the strategy
+had bought it. With an unrelated ETF sitting in the account, a test run reported
+$2,334 against the strategy's real $1,122.
+
+Put the eight names in their own pie, then set `T212_PIE_ID`. The bot sees that
+pie and nothing else, and its profit and loss measures this strategy alone.
+
+Find the id with `--t212-probe` — it lists your pies with their ids.
+
+### Turning it on
+
+Trading 212 app → Settings → API → Generate API key, with portfolio and history
+permissions. Practice and live are **separate keys with separate URLs**; generate
+the one for the account you are actually running.
+
+```bash
+sudo nano /etc/momentum-bot.env
+```
+```
+T212_API_KEY=...
+T212_ENV=demo          # or: live
+T212_PIE_ID=9911
+```
+
+The key is a password, exactly like the webhook. That file is mode 600 and is
+the only place it belongs — never the repo, never a crontab, never a chat
+message. If it leaks, revoke it in the app and generate another.
+
+```bash
+set -a; . /etc/momentum-bot.env; set +a
+python momentum_bot.py --t212-probe    # does the key work, what comes back
+python momentum_bot.py --t212-check    # broker against the book, changes nothing
+python momentum_bot.py --t212-sync     # adopt the broker's numbers
+```
+
+Once it answers, every normal run refreshes from the broker first.
+
+### What it will not do
+
+**Place orders.** Trading 212's public API only accepts orders in practice mode,
+and this code never sends one in either environment. You place trades yourself,
+which is also the last point at which you get to look at the numbers before
+committing to them.
+
+**Overwrite what you paid in.** The broker cannot tell a deposit from a profit,
+so `deposited` is only ever set by `--deposit` and `--withdraw`.
+
+**Erase the book because the broker said nothing.** If Trading 212 reports zero
+positions while the book holds eight, that is treated as a fault and refused —
+an empty or unreadable response is far more often a permissions or field-mapping
+problem than a portfolio you emptied by hand. `--t212-sync --force` is how you
+say you really did sell everything.
+
+### If it fails
+
+It falls back to the bot's own book and prints one line saying why. A rebalance
+message always goes out. Common causes:
+
+- **401** — wrong key, or a live key with `T212_ENV=demo` (or the reverse).
+- **403** — the key lacks portfolio or history permission. Re-generate it.
+- **429** — rate limited. It backs off and retries; the API is strict, so do not
+  loop `--t212-probe`.
+- **"none could be read"** — the JSON field names differ from what this code
+  expects. Run `--t212-probe` and the mapping can be corrected against the real
+  response. Nothing is changed in the meantime.
+
+The field names in `t212.py` were written from public documentation, not against
+a live account. `--t212-probe` is the step that settles them.
+
 ## Running it on a schedule
 
 Two options. Use one.
@@ -198,6 +279,9 @@ only speaks on the first trading day of each month.
 | `python momentum_bot.py --deposit 1000` | Record money paid in. |
 | `python momentum_bot.py --withdraw 200` | Record money taken out. |
 | `python momentum_bot.py --fill MU=0.15@829.50` | Correct an assumed fill. |
+| `python momentum_bot.py --t212-probe` | What does Trading 212 return? Read-only. |
+| `python momentum_bot.py --t212-check` | Broker against the book. Changes nothing. |
+| `python momentum_bot.py --t212-sync` | Adopt the broker's positions and cash. |
 | `python momentum_bot.py --dry` | Decide and print. Posts nothing, saves nothing. |
 | `python momentum_bot.py --test` | Post today's real ranking to Discord. Saves nothing. |
 | `python momentum_bot.py --force` | Rebalance now, ignoring the date. |
