@@ -73,12 +73,15 @@ Logs land in the journal, a missed run catches up on boot, and the secret stays
 in a 600 file.
 
 ```bash
-cd systemd
-sed -i "s/CHANGEME/$USER/g" momentum-bot.service     # fix paths if you cloned elsewhere
-sudo cp momentum-bot.service momentum-bot.timer /etc/systemd/system/
+sudo cp systemd/momentum-bot.service systemd/momentum-bot.timer /etc/systemd/system/
+sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-bot.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now momentum-bot.timer
 ```
+
+Substitute in `/etc`, not in the checkout — editing the tracked file makes the
+next `git pull` conflict. Adjust the paths in the installed copy by hand if you
+cloned somewhere other than `~/tv-indicators`.
 
 Verify and inspect:
 
@@ -95,13 +98,22 @@ crontab -e
 ```
 
 ```cron
+0 21 * * 1-5 cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py >> cron.log 2>&1
 30 22 * * 1-5 cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py >> cron.log 2>&1
 ```
 
-Weeknights after the US close. Any evening hour works; the script decides whether
-a rebalance is due from the newest *daily bar*, not the wall clock, so weekends,
-market holidays, your timezone and a night the machine was off all take care of
-themselves. On a day with nothing to do it prints one line and sends nothing.
+The timer runs twice a weeknight, at 21:00 and 22:30 CE(S)T.
+
+That is not redundancy for its own sake. The backtest buys at the **close** of
+the first trading day of the month, so you want the basket before that close —
+21:00 CEST is 15:00 in New York, an hour ahead of it. The 22:30 run is the
+fallback for the case where the earlier one has not yet seen a daily bar dated in
+the new month. Whichever fires first records the rebalance; the second becomes a
+no-op, because the script decides from the newest *daily bar* and its own state,
+never the wall clock. That same property means weekends, market holidays, your
+timezone and a night the machine was off all take care of themselves.
+
+On a day with nothing to do it prints one line and sends nothing.
 
 The first run has no history, so it treats the whole basket as new buys and posts
 immediately, whatever the date. That is your starting position. After that it
