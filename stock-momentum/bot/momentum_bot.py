@@ -21,6 +21,7 @@ message to Discord, and records the new basket.
     python momentum_bot.py                  # the daily run
     python momentum_bot.py --status         # what am I holding?
     python momentum_bot.py --dry            # decide, print, post nothing
+    python momentum_bot.py --test           # post real numbers, save nothing
     python momentum_bot.py --force          # rebalance now, ignoring the date
 
 State lives in state.json beside this script. Delete it to start fresh; the next
@@ -52,9 +53,11 @@ HOLD = 8            # positions
 # Account size, only ever used to divide by HOLD so the message can show what to
 # put in each name. The strategy does not depend on it.
 CAPITAL = float(os.environ.get("MOMENTUM_CAPITAL", "0") or 0)
+CURRENCY = os.environ.get("MOMENTUM_CURRENCY", "EUR")
 
 GREEN = 0x3BA55D    # something changed
 BLURPLE = 0x5865F2  # ranked, nothing to do
+AMBER = 0xF0A020    # a test: real numbers, nothing saved, do not trade it
 
 
 def load_state() -> dict:
@@ -134,14 +137,15 @@ def render_plain(bar, buys, sells, basket, scores) -> str:
              f"  SELL : {', '.join(sells) or '-'}",
              f"  HOLD : {', '.join(basket)}"]
     if CAPITAL:
-        lines.append(f"  SIZE : EUR {CAPITAL / HOLD:,.0f} per position")
+        lines.append(f"  SIZE : {CURRENCY} {CAPITAL / HOLD:,.0f} per position")
     lines.append("")
     for i, (tk, m) in enumerate(scores.head(12).items(), 1):
         lines.append(f"  {i:>2} {tk:<6} {m * 100:>7.1f}%" + ("  <- hold" if i <= HOLD else ""))
     return "\n".join(lines)
 
 
-def render_embed(bar, buys, sells, basket, scores, first: bool) -> dict:
+def render_embed(bar, buys, sells, basket, scores, first: bool,
+                 test: bool = False) -> dict:
     """The Discord payload. An embed rather than a wall of text: the changes are
     the thing you act on, so they go at the top in a diff block, where Discord
     colours additions green and removals red on its own."""
@@ -163,7 +167,7 @@ def render_embed(bar, buys, sells, basket, scores, first: bool) -> dict:
     bench = [f"{i:>2}  {tk:<5} {m * 100:>7.1f}%"
              for i, (tk, m) in enumerate(scores.iloc[HOLD:HOLD + 4].items(), HOLD + 1)]
 
-    size = f" · EUR {CAPITAL / HOLD:,.0f} each" if CAPITAL else ""
+    size = f" · {CURRENCY} {CAPITAL / HOLD:,.0f} each" if CAPITAL else ""
     fields = [
         {"name": change_name, "value": change, "inline": False},
         {"name": f"Portfolio — equal weight{size}",
@@ -172,14 +176,20 @@ def render_embed(bar, buys, sells, basket, scores, first: bool) -> dict:
          "value": "```\n" + "\n".join(bench) + "\n```", "inline": True},
     ]
 
+    title = "Opening position" if first else "Monthly rebalance"
+    if test:
+        title = "TEST — " + title
+    footer = (f"Test message · nothing saved · do not trade this"
+              if test else
+              f"Buy near the US close · next rebalance {next_month_label(bar)}")
+
     return {"embeds": [{
-        "title": ("Opening position" if first else "Monthly rebalance"),
+        "title": title,
         "description": f"**{bar.strftime('%-d %B %Y')}** · 6-month momentum, "
                        f"top {HOLD} of {len(UNIVERSE)}",
-        "color": GREEN if (changed or first) else BLURPLE,
+        "color": AMBER if test else (GREEN if (changed or first) else BLURPLE),
         "fields": fields,
-        "footer": {"text": f"Buy near the US close · next rebalance "
-                           f"{next_month_label(bar)}"},
+        "footer": {"text": footer},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }]}
 
@@ -197,6 +207,8 @@ def main() -> int:
     p.add_argument("--dry", action="store_true", help="decide and print, post nothing")
     p.add_argument("--force", action="store_true", help="rebalance regardless of date")
     p.add_argument("--status", action="store_true", help="show holdings and exit")
+    p.add_argument("--test", action="store_true",
+                   help="post a real message to Discord, save nothing")
     p.add_argument("--webhook", default=os.environ.get("DISCORD_WEBHOOK", ""))
     args = p.parse_args()
 
@@ -211,7 +223,7 @@ def main() -> int:
     basket = list(scores.index[:HOLD])
     held = state.get("basket", [])
 
-    if not (args.force or due(px, state)):
+    if not (args.force or args.test or due(px, state)):
         print(f"{px.index[-1].date()}: already rebalanced this month "
               f"({state.get('last_rebalance')}). Nothing to do.")
         return 0
@@ -225,6 +237,15 @@ def main() -> int:
 
     if args.dry:
         print("\n[--dry] nothing posted, state unchanged")
+        return 0
+
+    if args.test:
+        if not args.webhook:
+            raise SystemExit("no webhook set ($DISCORD_WEBHOOK) — nothing to test")
+        post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
+                                        test=True))
+        print("\n[--test] posted to Discord. state.json and rebalances.csv "
+              "untouched — this was not a rebalance.")
         return 0
 
     if not buys and not sells and not first:

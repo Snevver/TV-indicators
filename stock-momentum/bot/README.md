@@ -40,12 +40,14 @@ sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 MOMENTUM_CAPITAL=3000
+MOMENTUM_CURRENCY=EUR
 EOF
 ```
 
-`MOMENTUM_CAPITAL` is optional and cosmetic: set it and the message shows what to
-put in each name (capital ÷ 8). Leave it out and the sizing line is omitted. It
-does not affect the ranking or the strategy in any way.
+Both are optional and cosmetic. `MOMENTUM_CAPITAL` makes the message show what
+to put in each name (capital ÷ 8); `MOMENTUM_CURRENCY` is just the label printed
+next to it and defaults to `EUR` — set it to match the account you actually
+trade. Neither affects the ranking or the strategy.
 
 Mode 600 owned by you: you and root can read it, nobody else. Owning it matters
 only so you can source it by hand to test — systemd reads `EnvironmentFile` as
@@ -131,6 +133,7 @@ only speaks on the first trading day of each month.
 | `python momentum_bot.py` | The daily run. Posts only on a rebalance. |
 | `python momentum_bot.py --status` | What am I holding, and since when. |
 | `python momentum_bot.py --dry` | Decide and print. Posts nothing, saves nothing. |
+| `python momentum_bot.py --test` | Post today's real ranking to Discord. Saves nothing. |
 | `python momentum_bot.py --force` | Rebalance now, ignoring the date. |
 
 `--force` is for recovering after an outage, not for trading more often. Monthly
