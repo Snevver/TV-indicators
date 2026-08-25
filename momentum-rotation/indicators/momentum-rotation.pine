@@ -17,29 +17,32 @@
 //  capital, and -0.787R through a 3-slot book. Rotation has no such problem:
 //  the calendar sets turnover and capacity is exactly N by construction.
 //
-//  MEASURED — ETFs, monthly, 10bps turnover cost. Parameters were chosen on
-//  2005-2021 alone; the test era below was never consulted during selection.
+//  MEASURED — and read the correction below before anything else.
 //
-//    era                    strategy      SPY     maxDD    Sharpe
-//    TRAIN 2005-2015           +9.4%     +4.9%     17.2%      0.63
-//    VAL   2016-2021          +22.1%    +14.4%     15.5%      1.49
-//    TEST  2021-2026          +23.4%    +11.9%     14.9%      1.07
+//  An earlier version of this header claimed +23.4%/yr against SPY's +11.9%,
+//  at half the drawdown. That was wrong. The backtest behind it indexed every
+//  ETF by SPY's bar number, which is only valid if all 28 share one calendar.
+//  Six do not — HYG, KRE, SLV, USO, XBI and XLRE list later — so bar 2000 was
+//  2012-12-12 for SPY and 2015-03-20 for HYG. Ranking at a 2012 date therefore
+//  read 2015 prices for those six, and they supplied about a quarter of all
+//  holdings. That is look-ahead bias, and it manufactured the outperformance.
 //
-//  $1,000 over the test era became $2,908, against $1,780 for buying SPY, with
-//  roughly half the drawdown.
+//  Corrected, with every series aligned by date (research/rotation2.py), and
+//  with parameters chosen on 2005-2021 alone:
 //
-//  THE CONTROL THAT MATTERS: the same mechanics with a RANDOM monthly pick
-//  returned +8.9%/yr. The momentum ranking beat 100% of 50 random draws in both
-//  the validation and test eras. The edge is the ranking, not the rotation.
+//    era          strategy   maxDD   Sharpe  |    SPY   maxDD   Sharpe
+//    TRAIN 05-15      7.6%   34.7%     0.51  |   4.9%   52.2%     0.42
+//    VAL   16-21     13.6%   20.3%     1.04  |  14.4%   19.9%     0.99
+//    TEST  21-26     11.4%   18.4%     0.73  |  11.9%   24.8%     0.79
 //
-//  IT DEFENDS IN BEAR MARKETS. 2022: SPY -20.3%, this -8.2%, because momentum
-//  rotated into energy and commodities while the index fell. That is the point
-//  of relative strength, and it is why the drawdown is half SPY's.
+//  It beats a RANDOM monthly pick of four ETFs by about 3 percentage points a
+//  year, so the ranking does carry information. It does NOT beat buying SPY.
+//  Over the test era $1,000 became $1,731 here and $1,784 in the index.
 //
-//  ROBUSTNESS: every lookback from 63 to 252 days and every hold size from 2 to
-//  6 was profitable on the test era (9-30% CAGR). This is a broad plateau, not a
-//  tuned spike. Turnover is low enough that costs barely register: 24.0% at zero
-//  cost, 21.9% at 40bps.
+//  So what is it for? Ranking. The table tells you which corners of the market
+//  are leading and which are lagging, on the same 6-month relative-strength
+//  measure the literature uses. That is a genuinely useful thing to see. Just
+//  do not expect the basket to beat the index — on this evidence it does not.
 //
 //  WHAT IT IS NOT: it holds equities and it falls in crashes. It is a better
 //  way to own the market, not a hedge. Expect 15-25% drawdowns.

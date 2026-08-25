@@ -6,7 +6,7 @@ scripts, the research that produced them, and the numbers they actually achieved
 | Folder | What it is | Status |
 |---|---|---|
 | [`zerostar-mean-reversion/`](zerostar-mean-reversion/) | Intraday and daily mean-reversion signal indicators, v2 → v5 | **v4 is the one to use** |
-| [`momentum-rotation/`](momentum-rotation/) | Monthly ETF rotation on 6-month relative strength | **Best in the repo** — +23.4% a year out of sample, half SPY's drawdown |
+| [`momentum-rotation/`](momentum-rotation/) | Monthly ETF rotation on 6-month relative strength | Ranking tool. Beats a random ETF pick by ~3%/yr but does **not** beat buying SPY |
 | [`wickless-retest/`](wickless-retest/) | Wickless-candle levels and retest alerts | Marking tool — the rules did not pass a backtest |
 
 ## House rules

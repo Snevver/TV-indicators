@@ -1,40 +1,46 @@
 # Momentum Rotation
 
 Once a month, rank 28 liquid ETFs by their 6-month return and hold the strongest
-three. That is the whole strategy.
+few. Use it to see which parts of the market are leading.
 
-**[`indicators/momentum-rotation.pine`](indicators/momentum-rotation.pine)** — put
-it on any chart and it tells you whether that symbol is currently one of the three
-to hold, with the full ranking in a table.
+**[`indicators/momentum-rotation.pine`](indicators/momentum-rotation.pine)**
 
-## Results
+## Correction — read this first
 
-Parameters were chosen on 2005–2021 alone. The test era was never consulted during
-selection.
+An earlier version of this README claimed **+23.4%/yr against SPY's +11.9%, at
+half the drawdown**. That was wrong, and the error was mine.
 
-| Era | Strategy | SPY | maxDD | Sharpe |
-|---|---|---|---|---|
-| TRAIN 2005–2015 | +9.4% | +4.9% | 17.2% | 0.63 |
-| VAL 2016–2021 | +22.1% | +14.4% | 15.5% | 1.49 |
-| **TEST 2021–2026** | **+23.4%** | +11.9% | **14.9%** | 1.07 |
+The backtest indexed every ETF by SPY's bar number, which is only valid if all 28
+share one trading calendar. Six do not — HYG, KRE, SLV, USO, XBI and XLRE list
+later and so have fewer bars. Bar 2000 was `2012-12-12` for SPY and `2015-03-20`
+for HYG. Ranking at a 2012 date read **2015 prices** for those six, and they
+supplied roughly a quarter of all holdings. That is look-ahead bias, and it
+produced the entire apparent outperformance.
 
-$1,000 over the test era became **$2,908**, against $1,780 for buying SPY — with
-roughly half the drawdown.
+[`research/rotation2.py`](research/rotation2.py) aligns every series by date.
+Corrected, with parameters chosen on 2005–2021 only:
 
-### Year by year, test era
+| Era | Strategy | maxDD | Sharpe | SPY | maxDD | Sharpe |
+|---|---|---|---|---|---|---|
+| TRAIN 2005–2015 | 7.6% | 34.7% | 0.51 | 4.9% | 52.2% | 0.42 |
+| VAL 2016–2021 | 13.6% | 20.3% | 1.04 | 14.4% | 19.9% | 0.99 |
+| **TEST 2021–2026** | **11.4%** | 18.4% | 0.73 | **11.9%** | 24.8% | 0.79 |
 
-| Year | Strategy | SPY |
-|---|---|---|
-| 2021 | +17.6% | +28.8% |
-| **2022** | **−8.2%** | **−20.3%** |
-| 2023 | +27.5% | +24.1% |
-| 2024 | +72.3% | +24.0% |
-| 2025 | +16.6% | +16.6% |
-| 2026 | +5.3% | +11.8% |
+$1,000 over the test era became **$1,731** here and **$1,784** in the index.
 
-2022 is the year that matters. The index fell 20% and this fell 8%, because
-relative strength rotated into energy and commodities while equities sold off.
-That is where the halved drawdown comes from — not from clever exits.
+**It beats a random monthly pick of four ETFs by ~3 points a year**, so the
+ranking does carry information. **It does not beat buying the index.**
+
+## What it is actually good for
+
+The ranking table. It shows which corners of the market are leading and lagging
+on the same 6-month relative-strength measure the academic literature uses — a
+genuinely useful thing to have on screen. Just don't expect the basket to beat
+SPY, because on this evidence it doesn't.
+
+The Pine implementation is verified correct: its live ranking matches the Python
+backtest to the decimal (USO 90.3%, SMH 39.3%, XLE 21.9%, XLK 21.4%, …). The bug
+was in my backtest, not in the indicator.
 
 ## Why it is believable
 
