@@ -52,10 +52,30 @@ Size accordingly. This is a concentrated equity portfolio, not a hedge.
 
 ## How to trade it
 
+Full guide including Discord alerts: **[HOW-TO-TRADE.md](HOW-TO-TRADE.md)**
+
 1. Put the indicator on any of the 40 names. The table shows the live ranking.
 2. On the first trading day of each month, hold the top 8, equal weight.
 3. Sell what dropped out, buy what came in. Typically 1–3 changes.
 4. Nothing else until next month.
+
+### Year to date 2026, on €3,000
+
+| | Value | Return |
+|---|---|---|
+| **Strategy, rebalanced monthly** | **€4,222** | **+40.7%** |
+| Bought January's 8 and held | €4,512 | +50.4% |
+| Bought all 40 equally and held | €3,553 | +18.4% |
+| Bought SPY and held | €3,353 | +11.8% |
+
+It beat the index by €869 over eight months. It also *lost* €290 against simply
+holding January's picks — over this particular window the initial selection did
+the work and the monthly churn diluted it slightly. One 8-month sample is not
+evidence that rebalancing is wrong (over 21 years it is what generates the edge),
+but it is the kind of thing worth seeing rather than being told about.
+
+FX is ignored: the stocks are USD and the account is euro, so a real result would
+also move with EUR/USD.
 
 **Current basket**, set at the 2026-08-03 rebalance: **MU, INTC, CAT, CSCO, UNH,
 JNJ, MRK, GE**.

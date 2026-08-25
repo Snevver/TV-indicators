@@ -71,6 +71,10 @@ holdN    = input.int(8, "How many to hold", minval = 1, maxval = 20, group = G_S
 // ─── Display ─────────────────────────────────────────────────────────────────
 var string G_D = "Display"
 showTable  = input.bool(true, "Show ranking table", group = G_D)
+discordFmt = input.bool(true, "Format alerts as Discord JSON", group = G_D,
+     tooltip = "Discord webhooks reject plain text — they need a JSON body with " +
+               "a content field. With this on, the alert message is already " +
+               "valid JSON and can be pasted straight into a webhook alert.")
 showLabels = input.bool(true, "Show BUY / SELL labels", group = G_D)
 tableRows  = input.int(12, "Rows in table", minval = 3, maxval = 40, group = G_D)
 buyCol     = input.color(#089981, "Held", group = G_D)
@@ -247,13 +251,65 @@ if barstate.islast and showTable
          text_color = color.new(color.orange, 20), text_size = size.small)
 
 // ─── Alerts ──────────────────────────────────────────────────────────────────
+// One alert for the WHOLE basket, not one per symbol. Forty stocks would
+// otherwise need forty alerts; this reports the new holdings and the changes in
+// a single message, so a single alert on a single chart covers the strategy.
+sortedTickers(n) =>
+    ord = array.new_int()
+    for i = 0 to array.size(moms) - 1
+        array.push(ord, i)
+    for i = 0 to array.size(ord) - 2
+        best = i
+        for j = i + 1 to array.size(ord) - 1
+            mj = array.get(moms, array.get(ord, j))
+            mb = array.get(moms, array.get(ord, best))
+            if not na(mj) and (na(mb) or mj > mb)
+                best := j
+        if best != i
+            tmp = array.get(ord, i)
+            array.set(ord, i, array.get(ord, best))
+            array.set(ord, best, tmp)
+    out = ""
+    for i = 0 to math.min(n, array.size(ord)) - 1
+        out := out + (i > 0 ? "," : "") + plainTicker(array.get(names, array.get(ord, i)))
+    out
+
+var string prevBasket = ""
+basketNow = sortedTickers(holdN)
+
+// Names in `a` that are absent from `b`. Used both ways to get buys and sells.
+missingFrom(a, b) =>
+    res = ""
+    parts = str.split(a, ",")
+    for i = 0 to array.size(parts) - 1
+        tk = array.get(parts, i)
+        if not str.contains(b, tk)
+            res := res + (str.length(res) > 0 ? " " : "") + tk
+    res
+
+if newMonth and barstate.isconfirmed
+    buys  = prevBasket == "" ? basketNow : missingFrom(basketNow, prevBasket)
+    sells = prevBasket == "" ? "" : missingFrom(prevBasket, basketNow)
+    changed = str.length(buys) > 0 or str.length(sells) > 0
+    if changed
+        body = "**Momentum rebalance** " + str.format("{0,date,yyyy-MM-dd}", time) +
+             "\nBUY: " + (str.length(buys) > 0 ? str.replace_all(buys, " ", ", ") : "—") +
+             "\nSELL: " + (str.length(sells) > 0 ? str.replace_all(sells, " ", ", ") : "—") +
+             "\nHold: " + str.replace_all(basketNow, ",", ", ")
+        alert(discordFmt ? '{"content":"' + body + '"}' : str.replace_all(body, "**", ""),
+             alert.freq_once_per_bar_close)
+    prevBasket := basketNow
+
+// Per-symbol alerts, for anyone who prefers one alert per chart.
+oneLine(kind) =>
+    txt = kind + " " + syminfo.ticker + " (rank #" + str.tostring(rank) + ")"
+    discordFmt ? '{"content":"' + txt + '"}' : txt
+
 alertcondition(enterSig, "Enters the basket",
-     "Stock Momentum: BUY {{ticker}} — now in the top holdings")
+     '{"content":"BUY {{ticker}} — entered the momentum basket at {{close}}"}')
 alertcondition(exitSig, "Leaves the basket",
-     "Stock Momentum: SELL {{ticker}} — dropped out of the top holdings")
+     '{"content":"SELL {{ticker}} — dropped out of the momentum basket at {{close}}"}')
 if enterSig
-    alert("Stock Momentum: BUY " + syminfo.ticker + " (rank #" + str.tostring(rank) + ")",
-         alert.freq_once_per_bar_close)
+    alert(oneLine("BUY"), alert.freq_once_per_bar_close)
 if exitSig
-    alert("Stock Momentum: SELL " + syminfo.ticker + " (rank #" + str.tostring(rank) + ")",
-         alert.freq_once_per_bar_close)
+    alert(oneLine("SELL"), alert.freq_once_per_bar_close)
