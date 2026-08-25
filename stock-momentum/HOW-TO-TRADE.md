@@ -41,8 +41,18 @@ still hold it on paper until month-end.
 
 ## Discord alerts
 
-The indicator can post the whole rebalance to Discord in one message. You need a
-**paid TradingView plan** — webhooks are not available on the free tier.
+Two ways to get them, and you only need one.
+
+**From TradingView** (below) — nothing to install, but it needs a **paid plan**;
+webhooks are not available on the free tier.
+
+**From your own machine** — `bot/momentum_bot.py`, run daily from cron on
+anything that stays awake. Free, works on any TradingView plan, and it ranks the
+stocks with the same code the backtest used rather than the Pine reimplementation
+of it. See [`bot/README.md`](bot/README.md). If you have a box running 24/7, this
+is the one to use.
+
+The rest of this section is the TradingView route.
 
 ### 1. Get a webhook URL from Discord
 Server Settings → Integrations → Webhooks → New Webhook → pick a channel → Copy

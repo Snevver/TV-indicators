@@ -54,6 +54,9 @@ Size accordingly. This is a concentrated equity portfolio, not a hedge.
 
 Full guide including Discord alerts: **[HOW-TO-TRADE.md](HOW-TO-TRADE.md)**
 
+Alerts without a paid TradingView plan: **[bot/](bot/)** — a daily cron job that
+posts each rebalance to Discord, using the same ranking code as the backtest.
+
 1. Put the indicator on any of the 40 names. The table shows the live ranking.
 2. On the first trading day of each month, hold the top 8, equal weight.
 3. Sell what dropped out, buy what came in. Typically 1–3 changes.
