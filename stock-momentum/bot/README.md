@@ -39,15 +39,25 @@ both of those are readable by every user on the box:
 sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
-MOMENTUM_CAPITAL=3000
-MOMENTUM_CURRENCY=EUR
+MOMENTUM_CURRENCY=USD
+MOMENTUM_FRACTIONAL=1
 EOF
 ```
 
-Both are optional and cosmetic. `MOMENTUM_CAPITAL` makes the message show what
-to put in each name (capital ÷ 8); `MOMENTUM_CURRENCY` is just the label printed
-next to it and defaults to `EUR` — set it to match the account you actually
-trade. Neither affects the ranking or the strategy.
+`MOMENTUM_CURRENCY` is the label on every figure. `MOMENTUM_FRACTIONAL` says
+whether your broker will sell you part of a share — see **Fractional shares**
+below, because at a small account it decides whether the strategy works at all.
+
+Two more, both optional:
+
+- `MOMENTUM_MIN_ORDER` (default `1`) — don't generate an order below this, so a
+  rebalance doesn't ask you to trade forty cents of something.
+- `MOMENTUM_MODE` (default `rebalance`) — `rebalance` resets all eight to an
+  equal slice every month, which is what the backtest measured. `drift` trades
+  only the names that changed and lets the survivors run: measured better over
+  2005–2026 ($48.6k against $36.1k from $1,000) with a smaller drawdown, at the
+  cost of concentration — the largest position was typically 17.6% of the
+  account and peaked at 37.9%. It also places far fewer orders.
 
 Mode 600 owned by you: you and root can read it, nobody else. Owning it matters
 only so you can source it by hand to test — systemd reads `EnvironmentFile` as
@@ -69,6 +79,58 @@ set -a; . /etc/momentum-bot.env; set +a
 
 `--dry` ranks, prints, and posts nothing. If the top 12 resembles the
 indicator's table on TradingView, you are wired up correctly.
+
+## Telling it about your money
+
+The bot has no connection to your broker, so it keeps its own book. Fund it once:
+
+```bash
+python momentum_bot.py --deposit 1000
+```
+
+From then on every message carries live numbers — what each position is worth,
+what it cost, what is still in cash, and the profit or loss on everything you
+have paid in. `--deposit` and `--withdraw` are how you tell it about money moving
+in or out, so that adding £500 does not read as a £500 gain.
+
+### How it knows what you own
+
+When it tells you to rebalance, it assumes you filled at that day's closing
+price and records the resulting share counts and cost basis. Every later run
+marks that book to the current market. You do nothing.
+
+**It is a model, not the truth.** If a fill differed, correct it:
+
+```bash
+python momentum_bot.py --fill JNJ=0.6@233.50      # you bought 0.6 at 233.50
+python momentum_bot.py --fill MU=-0.15@831.00     # a sale it does not know about
+```
+
+Repeatable, and the P&L follows. If you never bother, the numbers stay close and
+drift slowly. Check them against the broker every few months.
+
+## Fractional shares
+
+`MOMENTUM_FRACTIONAL=1` assumes your broker will sell you part of a share. If it
+will, account size stops mattering: every position lands exactly on its target
+weight, and a $830 stock fits into a $125 slice as 0.1507 shares.
+
+`MOMENTUM_FRACTIONAL=0` rounds every order down to a whole share. On a small
+account that quietly breaks the strategy. At $1,000 in August 2026 the slice was
+$125 and six of the eight names cost more than that, so the account would have
+held four names — picked by share price rather than by momentum. The bot spots
+this, turns the message amber and names the stocks it could not buy, but it
+cannot fix it for you.
+
+Whole shares also strand cash: rounding down eight times left 15–19% of a
+$10,000 account uninvested, so after sizing the positions the bot spends what is
+left topping up whichever names sit furthest below their target.
+
+**Check before you trade.** Not every broker offers fractional orders, and some
+offer them only on selected stocks or only as market orders. Place one small
+fractional order by hand and see whether it fills. If it does, set the flag to
+`1` and any account size works. If it does not, you need roughly $10,000 for the
+eight weights to be even approximately right.
 
 ## Running it on a schedule
 
@@ -131,7 +193,11 @@ only speaks on the first trading day of each month.
 | Command | What it does |
 |---|---|
 | `python momentum_bot.py` | The daily run. Posts only on a rebalance. |
-| `python momentum_bot.py --status` | What am I holding, and since when. |
+| `python momentum_bot.py --status` | Holdings, weights, cash, profit and loss. |
+| `python momentum_bot.py --report` | Post that snapshot to Discord. |
+| `python momentum_bot.py --deposit 1000` | Record money paid in. |
+| `python momentum_bot.py --withdraw 200` | Record money taken out. |
+| `python momentum_bot.py --fill MU=0.15@829.50` | Correct an assumed fill. |
 | `python momentum_bot.py --dry` | Decide and print. Posts nothing, saves nothing. |
 | `python momentum_bot.py --test` | Post today's real ranking to Discord. Saves nothing. |
 | `python momentum_bot.py --force` | Rebalance now, ignoring the date. |
@@ -141,11 +207,13 @@ rebalancing is part of what was tested; rebalancing on impulse is not.
 
 ## Files it writes
 
-- `state.json` — current basket and the month it was set. Delete it to start
-  over; the next run then treats every position as a fresh buy.
-- `rebalances.csv` — one row per rebalance: date, buys, sells, resulting basket.
-  This is your audit trail. Keep it — it is how you will later tell whether live
-  results match the backtest.
+- `state.json` — the basket, the month it was set, and the book: share counts,
+  cost basis, cash, everything paid in, and profit already banked. Deleting it
+  starts over — the next run treats every position as a fresh buy and the P&L
+  history is gone. Back it up rather than deleting it.
+- `rebalances.csv` — one row per rebalance: date, buys, sells, resulting basket,
+  account value, cash, paid in, profit and loss. This is your audit trail. Keep
+  it — it is how you will later tell whether live results match the backtest.
 
 Both are gitignored.
 
@@ -163,6 +231,16 @@ Both are gitignored.
 - **Works by hand, silent from the timer** — almost always the environment.
   `sudo systemctl start momentum-bot.service` then read the journal; an
   `EnvironmentFile` that does not exist makes the unit fail before Python runs.
+- **The message is amber and names stocks it "could not buy"** — the account is
+  in whole-share mode and those names cost more than one slice. Turn on
+  fractional shares, or fund the account to roughly $10,000. Until then you are
+  holding a subset chosen by share price. See **Fractional shares**.
+- **`--status` says $0.00 with positions on the book** — you never ran
+  `--deposit`, so the bot has no idea what you paid in and every percentage is
+  measured against zero.
+- **The account figure disagrees with the broker** — expected to drift, since
+  the bot assumes it filled at the close. Correct the difference with `--fill`.
+  A large gap usually means an order you did not place, or one you placed twice.
 - **Message arrives as plain text, not a coloured card** — you are running an
   older copy. `git pull` and restart nothing; the next run picks it up.
 - **Message arrives but the ranks differ from TradingView** — expected, slightly.
