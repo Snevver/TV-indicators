@@ -1,0 +1,145 @@
+//@version=6
+// ─────────────────────────────────────────────────────────────────────────────
+//  Momentum Rotation — STRATEGY (per-symbol)
+//
+//  READ THIS FIRST, IT CHANGES HOW YOU INTERPRET THE RESULT.
+//
+//  A TradingView strategy trades ONE symbol. This rotation holds three at a
+//  time, so this file cannot reproduce the portfolio. What it does instead is
+//  hold THIS symbol during the months it ranks in the top N, and sit in cash
+//  otherwise. Run it on SPY and you see SPY's contribution to the rotation, not
+//  the rotation itself.
+//
+//  The portfolio numbers quoted in the indicator header come from the Python
+//  backtest in ../research, which trades all three legs against one account.
+//  Use this file to sanity-check that the ranking and the monthly timing behave
+//  the way you expect on a real chart — not to measure the strategy.
+//
+//  Fills are at the open of the first bar of a new month, which is the earliest
+//  a monthly decision can actually be executed.
+// ─────────────────────────────────────────────────────────────────────────────
+strategy("Momentum Rotation Strategy", shorttitle = "MomRot ST", overlay = true,
+     pyramiding = 0, initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity, default_qty_value = 100,
+     commission_type = strategy.commission.percent, commission_value = 0.03,
+     slippage = 1, calc_on_every_tick = false)
+
+// ─── Strategy ────────────────────────────────────────────────────────────────
+var string G_S = "Strategy"
+lookback = input.int(126, "Momentum lookback (trading days)", minval = 20, group = G_S,
+     tooltip = "126 = about six months. Anything from 63 to 252 tested well.")
+skipDays = input.int(21, "Skip most recent days", minval = 0, group = G_S,
+     tooltip = "The standard construction skips the latest month, because very " +
+               "recent returns tend to reverse and would contaminate the ranking.")
+holdN    = input.int(3, "How many to hold", minval = 1, maxval = 10, group = G_S,
+     tooltip = "3 is the shipped default. 2 returned more (+30.5%) with nearly " +
+               "double the drawdown; the two were statistically tied when chosen.")
+
+// ─── Display ─────────────────────────────────────────────────────────────────
+var string G_D = "Display"
+showTable  = input.bool(true, "Show ranking table", group = G_D)
+showLabels = input.bool(true, "Show BUY / SELL labels", group = G_D)
+tableRows  = input.int(10, "Rows in table", minval = 3, maxval = 28, group = G_D)
+buyCol     = input.color(#089981, "In the basket", group = G_D)
+sellCol    = input.color(#f23645, "Out of the basket", group = G_D)
+
+// ─── Universe ────────────────────────────────────────────────────────────────
+// 28 liquid ETFs: broad index, sectors, bonds, commodities, international.
+// These are the exact names the backtest used. Edit freely — the method does
+// not depend on this list, but the measured numbers above do.
+var string G_U = "Universe"
+u01 = input.symbol("AMEX:SPY",  "01", group = G_U)
+u02 = input.symbol("NASDAQ:QQQ","02", group = G_U)
+u03 = input.symbol("AMEX:IWM",  "03", group = G_U)
+u04 = input.symbol("AMEX:DIA",  "04", group = G_U)
+u05 = input.symbol("AMEX:MDY",  "05", group = G_U)
+u06 = input.symbol("AMEX:EFA",  "06", group = G_U)
+u07 = input.symbol("AMEX:EEM",  "07", group = G_U)
+u08 = input.symbol("NASDAQ:TLT","08", group = G_U)
+u09 = input.symbol("NASDAQ:IEF","09", group = G_U)
+u10 = input.symbol("AMEX:HYG",  "10", group = G_U)
+u11 = input.symbol("AMEX:LQD",  "11", group = G_U)
+u12 = input.symbol("AMEX:GLD",  "12", group = G_U)
+u13 = input.symbol("AMEX:SLV",  "13", group = G_U)
+u14 = input.symbol("AMEX:USO",  "14", group = G_U)
+u15 = input.symbol("AMEX:XLE",  "15", group = G_U)
+u16 = input.symbol("AMEX:XLF",  "16", group = G_U)
+u17 = input.symbol("AMEX:XLK",  "17", group = G_U)
+u18 = input.symbol("AMEX:XLV",  "18", group = G_U)
+u19 = input.symbol("AMEX:XLI",  "19", group = G_U)
+u20 = input.symbol("AMEX:XLP",  "20", group = G_U)
+u21 = input.symbol("AMEX:XLY",  "21", group = G_U)
+u22 = input.symbol("AMEX:XLU",  "22", group = G_U)
+u23 = input.symbol("AMEX:XLB",  "23", group = G_U)
+u24 = input.symbol("AMEX:XLRE", "24", group = G_U)
+u25 = input.symbol("AMEX:XBI",  "25", group = G_U)
+u26 = input.symbol("NASDAQ:SMH","26", group = G_U)
+u27 = input.symbol("AMEX:KRE",  "27", group = G_U)
+u28 = input.symbol("AMEX:VNQ",  "28", group = G_U)
+
+// ─── Momentum, fetched once per symbol ───────────────────────────────────────
+// Daily timeframe regardless of the chart, so the ranking is identical whether
+// you are looking at a 5-minute or a weekly chart.
+momOf(sym) =>
+    request.security(sym, "D",
+         close[skipDays] / close[lookback + skipDays] - 1.0,
+         lookahead = barmerge.lookahead_off)
+
+var array<string> names = array.from(u01,u02,u03,u04,u05,u06,u07,u08,u09,u10,
+     u11,u12,u13,u14,u15,u16,u17,u18,u19,u20,u21,u22,u23,u24,u25,u26,u27,u28)
+
+moms = array.from(momOf(u01),momOf(u02),momOf(u03),momOf(u04),momOf(u05),
+     momOf(u06),momOf(u07),momOf(u08),momOf(u09),momOf(u10),momOf(u11),
+     momOf(u12),momOf(u13),momOf(u14),momOf(u15),momOf(u16),momOf(u17),
+     momOf(u18),momOf(u19),momOf(u20),momOf(u21),momOf(u22),momOf(u23),
+     momOf(u24),momOf(u25),momOf(u26),momOf(u27),momOf(u28))
+
+// Rank of this chart's symbol: how many names have strictly stronger momentum.
+plainTicker(s) =>
+    arr = str.split(s, ":")
+    array.size(arr) > 1 ? array.get(arr, 1) : s
+
+myMom = float(na)
+for i = 0 to array.size(names) - 1
+    if plainTicker(array.get(names, i)) == syminfo.ticker
+        myMom := array.get(moms, i)
+
+rank = 0
+if not na(myMom)
+    for i = 0 to array.size(moms) - 1
+        m = array.get(moms, i)
+        if not na(m) and m > myMom
+            rank += 1
+    rank += 1                              // 1 = strongest
+else
+    rank := 999                            // not in the universe
+
+inBasket = not na(myMom) and rank <= holdN
+
+// ─── Monthly rebalance ───────────────────────────────────────────────────────
+// Fires on the first bar of a new month. That is the earliest point a monthly
+// decision is actually knowable and executable; the backtest rebalanced at the
+// prior month's close, which is the same decision one bar earlier.
+newMonth = timeframe.change("M")
+
+var bool wasIn = false
+enterSig = newMonth and inBasket and not wasIn
+exitSig  = newMonth and not inBasket and wasIn
+if newMonth
+    wasIn := inBasket
+
+// ─── Orders ──────────────────────────────────────────────────────────────────
+// Long while this symbol is in the basket, flat while it is not. Sized at 100%
+// of equity because, from this single chart's point of view, the position is
+// either on or off — the three-way split happens across three charts.
+if newMonth
+    if inBasket and strategy.position_size == 0
+        strategy.entry("Hold", strategy.long)
+    if not inBasket and strategy.position_size > 0
+        strategy.close("Hold", comment = "dropped out")
+
+bgcolor(inBasket ? color.new(buyCol, 92) : na, title = "Held")
+plotshape(enterSig, "Enter", style = shape.triangleup, location = location.belowbar,
+     color = #089981, size = size.small)
+plotshape(exitSig, "Exit", style = shape.triangledown, location = location.abovebar,
+     color = #f23645, size = size.small)

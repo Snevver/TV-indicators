@@ -1,0 +1,43 @@
+{
+ "cfg": {
+  "family": "ma_cross",
+  "rsi_len": 4,
+  "rsi_thr": 5,
+  "z_thr": -2.5,
+  "run_len": 5,
+  "bo_win": 50,
+  "mom_thr": 0.05,
+  "ma_fast": 50,
+  "ma_slow": 100,
+  "trend": "none",
+  "trend_len": 50,
+  "volfil": "none",
+  "vol_thr": 0.3,
+  "gap_bars": 10,
+  "ma_cross_only": true
+ },
+ "exit": {
+  "stop_atr": 1.5,
+  "target_r": 1.5,
+  "trail_atr": 0.0,
+  "trail_after_r": 0.0,
+  "breakeven_r": 0.0,
+  "time_bars": 20,
+  "atr_key": "atr14"
+ },
+ "dir": 1,
+ "train": {
+  "cagr": 0.04438999922982867,
+  "dd": 14.866909052569518,
+  "taken": 274,
+  "win": 50.72992700729927,
+  "diff": 0.06845117161077852
+ },
+ "val": {
+  "cagr": 0.05149011773000289,
+  "dd": 12.452068640454547,
+  "taken": 168,
+  "win": 51.19047619047619,
+  "diff": 0.04504116471057529
+ }
+}

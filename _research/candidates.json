@@ -1,0 +1,8045 @@
+[
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 558,
+   "real": 0.5512404738889592,
+   "rand": 0.12768165819483926,
+   "edge": 0.42355881569412
+  },
+  "val": {
+   "n": 251,
+   "real": 0.8542669863877833,
+   "rand": 0.5691874084424656,
+   "edge": 0.2850795779453177
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 14,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 268,
+   "real": 0.29629756221752174,
+   "rand": 0.037936194387173446,
+   "edge": 0.2583613678303483
+  },
+  "val": {
+   "n": 171,
+   "real": 0.5531752110369398,
+   "rand": 0.1344066688798098,
+   "edge": 0.41876854215713
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 289,
+   "real": 0.15122714814142174,
+   "rand": -0.07041452602753173,
+   "edge": 0.22164167416895347
+  },
+  "val": {
+   "n": 190,
+   "real": 0.29278975327375917,
+   "rand": -0.04712235574397833,
+   "edge": 0.3399121090177375
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 438,
+   "real": 0.09666738289481264,
+   "rand": -0.11377031029016325,
+   "edge": 0.2104376931849759
+  },
+  "val": {
+   "n": 292,
+   "real": -0.046646018737705804,
+   "rand": -0.26611367893906446,
+   "edge": 0.21946766020135866
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 4,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 196,
+   "real": 0.13986758240151487,
+   "rand": -0.07047236114935701,
+   "edge": 0.21033994355087188
+  },
+  "val": {
+   "n": 152,
+   "real": 0.2849290112915781,
+   "rand": -0.08550918558170764,
+   "edge": 0.3704381968732857
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 356,
+   "real": 0.5873226550498445,
+   "rand": 0.378313023064308,
+   "edge": 0.20900963198553651
+  },
+  "val": {
+   "n": 194,
+   "real": 0.859429886832433,
+   "rand": 0.6066712254406436,
+   "edge": 0.2527586613917895
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 390,
+   "real": 0.3107849909062583,
+   "rand": 0.10403170124502244,
+   "edge": 0.20675328966123585
+  },
+  "val": {
+   "n": 279,
+   "real": 0.3378239864554755,
+   "rand": 0.10456523826533091,
+   "edge": 0.23325874819014458
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 306,
+   "real": 0.22188720057570405,
+   "rand": 0.02716750641741135,
+   "edge": 0.1947196941582927
+  },
+  "val": {
+   "n": 224,
+   "real": 0.3983031920330181,
+   "rand": 0.1903060718013459,
+   "edge": 0.20799712023167222
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 238,
+   "real": 0.05880381004242552,
+   "rand": -0.13176755676188437,
+   "edge": 0.1905713668043099
+  },
+  "val": {
+   "n": 168,
+   "real": 0.2760889882813656,
+   "rand": 0.06301920978864688,
+   "edge": 0.2130697784927187
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 354,
+   "real": 0.13156360335662515,
+   "rand": -0.042020452616531985,
+   "edge": 0.17358405597315713
+  },
+  "val": {
+   "n": 179,
+   "real": 0.2138699904443913,
+   "rand": -0.0195221526727591,
+   "edge": 0.2333921431171504
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 258,
+   "real": 0.0573548999946026,
+   "rand": -0.10793350039836466,
+   "edge": 0.16528840039296727
+  },
+  "val": {
+   "n": 167,
+   "real": -0.06974017542281424,
+   "rand": -0.2766688269161456,
+   "edge": 0.20692865149333134
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 2.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 250,
+   "real": 0.20599053674674014,
+   "rand": 0.026916688073957404,
+   "edge": 0.17907384867278275
+  },
+  "val": {
+   "n": 168,
+   "real": 0.2791609902707501,
+   "rand": 0.12241562514383411,
+   "edge": 0.15674536512691598
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 274,
+   "real": 0.14890084631821926,
+   "rand": -0.00415044421140678,
+   "edge": 0.15305129052962604
+  },
+  "val": {
+   "n": 182,
+   "real": 0.15862881367344914,
+   "rand": 0.004536587500093164,
+   "edge": 0.15409222617335597
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 425,
+   "real": -0.12215317334054873,
+   "rand": -0.27013515753474576,
+   "edge": 0.14798198419419703
+  },
+  "val": {
+   "n": 285,
+   "real": -0.08499246851875464,
+   "rand": -0.38806532907411306,
+   "edge": 0.3030728605553584
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 14,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 831,
+   "real": 0.10355989183826494,
+   "rand": -0.044212238915328474,
+   "edge": 0.1477721307535934
+  },
+  "val": {
+   "n": 281,
+   "real": 0.28059365347790144,
+   "rand": 0.09211869068996491,
+   "edge": 0.18847496278793652
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1294,
+   "real": 0.11299490253625906,
+   "rand": -0.032755308328845115,
+   "edge": 0.14575021086510417
+  },
+  "val": {
+   "n": 700,
+   "real": 0.24837267695956558,
+   "rand": -0.015360569552361434,
+   "edge": 0.26373324651192703
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 297,
+   "real": 0.20304043813458791,
+   "rand": -0.04813259884801727,
+   "edge": 0.2511730369826052
+  },
+  "val": {
+   "n": 199,
+   "real": 0.1372946811238881,
+   "rand": -0.007589554333936202,
+   "edge": 0.1448842354578243
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 527,
+   "real": 0.11779955841887688,
+   "rand": -0.021053321522621706,
+   "edge": 0.13885287994149859
+  },
+  "val": {
+   "n": 185,
+   "real": 0.36985213981176557,
+   "rand": 0.18658026462643165,
+   "edge": 0.18327187518533392
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 709,
+   "real": 0.09763452109440561,
+   "rand": -0.08417763957316254,
+   "edge": 0.18181216066756817
+  },
+  "val": {
+   "n": 409,
+   "real": 0.14194201169991458,
+   "rand": 0.008159192888134248,
+   "edge": 0.13378281881178034
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 14,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 343,
+   "real": 0.10906883872021748,
+   "rand": -0.019173972442146765,
+   "edge": 0.12824281116236425
+  },
+  "val": {
+   "n": 197,
+   "real": 0.28738682809919985,
+   "rand": 0.11095843917750815,
+   "edge": 0.17642838892169171
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 376,
+   "real": -0.06669534362366464,
+   "rand": -0.19386512906413025,
+   "edge": 0.12716978544046562
+  },
+  "val": {
+   "n": 203,
+   "real": 0.03105180789962804,
+   "rand": -0.23710825170453073,
+   "edge": 0.2681600596041588
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 512,
+   "real": 0.1497545646862167,
+   "rand": 0.02311291340827515,
+   "edge": 0.12664165127794155
+  },
+  "val": {
+   "n": 340,
+   "real": 0.3281610576529471,
+   "rand": 0.1513240459626119,
+   "edge": 0.17683701169033522
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 2.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 578,
+   "real": 0.0533904762026104,
+   "rand": -0.07449819410412135,
+   "edge": 0.12788867030673176
+  },
+  "val": {
+   "n": 298,
+   "real": 0.12044926821411128,
+   "rand": -0.0054628498031848135,
+   "edge": 0.1259121180172961
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 312,
+   "real": 0.2796565085538854,
+   "rand": 0.13748742682323592,
+   "edge": 0.1421690817306495
+  },
+  "val": {
+   "n": 192,
+   "real": 0.36498110945810264,
+   "rand": 0.23978694582934723,
+   "edge": 0.1251941636287554
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 517,
+   "real": 0.3118464778533171,
+   "rand": 0.1867304923973629,
+   "edge": 0.1251159854559542
+  },
+  "val": {
+   "n": 267,
+   "real": 0.6597405446355847,
+   "rand": 0.3827292441288954,
+   "edge": 0.2770113005066893
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 0,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 820,
+   "real": 0.2748245216291247,
+   "rand": 0.1255637663597726,
+   "edge": 0.1492607552693521
+  },
+  "val": {
+   "n": 481,
+   "real": 0.3256381000273338,
+   "rand": 0.20052661640331332,
+   "edge": 0.12511148362402047
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 533,
+   "real": 0.10136469948096415,
+   "rand": -0.02069944957674899,
+   "edge": 0.12206414905771314
+  },
+  "val": {
+   "n": 340,
+   "real": 0.07170055532128224,
+   "rand": -0.060225088592492884,
+   "edge": 0.13192564391377512
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1909,
+   "real": 0.04228407679037608,
+   "rand": -0.07946838683068091,
+   "edge": 0.12175246362105699
+  },
+  "val": {
+   "n": 957,
+   "real": 0.22383190859151322,
+   "rand": 0.07258682192632598,
+   "edge": 0.15124508666518724
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 3,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 313,
+   "real": 0.06550001149195367,
+   "rand": -0.055625592969939255,
+   "edge": 0.12112560446189292
+  },
+  "val": {
+   "n": 166,
+   "real": 0.516479760626243,
+   "rand": 0.20717632941769468,
+   "edge": 0.3093034312085483
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 638,
+   "real": 0.14730413303333142,
+   "rand": 0.0043656258303227296,
+   "edge": 0.14293850720300869
+  },
+  "val": {
+   "n": 363,
+   "real": 0.13526975691301993,
+   "rand": 0.014793423094901257,
+   "edge": 0.12047633381811867
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 14,
+   "rsi_thr": 5,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 864,
+   "real": 0.09996593023971904,
+   "rand": -0.01975796500900226,
+   "edge": 0.1197238952487213
+  },
+  "val": {
+   "n": 520,
+   "real": 0.22472396917091747,
+   "rand": 0.03031910377968879,
+   "edge": 0.19440486539122867
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 319,
+   "real": -0.027935158149691785,
+   "rand": -0.14573423099340474,
+   "edge": 0.11779907284371295
+  },
+  "val": {
+   "n": 214,
+   "real": -0.04751168968972694,
+   "rand": -0.23542123065713774,
+   "edge": 0.1879095409674108
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 779,
+   "real": 0.04953199693020333,
+   "rand": -0.06730923105294463,
+   "edge": 0.11684122798314797
+  },
+  "val": {
+   "n": 511,
+   "real": 0.029609076483521443,
+   "rand": -0.09354186908015014,
+   "edge": 0.12315094556367158
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 265,
+   "real": 0.16362441106635395,
+   "rand": 0.04883671231669409,
+   "edge": 0.11478769874965986
+  },
+  "val": {
+   "n": 152,
+   "real": 0.3173421940262121,
+   "rand": -0.22823674326145932,
+   "edge": 0.5455789372876714
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1042,
+   "real": 0.09362855458805443,
+   "rand": -0.025486842705783157,
+   "edge": 0.11911539729383758
+  },
+  "val": {
+   "n": 518,
+   "real": 0.23807950344216647,
+   "rand": 0.12441353208393496,
+   "edge": 0.1136659713582315
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 398,
+   "real": 0.11552846098008972,
+   "rand": 0.0025287379273651735,
+   "edge": 0.11299972305272454
+  },
+  "val": {
+   "n": 244,
+   "real": 0.13242862325082444,
+   "rand": -0.003021505797336133,
+   "edge": 0.13545012904816056
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 805,
+   "real": 0.10333613395284764,
+   "rand": -0.00864862075271276,
+   "edge": 0.11198475470556041
+  },
+  "val": {
+   "n": 276,
+   "real": 0.209277275421735,
+   "rand": 0.08960909470108024,
+   "edge": 0.11966818072065476
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 301,
+   "real": -0.09166402416447333,
+   "rand": -0.20227353632940928,
+   "edge": 0.11060951216493595
+  },
+  "val": {
+   "n": 172,
+   "real": 0.15813704604060386,
+   "rand": -0.07331191517653912,
+   "edge": 0.23144896121714298
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 30,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1248,
+   "real": 0.078372894057871,
+   "rand": -0.03192995396365833,
+   "edge": 0.11030284802152933
+  },
+  "val": {
+   "n": 753,
+   "real": 0.11390147940273446,
+   "rand": -0.008503034089905218,
+   "edge": 0.12240451349263967
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 3,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 1.5,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 944,
+   "real": 0.1855405836595646,
+   "rand": 0.0752468089913523,
+   "edge": 0.1102937746682123
+  },
+  "val": {
+   "n": 539,
+   "real": 0.2675123908806201,
+   "rand": 0.10945646748732847,
+   "edge": 0.15805592339329166
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 621,
+   "real": 0.10401832581671598,
+   "rand": -0.0056991573470819784,
+   "edge": 0.10971748316379797
+  },
+  "val": {
+   "n": 396,
+   "real": 0.21120825385955508,
+   "rand": -0.11832011039075985,
+   "edge": 0.32952836425031495
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1004,
+   "real": 0.15894863463247144,
+   "rand": -0.016888855109957603,
+   "edge": 0.17583748974242905
+  },
+  "val": {
+   "n": 591,
+   "real": 0.1616485651176467,
+   "rand": 0.05323291248486003,
+   "edge": 0.10841565263278666
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 480,
+   "real": 0.10783480249650292,
+   "rand": 0.0005531186096196964,
+   "edge": 0.10728168388688322
+  },
+  "val": {
+   "n": 312,
+   "real": 0.32904481601347213,
+   "rand": 0.13843181983852718,
+   "edge": 0.19061299617494495
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 277,
+   "real": 0.08112550336339476,
+   "rand": -0.07432401711474568,
+   "edge": 0.15544952047814042
+  },
+  "val": {
+   "n": 181,
+   "real": 0.06435463295465005,
+   "rand": -0.04281557806999689,
+   "edge": 0.10717021102464694
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1355,
+   "real": 0.25833235625019574,
+   "rand": 0.05680507654303524,
+   "edge": 0.2015272797071605
+  },
+  "val": {
+   "n": 769,
+   "real": 0.377885111807606,
+   "rand": 0.270755177956988,
+   "edge": 0.10712993385061798
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 974,
+   "real": 0.06337152872812263,
+   "rand": -0.06105843127915573,
+   "edge": 0.12442996000727835
+  },
+  "val": {
+   "n": 612,
+   "real": 0.02783884037403033,
+   "rand": -0.07761906074235957,
+   "edge": 0.10545790111638989
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 10,
+   "z_thr": -2.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1131,
+   "real": 0.07321831211208155,
+   "rand": -0.033109547067995314,
+   "edge": 0.10632785918007687
+  },
+  "val": {
+   "n": 520,
+   "real": 0.06233891675059222,
+   "rand": -0.04146876558377869,
+   "edge": 0.1038076823343709
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 0,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 234,
+   "real": 0.19392350015004478,
+   "rand": -0.13578264140617094,
+   "edge": 0.3297061415562157
+  },
+  "val": {
+   "n": 160,
+   "real": 0.10436969739998495,
+   "rand": 0.000632483777205673,
+   "edge": 0.10373721362277927
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 798,
+   "real": 0.09961010130999766,
+   "rand": -0.004043075248536963,
+   "edge": 0.10365317655853462
+  },
+  "val": {
+   "n": 475,
+   "real": 0.3103401362606714,
+   "rand": 0.19679227944415864,
+   "edge": 0.11354785681651278
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 4,
+   "rsi_thr": 5,
+   "z_thr": -1.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 4.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 550,
+   "real": 0.1631427089740889,
+   "rand": 0.06341625008719094,
+   "edge": 0.09972645888689795
+  },
+  "val": {
+   "n": 284,
+   "real": 0.24169143949520414,
+   "rand": 0.1367697335448051,
+   "edge": 0.10492170595039904
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 598,
+   "real": 0.058432652752703464,
+   "rand": -0.0403533228311317,
+   "edge": 0.09878597558383517
+  },
+  "val": {
+   "n": 386,
+   "real": 0.41352187122668027,
+   "rand": 0.15113274203703383,
+   "edge": 0.2623891291896464
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 4,
+   "rsi_thr": 30,
+   "z_thr": -2.5,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 1296,
+   "real": -0.022194403958789844,
+   "rand": -0.12092659641228405,
+   "edge": 0.09873219245349421
+  },
+  "val": {
+   "n": 604,
+   "real": -0.13195262343203168,
+   "rand": -0.23440604456282227,
+   "edge": 0.10245342113079059
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 1.5,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 479,
+   "real": 0.21146223135363673,
+   "rand": 0.07659886987892668,
+   "edge": 0.13486336147471006
+  },
+  "val": {
+   "n": 296,
+   "real": 0.1890215502988307,
+   "rand": 0.09036941869331448,
+   "edge": 0.09865213160551621
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 0,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 552,
+   "real": 0.13559786894898126,
+   "rand": 0.03966670530208885,
+   "edge": 0.09593116364689241
+  },
+  "val": {
+   "n": 329,
+   "real": 0.27879464682224236,
+   "rand": 0.16390329219596902,
+   "edge": 0.11489135462627334
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 379,
+   "real": 0.19651753301458488,
+   "rand": 0.0647664490889844,
+   "edge": 0.13175108392560048
+  },
+  "val": {
+   "n": 253,
+   "real": 0.23090854892490728,
+   "rand": 0.135120403994721,
+   "edge": 0.09578814493018628
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 432,
+   "real": 0.22741637568930362,
+   "rand": 0.05979232590985739,
+   "edge": 0.16762404977944623
+  },
+  "val": {
+   "n": 286,
+   "real": 0.1278652211686514,
+   "rand": 0.032741298537432115,
+   "edge": 0.09512392263121928
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 14,
+   "rsi_thr": 30,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 498,
+   "real": 0.12233530858211634,
+   "rand": -0.040560802924210125,
+   "edge": 0.16289611150632646
+  },
+  "val": {
+   "n": 296,
+   "real": 0.0682231313675799,
+   "rand": -0.026555440962574374,
+   "edge": 0.09477857233015427
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 887,
+   "real": 0.06887285710035257,
+   "rand": -0.025596677997247408,
+   "edge": 0.09446953509759998
+  },
+  "val": {
+   "n": 545,
+   "real": 0.22093153000384122,
+   "rand": 0.05371616068726258,
+   "edge": 0.16721536931657865
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 768,
+   "real": 0.0433482540738673,
+   "rand": -0.056928887578287145,
+   "edge": 0.10027714165215444
+  },
+  "val": {
+   "n": 459,
+   "real": 0.13989567812195924,
+   "rand": 0.045642262855260955,
+   "edge": 0.09425341526669828
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 5,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 413,
+   "real": -0.11472910746073116,
+   "rand": -0.20865453032109935,
+   "edge": 0.09392542286036819
+  },
+  "val": {
+   "n": 220,
+   "real": 0.08461981839141754,
+   "rand": -0.15253127278725462,
+   "edge": 0.23715109117867217
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 0.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 365,
+   "real": 0.10157522187174123,
+   "rand": 0.008766869742118946,
+   "edge": 0.09280835212962228
+  },
+  "val": {
+   "n": 229,
+   "real": 0.22819899659844972,
+   "rand": 0.11918700452561637,
+   "edge": 0.10901199207283335
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1740,
+   "real": 0.07296738610787475,
+   "rand": -0.040208809371296325,
+   "edge": 0.11317619547917107
+  },
+  "val": {
+   "n": 908,
+   "real": 0.132966538160194,
+   "rand": 0.04155733321784946,
+   "edge": 0.09140920494234453
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 869,
+   "real": 0.21025370424466872,
+   "rand": 0.10145960707181713,
+   "edge": 0.10879409717285159
+  },
+  "val": {
+   "n": 484,
+   "real": 0.5319137525217649,
+   "rand": 0.440598074003586,
+   "edge": 0.09131567851817884
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 796,
+   "real": 0.08955100807735973,
+   "rand": -0.0008446014925721195,
+   "edge": 0.09039560956993185
+  },
+  "val": {
+   "n": 463,
+   "real": 0.19121262601701625,
+   "rand": 0.04010643861034342,
+   "edge": 0.1511061874066728
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 768,
+   "real": 0.06532455384500836,
+   "rand": -0.024147351587627416,
+   "edge": 0.08947190543263578
+  },
+  "val": {
+   "n": 251,
+   "real": 0.22335511220738336,
+   "rand": -0.00240627845181938,
+   "edge": 0.22576139065920273
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 14,
+   "rsi_thr": 30,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 278,
+   "real": 0.1907753469870041,
+   "rand": 0.10182217362042965,
+   "edge": 0.08895317336657445
+  },
+  "val": {
+   "n": 177,
+   "real": 0.4663274034643721,
+   "rand": 0.1370534184018228,
+   "edge": 0.32927398506254935
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1369,
+   "real": 0.0927798446201952,
+   "rand": 0.004737618579920615,
+   "edge": 0.08804222604027459
+  },
+  "val": {
+   "n": 585,
+   "real": 0.13121113955905037,
+   "rand": -0.008188812810903915,
+   "edge": 0.13939995236995428
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 807,
+   "real": 0.07999869857618438,
+   "rand": -0.007251150806179809,
+   "edge": 0.0872498493823642
+  },
+  "val": {
+   "n": 477,
+   "real": 0.09457779648451752,
+   "rand": 0.007123176497836321,
+   "edge": 0.08745461998668119
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1123,
+   "real": 0.09572704306785773,
+   "rand": -0.0476019540369439,
+   "edge": 0.14332899710480163
+  },
+  "val": {
+   "n": 671,
+   "real": 0.04573680242622242,
+   "rand": -0.041046779754880476,
+   "edge": 0.0867835821811029
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1097,
+   "real": 0.13730913978054318,
+   "rand": 0.05087865104467041,
+   "edge": 0.08643048873587278
+  },
+  "val": {
+   "n": 652,
+   "real": 0.3755384204265659,
+   "rand": 0.2500464942540466,
+   "edge": 0.12549192617251925
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2159,
+   "real": 0.04195943520898722,
+   "rand": -0.06169940675694089,
+   "edge": 0.10365884196592812
+  },
+  "val": {
+   "n": 1025,
+   "real": 0.07211449409795392,
+   "rand": -0.013647269611867404,
+   "edge": 0.08576176370982133
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 465,
+   "real": -0.12130594791709261,
+   "rand": -0.2070068909508381,
+   "edge": 0.0857009430337455
+  },
+  "val": {
+   "n": 313,
+   "real": -0.2557024896316761,
+   "rand": -0.4646962623187423,
+   "edge": 0.2089937726870662
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 14,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.5,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 264,
+   "real": 0.10028791202657253,
+   "rand": -0.06311729684403689,
+   "edge": 0.16340520887060941
+  },
+  "val": {
+   "n": 184,
+   "real": 0.1350997884140884,
+   "rand": 0.04947354430060298,
+   "edge": 0.08562624411348542
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 5,
+   "z_thr": -2.5,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 575,
+   "real": 0.15645000921843777,
+   "rand": 0.07127656464713303,
+   "edge": 0.08517344457130474
+  },
+  "val": {
+   "n": 346,
+   "real": 0.3379523575684017,
+   "rand": 0.12328013630314126,
+   "edge": 0.21467222126526042
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 290,
+   "real": 0.21383418237639237,
+   "rand": 0.023724188657796186,
+   "edge": 0.1901099937185962
+  },
+  "val": {
+   "n": 200,
+   "real": 0.23338721246490382,
+   "rand": 0.14833946648875665,
+   "edge": 0.08504774597614717
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -1.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 2270,
+   "real": -0.12076293833883289,
+   "rand": -0.20471040655360945,
+   "edge": 0.08394746821477655
+  },
+  "val": {
+   "n": 1152,
+   "real": -0.10316403083197463,
+   "rand": -0.2220725259799986,
+   "edge": 0.11890849514802397
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 1.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 346,
+   "real": 0.02931559230220736,
+   "rand": -0.0545222260891674,
+   "edge": 0.08383781839137476
+  },
+  "val": {
+   "n": 217,
+   "real": 0.059435046687465354,
+   "rand": -0.039787502234862146,
+   "edge": 0.0992225489223275
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 390,
+   "real": 0.024836913127370616,
+   "rand": -0.058376232414988974,
+   "edge": 0.08321314554235959
+  },
+  "val": {
+   "n": 197,
+   "real": 0.07833612201595022,
+   "rand": -0.06667767703101746,
+   "edge": 0.14501379904696768
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 14,
+   "rsi_thr": 10,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 316,
+   "real": 0.1447796553817104,
+   "rand": 0.06333216655993751,
+   "edge": 0.08144748882177288
+  },
+  "val": {
+   "n": 194,
+   "real": 0.2180606984201811,
+   "rand": -0.001417717885523624,
+   "edge": 0.21947841630570472
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 802,
+   "real": 0.005947786791712819,
+   "rand": -0.07396895917317814,
+   "edge": 0.07991674596489096
+  },
+  "val": {
+   "n": 467,
+   "real": 0.0974123632962141,
+   "rand": -0.004839753371334757,
+   "edge": 0.10225211666754885
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 0,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 320,
+   "real": 0.13973260742279778,
+   "rand": -0.061265532966682267,
+   "edge": 0.20099814038948005
+  },
+  "val": {
+   "n": 168,
+   "real": 0.11335515935042405,
+   "rand": 0.03363008326894184,
+   "edge": 0.07972507608148222
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 20,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1467,
+   "real": 0.02537139300976349,
+   "rand": -0.05396180839930211,
+   "edge": 0.0793332014090656
+  },
+  "val": {
+   "n": 838,
+   "real": 0.13509124376246098,
+   "rand": 0.023738922833184673,
+   "edge": 0.11135232092927631
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 1.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 359,
+   "real": 0.12625048223848087,
+   "rand": 0.03558750801446492,
+   "edge": 0.09066297422401595
+  },
+  "val": {
+   "n": 224,
+   "real": 0.1538344242290474,
+   "rand": 0.075091261638893,
+   "edge": 0.07874316259015439
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 1.5,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 690,
+   "real": -0.07429966127595174,
+   "rand": -0.15256722932837458,
+   "edge": 0.07826756805242284
+  },
+  "val": {
+   "n": 399,
+   "real": -0.1836652241429691,
+   "rand": -0.2782447509368026,
+   "edge": 0.09457952679383352
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1022,
+   "real": 0.14545070323188394,
+   "rand": -0.01528776201834402,
+   "edge": 0.16073846525022797
+  },
+  "val": {
+   "n": 535,
+   "real": 0.12983288702067441,
+   "rand": 0.05190583459326915,
+   "edge": 0.07792705242740527
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 267,
+   "real": 0.06271199746232543,
+   "rand": -0.01520803205022687,
+   "edge": 0.07792002951255231
+  },
+  "val": {
+   "n": 180,
+   "real": 0.06312074545309813,
+   "rand": -0.03151004661639707,
+   "edge": 0.0946307920694952
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 458,
+   "real": -0.014336533959295749,
+   "rand": -0.09216031585103503,
+   "edge": 0.07782378189173927
+  },
+  "val": {
+   "n": 244,
+   "real": 0.04660156347361982,
+   "rand": -0.041598562466835645,
+   "edge": 0.08820012594045547
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 752,
+   "real": 0.19475705995985304,
+   "rand": 0.09263429181089738,
+   "edge": 0.10212276814895566
+  },
+  "val": {
+   "n": 450,
+   "real": 0.2673910291917374,
+   "rand": 0.18973672217851867,
+   "edge": 0.07765430701321874
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 228,
+   "real": -0.037609015676061,
+   "rand": -0.11491234663809677,
+   "edge": 0.07730333096203576
+  },
+  "val": {
+   "n": 160,
+   "real": -0.007193055968062434,
+   "rand": -0.1644754754795297,
+   "edge": 0.15728241951146726
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 837,
+   "real": 0.17521618562352534,
+   "rand": -0.01756483029538633,
+   "edge": 0.19278101591891167
+  },
+  "val": {
+   "n": 496,
+   "real": 0.0015523541868576471,
+   "rand": -0.07554738720384271,
+   "edge": 0.07709974139070036
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 427,
+   "real": 0.10994332077136236,
+   "rand": 0.033221473767680816,
+   "edge": 0.07672184700368154
+  },
+  "val": {
+   "n": 214,
+   "real": 0.1477971005614018,
+   "rand": 0.06738567687454852,
+   "edge": 0.08041142368685328
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 604,
+   "real": 0.09643170891744611,
+   "rand": 0.020694949066615866,
+   "edge": 0.07573675985083024
+  },
+  "val": {
+   "n": 376,
+   "real": 0.38617380240641974,
+   "rand": 0.07395331376439108,
+   "edge": 0.31222048864202867
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 384,
+   "real": 0.19122010594285643,
+   "rand": -0.018455350248582376,
+   "edge": 0.20967545619143882
+  },
+  "val": {
+   "n": 237,
+   "real": 0.030810181044080082,
+   "rand": -0.044911945010430436,
+   "edge": 0.07572212605451052
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1212,
+   "real": 0.13998870046193515,
+   "rand": 0.06573265038682845,
+   "edge": 0.0742560500751067
+  },
+  "val": {
+   "n": 657,
+   "real": 0.18348568151744332,
+   "rand": 0.10255544280213484,
+   "edge": 0.08093023871530848
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 644,
+   "real": -0.006729321918176722,
+   "rand": -0.08095925394240021,
+   "edge": 0.07422993202422348
+  },
+  "val": {
+   "n": 456,
+   "real": -0.15284786470751888,
+   "rand": -0.238676882428713,
+   "edge": 0.08582901772119411
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 14,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1159,
+   "real": 0.03500130490111774,
+   "rand": -0.03906350022385395,
+   "edge": 0.07406480512497168
+  },
+  "val": {
+   "n": 457,
+   "real": 0.18680070191908552,
+   "rand": 0.08706798009828608,
+   "edge": 0.09973272182079944
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1408,
+   "real": 0.09968460947263845,
+   "rand": 0.00444596574257253,
+   "edge": 0.09523864373006592
+  },
+  "val": {
+   "n": 866,
+   "real": 0.08901918340267832,
+   "rand": 0.017605747983287914,
+   "edge": 0.07141343541939041
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 297,
+   "real": 0.09689531584702638,
+   "rand": 0.026355739063074788,
+   "edge": 0.07053957678395159
+  },
+  "val": {
+   "n": 220,
+   "real": 0.09126688964362831,
+   "rand": 0.008166870278310912,
+   "edge": 0.0831000193653174
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1132,
+   "real": 0.20372134502450728,
+   "rand": 0.1332350133917946,
+   "edge": 0.07048633163271267
+  },
+  "val": {
+   "n": 711,
+   "real": 0.5774457518976385,
+   "rand": 0.31790277252442956,
+   "edge": 0.2595429793732089
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 1070,
+   "real": -0.02647149119819172,
+   "rand": -0.09827755138194172,
+   "edge": 0.07180606018374999
+  },
+  "val": {
+   "n": 642,
+   "real": -0.16067307326587532,
+   "rand": -0.2305014546099738,
+   "edge": 0.06982838134409847
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 635,
+   "real": 0.15372570497371513,
+   "rand": 0.04646502123448132,
+   "edge": 0.10726068373923381
+  },
+  "val": {
+   "n": 362,
+   "real": 0.1836956154981882,
+   "rand": 0.11397733570728075,
+   "edge": 0.06971827979090744
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 30,
+   "z_thr": -2.5,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 573,
+   "real": 0.022041079276220513,
+   "rand": -0.12607952458652735,
+   "edge": 0.14812060386274786
+  },
+  "val": {
+   "n": 422,
+   "real": -0.29872592541901366,
+   "rand": -0.3679107032570459,
+   "edge": 0.06918477783803223
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 1073,
+   "real": -0.0803570404280008,
+   "rand": -0.14937411728285138,
+   "edge": 0.06901707685485058
+  },
+  "val": {
+   "n": 607,
+   "real": -0.10763394494476981,
+   "rand": -0.3517278547264361,
+   "edge": 0.24409390978166629
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 226,
+   "real": 0.12384796192403098,
+   "rand": -0.019907174136654934,
+   "edge": 0.1437551360606859
+  },
+  "val": {
+   "n": 159,
+   "real": 0.18924949762979382,
+   "rand": 0.12072295800066117,
+   "edge": 0.06852653962913265
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 870,
+   "real": -0.07867725202013719,
+   "rand": -0.14712372524966677,
+   "edge": 0.06844647322952958
+  },
+  "val": {
+   "n": 478,
+   "real": -0.3028570703719719,
+   "rand": -0.38935512428069324,
+   "edge": 0.08649805390872134
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 282,
+   "real": 0.13155585691858174,
+   "rand": -0.037035539388092314,
+   "edge": 0.16859139630667405
+  },
+  "val": {
+   "n": 204,
+   "real": 0.16781256356821636,
+   "rand": 0.10021179090285723,
+   "edge": 0.06760077266535913
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 14,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 539,
+   "real": 0.05380683598274999,
+   "rand": -0.013639739364223052,
+   "edge": 0.06744657534697304
+  },
+  "val": {
+   "n": 296,
+   "real": 0.03820717211227161,
+   "rand": -0.0528370343581268,
+   "edge": 0.0910442064703984
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 583,
+   "real": 0.05602461538562206,
+   "rand": -0.009892148565683642,
+   "edge": 0.0659167639513057
+  },
+  "val": {
+   "n": 244,
+   "real": 0.25967500552292144,
+   "rand": 0.041413065989367136,
+   "edge": 0.2182619395335543
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 569,
+   "real": 0.14472574343807298,
+   "rand": 0.011266387006463277,
+   "edge": 0.13345935643160972
+  },
+  "val": {
+   "n": 387,
+   "real": 0.06505234007920527,
+   "rand": -0.0007825429214853472,
+   "edge": 0.06583488300069061
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1104,
+   "real": 0.06169681836120605,
+   "rand": -0.0041286815032320024,
+   "edge": 0.06582549986443806
+  },
+  "val": {
+   "n": 577,
+   "real": 0.16379080006237634,
+   "rand": 0.0753502700855477,
+   "edge": 0.08844052997682864
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 476,
+   "real": 0.04268971060484467,
+   "rand": -0.03196743443499148,
+   "edge": 0.07465714503983616
+  },
+  "val": {
+   "n": 290,
+   "real": 0.05237185120189827,
+   "rand": -0.013444409738145096,
+   "edge": 0.06581626094004336
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 292,
+   "real": 0.0747994042317674,
+   "rand": -0.008877201004077045,
+   "edge": 0.08367660523584444
+  },
+  "val": {
+   "n": 189,
+   "real": 0.06873569704446578,
+   "rand": 0.0031280352569078786,
+   "edge": 0.06560766178755789
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 909,
+   "real": -0.1048701918826291,
+   "rand": -0.1704374268253048,
+   "edge": 0.0655672349426757
+  },
+  "val": {
+   "n": 488,
+   "real": -0.07261975667440987,
+   "rand": -0.19545476356120225,
+   "edge": 0.12283500688679239
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 14,
+   "rsi_thr": 2,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 813,
+   "real": 0.08558457159442949,
+   "rand": 0.02033320058411076,
+   "edge": 0.06525137101031873
+  },
+  "val": {
+   "n": 574,
+   "real": 0.1429174657369818,
+   "rand": 0.07207738277615296,
+   "edge": 0.07084008296082885
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 455,
+   "real": 0.08416615526917312,
+   "rand": 0.0190106908763418,
+   "edge": 0.06515546439283132
+  },
+  "val": {
+   "n": 189,
+   "real": 0.22995438754199604,
+   "rand": 0.14021620828231374,
+   "edge": 0.0897381792596823
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 520,
+   "real": 0.14083332389653155,
+   "rand": 0.041626350274596546,
+   "edge": 0.09920697362193501
+  },
+  "val": {
+   "n": 298,
+   "real": 0.4604553429324454,
+   "rand": 0.3953166803037102,
+   "edge": 0.06513866262873519
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 540,
+   "real": -0.09365690848021153,
+   "rand": -0.15876606936765028,
+   "edge": 0.06510916088743875
+  },
+  "val": {
+   "n": 280,
+   "real": 0.07208423840589472,
+   "rand": -0.24004977302774502,
+   "edge": 0.3121340114336397
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1413,
+   "real": 0.04207897353545546,
+   "rand": -0.022914775666471775,
+   "edge": 0.06499374920192724
+  },
+  "val": {
+   "n": 806,
+   "real": 0.13744127175326537,
+   "rand": 0.02503641026034498,
+   "edge": 0.1124048614929204
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1309,
+   "real": 0.027246540281972258,
+   "rand": -0.037363469980240545,
+   "edge": 0.0646100102622128
+  },
+  "val": {
+   "n": 505,
+   "real": 0.19229932774044145,
+   "rand": 0.09360793022961866,
+   "edge": 0.09869139751082279
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 14,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 424,
+   "real": -0.08695775049404866,
+   "rand": -0.1510517408037629,
+   "edge": 0.06409399030971424
+  },
+  "val": {
+   "n": 280,
+   "real": -0.09326326316708033,
+   "rand": -0.17272307076571786,
+   "edge": 0.07945980759863752
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 4,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 303,
+   "real": -0.019775246418580385,
+   "rand": -0.08370735661149126,
+   "edge": 0.06393211019291087
+  },
+  "val": {
+   "n": 187,
+   "real": 0.11662443811572246,
+   "rand": -0.011640584930035777,
+   "edge": 0.12826502304575824
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2545,
+   "real": 0.05400412714724768,
+   "rand": -0.00938548077382217,
+   "edge": 0.06338960792106985
+  },
+  "val": {
+   "n": 1271,
+   "real": 0.10957565838823931,
+   "rand": 0.026330550292331383,
+   "edge": 0.08324510809590793
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 636,
+   "real": 0.05259489321935516,
+   "rand": -0.02364123610753468,
+   "edge": 0.07623612932688983
+  },
+  "val": {
+   "n": 401,
+   "real": 0.06962640553233475,
+   "rand": 0.0062980507254481125,
+   "edge": 0.06332835480688663
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 774,
+   "real": 0.023767054860376648,
+   "rand": -0.04785585886071186,
+   "edge": 0.0716229137210885
+  },
+  "val": {
+   "n": 442,
+   "real": 0.034666928327553755,
+   "rand": -0.028525615658763458,
+   "edge": 0.06319254398631721
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 0,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 226,
+   "real": 0.35563272788623207,
+   "rand": -0.013346396033070756,
+   "edge": 0.3689791239193028
+  },
+  "val": {
+   "n": 154,
+   "real": 0.024950830300627246,
+   "rand": -0.03782930912020113,
+   "edge": 0.06278013942082838
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2597,
+   "real": 0.021331466613760078,
+   "rand": -0.07015981162321723,
+   "edge": 0.09149127823697731
+  },
+  "val": {
+   "n": 1212,
+   "real": 0.005553706487866074,
+   "rand": -0.05708579644919148,
+   "edge": 0.06263950293705756
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.5,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 1330,
+   "real": -0.05987075477050163,
+   "rand": -0.14050509829675917,
+   "edge": 0.08063434352625753
+  },
+  "val": {
+   "n": 651,
+   "real": -0.1698149498523127,
+   "rand": -0.2320517237818181,
+   "edge": 0.062236773929505385
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1165,
+   "real": 0.05299555810268688,
+   "rand": -0.008157324841337018,
+   "edge": 0.06115288294402389
+  },
+  "val": {
+   "n": 700,
+   "real": 0.24577023571443712,
+   "rand": 0.13063358016887283,
+   "edge": 0.11513665554556429
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 631,
+   "real": -0.06411910512875339,
+   "rand": -0.1259593299157162,
+   "edge": 0.061840224786962814
+  },
+  "val": {
+   "n": 364,
+   "real": -0.3084207704533758,
+   "rand": -0.36940973860966236,
+   "edge": 0.06098896815628657
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 20,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 991,
+   "real": 0.2313751867536167,
+   "rand": 0.17090247947683637,
+   "edge": 0.060472707276780335
+  },
+  "val": {
+   "n": 521,
+   "real": 0.6692944393710308,
+   "rand": 0.30012087713500923,
+   "edge": 0.3691735622360216
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 578,
+   "real": 0.15358923917213355,
+   "rand": 0.003985192855548539,
+   "edge": 0.149604046316585
+  },
+  "val": {
+   "n": 385,
+   "real": 0.10336017143477663,
+   "rand": 0.04327773882644952,
+   "edge": 0.06008243260832711
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 295,
+   "real": 0.0692035543860414,
+   "rand": -0.03323591163331232,
+   "edge": 0.10243946601935372
+  },
+  "val": {
+   "n": 167,
+   "real": 0.0036884743637460335,
+   "rand": -0.056177922166172574,
+   "edge": 0.059866396529918604
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 1390,
+   "real": -0.101443760750267,
+   "rand": -0.1606320528781008,
+   "edge": 0.059188292127833816
+  },
+  "val": {
+   "n": 738,
+   "real": -0.2072046894238228,
+   "rand": -0.31667827977014784,
+   "edge": 0.10947359034632503
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 344,
+   "real": 0.32772943347171135,
+   "rand": 0.04802912151086382,
+   "edge": 0.27970031196084755
+  },
+  "val": {
+   "n": 153,
+   "real": 0.27614833322758203,
+   "rand": 0.21780071131202042,
+   "edge": 0.058347621915561615
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 416,
+   "real": -0.1500713002156163,
+   "rand": -0.20831617761816687,
+   "edge": 0.05824487740255058
+  },
+  "val": {
+   "n": 251,
+   "real": -0.17296761402349445,
+   "rand": -0.38236020465260484,
+   "edge": 0.2093925906291104
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 599,
+   "real": 0.19644377934634066,
+   "rand": 0.1382745269636741,
+   "edge": 0.05816925238266657
+  },
+  "val": {
+   "n": 327,
+   "real": 0.4945855488090434,
+   "rand": 0.3803238949200094,
+   "edge": 0.11426165388903398
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 791,
+   "real": 0.03752063657384184,
+   "rand": -0.020307699822949964,
+   "edge": 0.0578283363967918
+  },
+  "val": {
+   "n": 499,
+   "real": 0.23363263551745558,
+   "rand": 0.08673498450773033,
+   "edge": 0.14689765100972524
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 1082,
+   "real": -0.05910170184800964,
+   "rand": -0.11689002655184136,
+   "edge": 0.05778832470383172
+  },
+  "val": {
+   "n": 561,
+   "real": 0.02116204737108585,
+   "rand": -0.06112931746248293,
+   "edge": 0.08229136483356878
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 4,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 589,
+   "real": 0.03168301183744066,
+   "rand": -0.026042695717311125,
+   "edge": 0.05772570755475179
+  },
+  "val": {
+   "n": 319,
+   "real": 0.24458824891882722,
+   "rand": 0.01818703695256278,
+   "edge": 0.22640121196626445
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 534,
+   "real": 0.08218419482413841,
+   "rand": 0.025242096584712086,
+   "edge": 0.05694209823942632
+  },
+  "val": {
+   "n": 354,
+   "real": 0.36360633566794426,
+   "rand": 0.24532819456174543,
+   "edge": 0.11827814110619883
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 836,
+   "real": 0.1662496004127507,
+   "rand": 0.08882416425287305,
+   "edge": 0.07742543615987764
+  },
+  "val": {
+   "n": 498,
+   "real": 0.31475056081504954,
+   "rand": 0.2580258099627066,
+   "edge": 0.056724750852342964
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 699,
+   "real": 0.08121821948012233,
+   "rand": -0.00014358864094977174,
+   "edge": 0.08136180812107209
+  },
+  "val": {
+   "n": 398,
+   "real": 0.08800395092605501,
+   "rand": 0.031450386581706166,
+   "edge": 0.05655356434434884
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 885,
+   "real": 0.11678831794918923,
+   "rand": 0.0603858148344372,
+   "edge": 0.05640250311475203
+  },
+  "val": {
+   "n": 523,
+   "real": 0.2574905032045684,
+   "rand": 0.18772233149927423,
+   "edge": 0.06976817170529417
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 627,
+   "real": 0.10548003653059586,
+   "rand": 0.0491097983725701,
+   "edge": 0.056370238158025755
+  },
+  "val": {
+   "n": 369,
+   "real": 0.13420727647471395,
+   "rand": 0.04382755104846259,
+   "edge": 0.09037972542625136
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 386,
+   "real": -0.05538938382584822,
+   "rand": -0.1586400750174165,
+   "edge": 0.1032506911915683
+  },
+  "val": {
+   "n": 190,
+   "real": -0.12942171048843423,
+   "rand": -0.1854865611832008,
+   "edge": 0.05606485069476658
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 14,
+   "rsi_thr": 10,
+   "z_thr": -2.5,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 2227,
+   "real": -0.11383519023185697,
+   "rand": -0.1697708042232714,
+   "edge": 0.05593561399141443
+  },
+  "val": {
+   "n": 1276,
+   "real": -0.21190489867839346,
+   "rand": -0.3529022601556588,
+   "edge": 0.14099736147726533
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 14,
+   "rsi_thr": 20,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 584,
+   "real": 0.3304217343787269,
+   "rand": 0.014954648659736402,
+   "edge": 0.3154670857189905
+  },
+  "val": {
+   "n": 243,
+   "real": 0.3799875049750709,
+   "rand": 0.3242355517299041,
+   "edge": 0.055751953245166797
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 270,
+   "real": 0.00032398510868644986,
+   "rand": -0.05531477653832917,
+   "edge": 0.05563876164701562
+  },
+  "val": {
+   "n": 182,
+   "real": 0.06241912109353298,
+   "rand": 0.005206980309795027,
+   "edge": 0.05721214078373795
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 5,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 309,
+   "real": 0.02607129853566077,
+   "rand": -0.029367631178165755,
+   "edge": 0.055438929713826524
+  },
+  "val": {
+   "n": 206,
+   "real": -0.06464180675593145,
+   "rand": -0.14352781474350126,
+   "edge": 0.07888600798756981
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 3.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 691,
+   "real": -0.0839477656568921,
+   "rand": -0.13928000274924338,
+   "edge": 0.05533223709235127
+  },
+  "val": {
+   "n": 476,
+   "real": -0.21239873794730818,
+   "rand": -0.2882342104065856,
+   "edge": 0.07583547245927741
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 415,
+   "real": 0.11237548995480529,
+   "rand": 0.007226756972491758,
+   "edge": 0.10514873298231353
+  },
+  "val": {
+   "n": 253,
+   "real": 0.2267846324941282,
+   "rand": 0.17179324872022345,
+   "edge": 0.05499138377390475
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1272,
+   "real": 0.025044968205146696,
+   "rand": -0.07274719295261958,
+   "edge": 0.09779216115776627
+  },
+  "val": {
+   "n": 719,
+   "real": 0.05893803379957143,
+   "rand": 0.003977110640161169,
+   "edge": 0.054960923159410265
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 30,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 3,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 2.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1554,
+   "real": 0.0970790337489325,
+   "rand": 0.019663191893505953,
+   "edge": 0.07741584185542655
+  },
+  "val": {
+   "n": 957,
+   "real": 0.14995498489802794,
+   "rand": 0.09556597250022311,
+   "edge": 0.05438901239780483
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -1.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 500,
+   "real": -0.013596032124124016,
+   "rand": -0.06771576576877339,
+   "edge": 0.05411973364464937
+  },
+  "val": {
+   "n": 254,
+   "real": 0.061536129408251275,
+   "rand": -0.15987033346178944,
+   "edge": 0.22140646287004073
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 269,
+   "real": 0.005112744536173976,
+   "rand": -0.05068064513933261,
+   "edge": 0.05579338967550659
+  },
+  "val": {
+   "n": 182,
+   "real": 0.12355818918944765,
+   "rand": 0.06948425440514082,
+   "edge": 0.05407393478430683
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 238,
+   "real": -0.040196175175994275,
+   "rand": -0.09403465150589653,
+   "edge": 0.053838476329902255
+  },
+  "val": {
+   "n": 151,
+   "real": 0.035084714384292816,
+   "rand": -0.0751910493356566,
+   "edge": 0.1102757637199494
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 500,
+   "real": 0.047218707621556374,
+   "rand": -0.006092665969406014,
+   "edge": 0.053311373590962385
+  },
+  "val": {
+   "n": 337,
+   "real": 0.10732586159529531,
+   "rand": 0.033361714646666436,
+   "edge": 0.07396414694862888
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 546,
+   "real": -0.025595309787735044,
+   "rand": -0.08496033559679939,
+   "edge": 0.059365025809064345
+  },
+  "val": {
+   "n": 301,
+   "real": -0.014926836246487192,
+   "rand": -0.0677948686914561,
+   "edge": 0.052868032444968904
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 0.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 289,
+   "real": 0.11781140754270593,
+   "rand": -0.003701952666744581,
+   "edge": 0.12151336020945051
+  },
+  "val": {
+   "n": 189,
+   "real": 0.10522478893980695,
+   "rand": 0.05251949020918191,
+   "edge": 0.052705298730625044
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2591,
+   "real": 0.03733778758025493,
+   "rand": -0.015328208430996321,
+   "edge": 0.052665996011251257
+  },
+  "val": {
+   "n": 1209,
+   "real": 0.044800693585562566,
+   "rand": -0.02216541637139067,
+   "edge": 0.06696610995695323
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 359,
+   "real": 0.05751943680660878,
+   "rand": -0.021956966693850104,
+   "edge": 0.07947640350045888
+  },
+  "val": {
+   "n": 259,
+   "real": 0.03673710369696344,
+   "rand": -0.014781891365713878,
+   "edge": 0.05151899506267732
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 610,
+   "real": 0.009946430585331968,
+   "rand": -0.10118372309002834,
+   "edge": 0.1111301536753603
+  },
+  "val": {
+   "n": 392,
+   "real": -0.06051507728004762,
+   "rand": -0.11163295914337466,
+   "edge": 0.051117881863327046
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 531,
+   "real": 0.10862268741415282,
+   "rand": -0.04116483982727562,
+   "edge": 0.14978752724142844
+  },
+  "val": {
+   "n": 260,
+   "real": 0.2401882745358752,
+   "rand": 0.18921427646442926,
+   "edge": 0.05097399807144595
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1256,
+   "real": 0.1364336375415789,
+   "rand": 0.08557097299746101,
+   "edge": 0.05086266454411788
+  },
+  "val": {
+   "n": 659,
+   "real": 0.2746165405915463,
+   "rand": 0.1672165867074438,
+   "edge": 0.10739995388410248
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2216,
+   "real": 0.09336948609597712,
+   "rand": 0.02575311330369164,
+   "edge": 0.06761637279228548
+  },
+  "val": {
+   "n": 1162,
+   "real": 0.30059730567632703,
+   "rand": 0.250035036599503,
+   "edge": 0.05056226907682404
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 14,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 2086,
+   "real": -0.1028558368838082,
+   "rand": -0.15334953364452528,
+   "edge": 0.05049369676071708
+  },
+  "val": {
+   "n": 1129,
+   "real": -0.22427221829642252,
+   "rand": -0.28796583678454424,
+   "edge": 0.06369361848812172
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 14,
+   "rsi_thr": 10,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 354,
+   "real": 0.1976880358694722,
+   "rand": 0.021936142685265322,
+   "edge": 0.17575189318420686
+  },
+  "val": {
+   "n": 257,
+   "real": 0.10582473578114311,
+   "rand": 0.05549306958436793,
+   "edge": 0.050331666196775184
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 387,
+   "real": 0.040928064081091224,
+   "rand": -0.011082903052522462,
+   "edge": 0.05201096713361369
+  },
+  "val": {
+   "n": 244,
+   "real": 0.2532930157935056,
+   "rand": 0.20299709043268807,
+   "edge": 0.050295925360817534
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 0.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 577,
+   "real": 0.05486657322015748,
+   "rand": -0.007482014949922991,
+   "edge": 0.06234858817008047
+  },
+  "val": {
+   "n": 350,
+   "real": 0.022326144421568744,
+   "rand": -0.027350274831050042,
+   "edge": 0.049676419252618786
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1262,
+   "real": 0.034545677587093655,
+   "rand": -0.014756610566694571,
+   "edge": 0.049302288153788225
+  },
+  "val": {
+   "n": 736,
+   "real": 0.04685184424495669,
+   "rand": -0.007579607397859214,
+   "edge": 0.0544314516428159
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 20,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 3,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.5,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 672,
+   "real": 0.1268970672576353,
+   "rand": 0.07760727874775283,
+   "edge": 0.04928978850988247
+  },
+  "val": {
+   "n": 407,
+   "real": 0.15272971415729608,
+   "rand": 0.0803725057923464,
+   "edge": 0.07235720836494969
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.1,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 1.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 723,
+   "real": 0.04160299746924717,
+   "rand": -0.0075321819997160415,
+   "edge": 0.04913517946896322
+  },
+  "val": {
+   "n": 458,
+   "real": 0.11635458845676011,
+   "rand": 0.012877813846779477,
+   "edge": 0.10347677460998063
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 4,
+   "rsi_thr": 2,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 955,
+   "real": -0.06745399466596882,
+   "rand": -0.11649181225165132,
+   "edge": 0.0490378175856825
+  },
+  "val": {
+   "n": 606,
+   "real": -0.13770655731137288,
+   "rand": -0.18846478955796767,
+   "edge": 0.05075823224659479
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 529,
+   "real": 0.23941864228705198,
+   "rand": 0.19079943807740957,
+   "edge": 0.048619204209642414
+  },
+  "val": {
+   "n": 332,
+   "real": 0.5377796861341545,
+   "rand": 0.4180276682729907,
+   "edge": 0.1197520178611638
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 2.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 402,
+   "real": 0.02457575780020097,
+   "rand": -0.024035745908934744,
+   "edge": 0.048611503709135716
+  },
+  "val": {
+   "n": 194,
+   "real": -0.16137750182480465,
+   "rand": -0.3384203398784389,
+   "edge": 0.17704283805363424
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -2.5,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 1.5,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2277,
+   "real": 0.027930846302251403,
+   "rand": -0.020639905668004256,
+   "edge": 0.04857075197025566
+  },
+  "val": {
+   "n": 1111,
+   "real": 0.08852056427204397,
+   "rand": 0.026754066253477538,
+   "edge": 0.06176649801856643
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 20,
+   "z_thr": -2.5,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 746,
+   "real": -0.11273265474931687,
+   "rand": -0.16125184037521864,
+   "edge": 0.04851918562590177
+  },
+  "val": {
+   "n": 420,
+   "real": -0.14530626921671297,
+   "rand": -0.21294612703802246,
+   "edge": 0.06763985782130949
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 14,
+   "rsi_thr": 2,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.1,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 590,
+   "real": 0.15755466383687686,
+   "rand": 0.002000589461119004,
+   "edge": 0.15555407437575786
+  },
+  "val": {
+   "n": 293,
+   "real": 0.24899296084820458,
+   "rand": 0.2008190284470962,
+   "edge": 0.04817393240110837
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 14,
+   "rsi_thr": 30,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 5,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 651,
+   "real": 0.0954222619616198,
+   "rand": -0.041717201351076975,
+   "edge": 0.13713946331269677
+  },
+  "val": {
+   "n": 390,
+   "real": 0.12083483750160609,
+   "rand": 0.07293315328997385,
+   "edge": 0.04790168421163224
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -3.0,
+   "run_len": 3,
+   "bo_win": 50,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1823,
+   "real": 0.1332257354126291,
+   "rand": 0.06552462026653148,
+   "edge": 0.06770111514609763
+  },
+  "val": {
+   "n": 974,
+   "real": 0.24720880810142964,
+   "rand": 0.20054676465494206,
+   "edge": 0.04666204344648758
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.5,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1876,
+   "real": 0.09437887395625849,
+   "rand": 0.04779925786693998,
+   "edge": 0.04657961608931851
+  },
+  "val": {
+   "n": 927,
+   "real": 0.21809914083717175,
+   "rand": 0.15547682613549058,
+   "edge": 0.06262231470168117
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.5,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.5,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 607,
+   "real": -0.05109082340769617,
+   "rand": -0.09755704746980697,
+   "edge": 0.046466224062110796
+  },
+  "val": {
+   "n": 412,
+   "real": 0.15338627201158475,
+   "rand": 0.09894339500446742,
+   "edge": 0.054442877007117335
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 10,
+   "z_thr": -1.5,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.05,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2292,
+   "real": 0.07025526537301813,
+   "rand": 0.023932315894332534,
+   "edge": 0.04632294947868559
+  },
+  "val": {
+   "n": 1272,
+   "real": 0.33202471771133524,
+   "rand": 0.2449965497166464,
+   "edge": 0.08702816799468885
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 3,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1739,
+   "real": 0.02277979120453772,
+   "rand": -0.023134315522910044,
+   "edge": 0.045914106727447765
+  },
+  "val": {
+   "n": 963,
+   "real": 0.1747737730066308,
+   "rand": 0.10413232725848126,
+   "edge": 0.07064144574814954
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 20,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "low",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 2064,
+   "real": -0.0068132875241554485,
+   "rand": -0.051391554480679516,
+   "edge": 0.04457826695652407
+  },
+  "val": {
+   "n": 1258,
+   "real": 0.007602991153392958,
+   "rand": -0.04897905983789505,
+   "edge": 0.056582050991288005
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 3,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 4,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 4.0,
+   "target_r": 2.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 607,
+   "real": 0.217177486206752,
+   "rand": 0.1732009645924625,
+   "edge": 0.0439765216142895
+  },
+  "val": {
+   "n": 379,
+   "real": 0.35294141702286347,
+   "rand": 0.2619878685642377,
+   "edge": 0.09095354845862574
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 5,
+   "bo_win": 50,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.5,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1053,
+   "real": -0.003546766567649858,
+   "rand": -0.11583680157071002,
+   "edge": 0.11229003500306016
+  },
+  "val": {
+   "n": 607,
+   "real": 0.0020293622459456933,
+   "rand": -0.041571737022526624,
+   "edge": 0.04360109926847232
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -1.5,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 100,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 3.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 687,
+   "real": 0.07255328698305168,
+   "rand": 0.029089244547965017,
+   "edge": 0.043464042435086656
+  },
+  "val": {
+   "n": 389,
+   "real": 0.21697073248465498,
+   "rand": 0.12748753044380393,
+   "edge": 0.08948320204085106
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -2.0,
+   "run_len": 4,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 3.0,
+   "target_r": 4.0,
+   "trail_atr": 3.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": -1,
+  "train": {
+   "n": 777,
+   "real": -0.11301648868842633,
+   "rand": -0.1564532453655855,
+   "edge": 0.04343675667715917
+  },
+  "val": {
+   "n": 506,
+   "real": -0.200726083514009,
+   "rand": -0.31793789100491393,
+   "edge": 0.11721180749090493
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_z",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.2,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "below",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 0.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 509,
+   "real": 0.058503569631262894,
+   "rand": 0.015095705302618521,
+   "edge": 0.04340786432864437
+  },
+  "val": {
+   "n": 278,
+   "real": 0.6700011135473212,
+   "rand": 0.13812207042511482,
+   "edge": 0.5318790431222064
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 14,
+   "rsi_thr": 5,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.2,
+   "ma_fast": 20,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 630,
+   "real": 0.013524019336734796,
+   "rand": -0.02985398040379932,
+   "edge": 0.043377999740534114
+  },
+  "val": {
+   "n": 401,
+   "real": 0.2006311600693309,
+   "rand": 0.055434278775013,
+   "edge": 0.1451968812943179
+  }
+ },
+ {
+  "cfg": {
+   "family": "breakout",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -2.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 4.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 322,
+   "real": 0.10105700597427514,
+   "rand": 0.05769033275198084,
+   "edge": 0.043366673222294295
+  },
+  "val": {
+   "n": 191,
+   "real": 0.3170479122337927,
+   "rand": 0.2540109381204774,
+   "edge": 0.06303697411331527
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 2,
+   "rsi_thr": 15,
+   "z_thr": -1.0,
+   "run_len": 3,
+   "bo_win": 252,
+   "mom_thr": 0.1,
+   "ma_fast": 10,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 3.0,
+   "trail_atr": 4.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 560,
+   "real": 0.36536145097979694,
+   "rand": 0.10522447616562554,
+   "edge": 0.2601369748141714
+  },
+  "val": {
+   "n": 354,
+   "real": 0.1648777196370506,
+   "rand": 0.12186361697095324,
+   "edge": 0.04301410266609737
+  }
+ },
+ {
+  "cfg": {
+   "family": "downrun",
+   "rsi_len": 3,
+   "rsi_thr": 2,
+   "z_thr": -2.0,
+   "run_len": 5,
+   "bo_win": 20,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "above",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 0
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 204,
+   "real": 0.054213710920361806,
+   "rand": -0.09501155286827086,
+   "edge": 0.14922526378863266
+  },
+  "val": {
+   "n": 156,
+   "real": -0.013839491062653654,
+   "rand": -0.056756021014431064,
+   "edge": 0.04291652995177741
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 3,
+   "rsi_thr": 10,
+   "z_thr": -3.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 0,
+   "ma_cross_only": false
+  },
+  "exit": {
+   "stop_atr": 2.0,
+   "target_r": 2.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1006,
+   "real": 0.08001144022726865,
+   "rand": 0.03711176656914797,
+   "edge": 0.04289967365812068
+  },
+  "val": {
+   "n": 555,
+   "real": 0.2875117137977476,
+   "rand": 0.1319237323688554,
+   "edge": 0.15558798142889219
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 4,
+   "rsi_thr": 10,
+   "z_thr": -3.0,
+   "run_len": 5,
+   "bo_win": 100,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 50,
+   "trend": "below",
+   "trend_len": 100,
+   "volfil": "none",
+   "vol_thr": 0.7,
+   "gap_bars": 10
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 1.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 1788,
+   "real": 0.01820053708770144,
+   "rand": -0.024135604806362176,
+   "edge": 0.042336141894063616
+  },
+  "val": {
+   "n": 843,
+   "real": 0.08023642309270329,
+   "rand": -0.0007440930722860824,
+   "edge": 0.08098051616498937
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 2,
+   "z_thr": -2.0,
+   "run_len": 6,
+   "bo_win": 100,
+   "mom_thr": 0.2,
+   "ma_fast": 5,
+   "ma_slow": 200,
+   "trend": "above",
+   "trend_len": 200,
+   "volfil": "none",
+   "vol_thr": 0.3,
+   "gap_bars": 3
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 1.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 10,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 287,
+   "real": 0.03288225161872806,
+   "rand": -0.009418079338137085,
+   "edge": 0.04230033095686515
+  },
+  "val": {
+   "n": 194,
+   "real": -0.015767476688459698,
+   "rand": -0.21919149910143987,
+   "edge": 0.20342402241298016
+  }
+ },
+ {
+  "cfg": {
+   "family": "dip_rsi",
+   "rsi_len": 2,
+   "rsi_thr": 30,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 20,
+   "mom_thr": 0.1,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.3,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 2.0,
+   "trail_atr": 2.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 1.0,
+   "time_bars": 20,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 3640,
+   "real": 0.03582127828517314,
+   "rand": -0.006472767882454605,
+   "edge": 0.04229404616762775
+  },
+  "val": {
+   "n": 1983,
+   "real": 0.1387865673051838,
+   "rand": 0.04687904258349797,
+   "edge": 0.09190752472168583
+  }
+ },
+ {
+  "cfg": {
+   "family": "mom",
+   "rsi_len": 2,
+   "rsi_thr": 5,
+   "z_thr": -1.0,
+   "run_len": 4,
+   "bo_win": 50,
+   "mom_thr": 0.0,
+   "ma_fast": 20,
+   "ma_slow": 50,
+   "trend": "none",
+   "trend_len": 50,
+   "volfil": "high",
+   "vol_thr": 0.5,
+   "gap_bars": 5
+  },
+  "exit": {
+   "stop_atr": 1.0,
+   "target_r": 2.0,
+   "trail_atr": 0.0,
+   "trail_after_r": 1.0,
+   "breakeven_r": 0.0,
+   "time_bars": 0,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 3174,
+   "real": 0.059050028063123296,
+   "rand": 0.01687613107513251,
+   "edge": 0.04217389698799079
+  },
+  "val": {
+   "n": 1645,
+   "real": 0.07453220105790515,
+   "rand": 0.01851932011475208,
+   "edge": 0.056012880943153064
+  }
+ },
+ {
+  "cfg": {
+   "family": "ma_cross",
+   "rsi_len": 14,
+   "rsi_thr": 2,
+   "z_thr": -1.0,
+   "run_len": 6,
+   "bo_win": 252,
+   "mom_thr": 0.0,
+   "ma_fast": 50,
+   "ma_slow": 100,
+   "trend": "above",
+   "trend_len": 50,
+   "volfil": "none",
+   "vol_thr": 0.5,
+   "gap_bars": 10,
+   "ma_cross_only": true
+  },
+  "exit": {
+   "stop_atr": 1.5,
+   "target_r": 1.5,
+   "trail_atr": 3.0,
+   "trail_after_r": 0.0,
+   "breakeven_r": 0.0,
+   "time_bars": 40,
+   "atr_key": "atr14"
+  },
+  "dir": 1,
+  "train": {
+   "n": 265,
+   "real": 0.26200864180624944,
+   "rand": -0.018759465781530964,
+   "edge": 0.2807681075877804
+  },
+  "val": {
+   "n": 179,
+   "real": 0.16015241992788823,
+   "rand": 0.11799333049223809,
+   "edge": 0.04215908943565014
+  }
+ }
+]
