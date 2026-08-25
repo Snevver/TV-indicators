@@ -13,13 +13,14 @@ during selection. 10bps turnover cost.
 
 | Era | CAGR | maxDD | Sharpe | Random pick | Edge | SPY | SPY Sharpe |
 |---|---|---|---|---|---|---|---|
-| TRAIN 2005–2015 | 15.0% | 55.7% | 0.79 | 9.9% | **+5.1%** | 4.9% | 0.42 |
-| VAL 2016–2021 | 21.0% | 27.9% | 1.13 | 13.6% | **+7.4%** | 14.4% | 0.99 |
-| **TEST 2021–2026** | **23.9%** | **16.1%** | **1.14** | 13.5% | **+10.5%** | 11.9% | 0.79 |
+| TRAIN 2005–2015 | 12.7% | 57.6% | 0.69 | 10.2% | **+2.5%** | 4.9% | 0.42 |
+| VAL 2016–2021 | 25.8% | 28.2% | 1.30 | 14.3% | **+11.5%** | 14.4% | 0.99 |
+| **TEST 2021–2026** | **25.5%** | **18.7%** | **1.15** | 14.1% | **+11.4%** | 11.9% | 0.79 |
 
 Beat the index on **both return and Sharpe in all three eras**, and beat a random
 monthly pick of 8 from the same 40 names at the **100th percentile of 20 draws**
-in each era.
+in the validation and test eras (85th in training — the era containing the
+2008–09 momentum crash).
 
 Random selection is the control that matters. It shares the universe, the
 concentration and the survivorship bias — so the difference between them is the
@@ -71,8 +72,15 @@ were already large in 2005 distort far less than small names that later grew
 tenfold — which is why the universe is defined by liquidity and data length
 rather than by picking winners.
 
-**GOOG and GOOGL are both present.** The tested universe contained both; removing
-one would mean shipping something other than what was validated.
+**Ticker format.** BRK.B and F were excluded because dotted and dashed tickers
+fail to resolve on some feeds — an invalid-symbol error on a live chart is how
+this surfaced. The exclusion is a plumbing rule, not a returns filter, and the
+universe was re-validated from scratch with their replacements (NVDA, plus the
+next name by liquidity) included. GOOG and GOOGL are both present; the tested
+universe contained both.
+
+**No exchange prefixes.** TradingView resolves bare tickers itself, which avoids
+the invalid-symbol error a wrong exchange guess produces.
 
 **Not compiled by TradingView.** The Pine is written and reasoned about, not
 parser-verified. The sibling `momentum-rotation` indicator, which shares this

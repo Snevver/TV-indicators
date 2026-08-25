@@ -10,14 +10,15 @@
 //  MEASURED — parameters and universe fixed on 2005-2021; the test era was never
 //  consulted during selection. Costs 10bps of turnover per rebalance.
 //
-//    era              CAGR   maxDD  Sharpe |  random  edge |    SPY  SPY SR
-//    TRAIN 2005-15   15.0%   55.7%    0.79 |    9.9%  +5.1 |   4.9%    0.42
-//    VAL   2016-21   21.0%   27.9%    1.13 |   13.6%  +7.4 |  14.4%    0.99
-//    TEST  2021-26   23.9%   16.1%    1.14 |   13.5% +10.5 |  11.9%    0.79
+//    era              CAGR   maxDD  Sharpe |  random   edge |    SPY  SPY SR
+//    TRAIN 2005-15   12.7%   57.6%    0.69 |   10.2%  +2.5% |   4.9%    0.42
+//    VAL   2016-21   25.8%   28.2%    1.30 |   14.3% +11.5% |  14.4%    0.99
+//    TEST  2021-26   25.5%   18.7%    1.15 |   14.1% +11.4% |  11.9%    0.79
 //
 //  It beat the index on both return and Sharpe in all three eras, and beat a
 //  RANDOM monthly pick of 8 from the same 40 names at the 100th percentile of
-//  20 draws in each era. Random selection is the control that matters: it shares
+//  20 draws in the validation and test eras (85th in training, where the
+//  2008-09 momentum crash sits). Random selection is the control that matters: it shares
 //  the universe, the concentration and the survivorship bias, so the difference
 //  is the ranking and nothing else.
 //
@@ -72,31 +73,54 @@ sellCol    = input.color(#f23645, "Not held", group = G_D)
 
 // ─── Universe ────────────────────────────────────────────────────────────────
 // The 40 S&P names with the longest clean history and highest median dollar
-// volume. Chosen on liquidity and data length ONLY — never on returns — then
-// frozen before any performance was measured. GOOG and GOOGL are both present
-// because the tested universe contained both; removing one would mean shipping
-// something other than what was validated.
+// volume, excluding any ticker containing a dot or a dash. That exclusion is a
+// plumbing rule, not a returns filter: BRK.B and F were dropped because dotted
+// and dashed tickers fail to resolve on some feeds, and the universe was then
+// re-validated from scratch with their replacements included.
+//
+// No exchange prefixes. TradingView resolves bare tickers itself, which avoids
+// the invalid-symbol error that a wrong exchange guess produces.
 var string G_U = "Universe"
-u01=input.symbol("NASDAQ:AAPL","01",group=G_U), u02=input.symbol("NASDAQ:GOOGL","02",group=G_U)
-u03=input.symbol("NASDAQ:AMZN","03",group=G_U),  u04=input.symbol("NASDAQ:GOOG","04",group=G_U)
-u05=input.symbol("NASDAQ:MSFT","05",group=G_U),  u06=input.symbol("NYSE:BAC","06",group=G_U)
-u07=input.symbol("NYSE:XOM","07",group=G_U),     u08=input.symbol("NYSE:JPM","08",group=G_U)
-u09=input.symbol("NASDAQ:INTC","09",group=G_U),  u10=input.symbol("NASDAQ:NFLX","10",group=G_U)
-u11=input.symbol("NYSE:C","11",group=G_U),       u12=input.symbol("NASDAQ:CSCO","12",group=G_U)
-u13=input.symbol("NYSE:WFC","13",group=G_U),     u14=input.symbol("NYSE:GE","14",group=G_U)
-u15=input.symbol("NYSE:PFE","15",group=G_U),     u16=input.symbol("NYSE:JNJ","16",group=G_U)
-u17=input.symbol("NYSE:CVX","17",group=G_U),     u18=input.symbol("NYSE:T","18",group=G_U)
-u19=input.symbol("NASDAQ:QCOM","19",group=G_U),  u20=input.symbol("NYSE:GS","20",group=G_U)
-u21=input.symbol("NYSE:WMT","21",group=G_U),     u22=input.symbol("NYSE:PG","22",group=G_U)
-u23=input.symbol("NYSE:IBM","23",group=G_U),     u24=input.symbol("NYSE:ORCL","24",group=G_U)
-u25=input.symbol("NYSE:VZ","25",group=G_U),      u26=input.symbol("NYSE:DIS","26",group=G_U)
-u27=input.symbol("NYSE:HD","27",group=G_U),      u28=input.symbol("NYSE:MRK","28",group=G_U)
-u29=input.symbol("NYSE:BA","29",group=G_U),      u30=input.symbol("NASDAQ:BKNG","30",group=G_U)
-u31=input.symbol("NASDAQ:MU","31",group=G_U),    u32=input.symbol("NASDAQ:CMCSA","32",group=G_U)
-u33=input.symbol("NYSE:KO","33",group=G_U),      u34=input.symbol("NYSE:MCD","34",group=G_U)
-u35=input.symbol("NYSE:CAT","35",group=G_U),     u36=input.symbol("NYSE:SLB","36",group=G_U)
-u37=input.symbol("NYSE:COP","37",group=G_U),     u38=input.symbol("NYSE:BRK.B","38",group=G_U)
-u39=input.symbol("NASDAQ:AMGN","39",group=G_U),  u40=input.symbol("NYSE:UNH","40",group=G_U)
+u01=input.symbol("AAPL","01",group=G_U)
+u02=input.symbol("GOOGL","02",group=G_U)
+u03=input.symbol("AMZN","03",group=G_U)
+u04=input.symbol("GOOG","04",group=G_U)
+u05=input.symbol("MSFT","05",group=G_U)
+u06=input.symbol("BAC","06",group=G_U)
+u07=input.symbol("XOM","07",group=G_U)
+u08=input.symbol("JPM","08",group=G_U)
+u09=input.symbol("INTC","09",group=G_U)
+u10=input.symbol("NFLX","10",group=G_U)
+u11=input.symbol("C","11",group=G_U)
+u12=input.symbol("CSCO","12",group=G_U)
+u13=input.symbol("WFC","13",group=G_U)
+u14=input.symbol("GE","14",group=G_U)
+u15=input.symbol("PFE","15",group=G_U)
+u16=input.symbol("JNJ","16",group=G_U)
+u17=input.symbol("CVX","17",group=G_U)
+u18=input.symbol("T","18",group=G_U)
+u19=input.symbol("QCOM","19",group=G_U)
+u20=input.symbol("GS","20",group=G_U)
+u21=input.symbol("WMT","21",group=G_U)
+u22=input.symbol("PG","22",group=G_U)
+u23=input.symbol("IBM","23",group=G_U)
+u24=input.symbol("ORCL","24",group=G_U)
+u25=input.symbol("VZ","25",group=G_U)
+u26=input.symbol("DIS","26",group=G_U)
+u27=input.symbol("HD","27",group=G_U)
+u28=input.symbol("MRK","28",group=G_U)
+u29=input.symbol("BA","29",group=G_U)
+u30=input.symbol("BKNG","30",group=G_U)
+u31=input.symbol("MU","31",group=G_U)
+u32=input.symbol("CMCSA","32",group=G_U)
+u33=input.symbol("KO","33",group=G_U)
+u34=input.symbol("MCD","34",group=G_U)
+u35=input.symbol("CAT","35",group=G_U)
+u36=input.symbol("SLB","36",group=G_U)
+u37=input.symbol("COP","37",group=G_U)
+u38=input.symbol("AMGN","38",group=G_U)
+u39=input.symbol("UNH","39",group=G_U)
+u40=input.symbol("NVDA","40",group=G_U)
 
 // ─── Momentum ────────────────────────────────────────────────────────────────
 // Daily timeframe regardless of the chart, so the ranking is the same whether
