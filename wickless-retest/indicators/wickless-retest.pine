@@ -1,0 +1,259 @@
+//@version=6
+// ─────────────────────────────────────────────────────────────────────────────
+//  Wickless Retest
+//
+//  Marks candles that opened without hesitation — a bearish candle whose high
+//  equals its open (no upper wick), a bullish candle whose low equals its open
+//  (no lower wick) — draws the open as a level, and alerts when price returns to
+//  it. Same markers as the xGhozt Wickless Candles indicator, plus the levels,
+//  the retest logic and the trade plan.
+//
+//  ─────────────────────────────────────────────────────────────────────────
+//  READ THIS BEFORE TRADING IT. It did not pass a backtest.
+//
+//  Tested on 15-minute bars, 2010-2020, across four equity indices and four
+//  FX/commodity markets, at 4bps round-trip cost, searching 1,500 parameter
+//  combinations with a three-way train/validate/test split:
+//
+//      as described (trend filter, tight stop at the swing, 1:1)
+//          -0.78R per trade, 32% win rate against a 50% break-even
+//      best variant found, scored on held-out data
+//          still negative: roughly -0.18R per trade
+//
+//  Two things break it, and they are worth understanding because they are not
+//  opinions about the setup, they are arithmetic:
+//
+//  1. THE TIGHT STOP. You enter AT the level, and the level IS the recent
+//     high or low, so "stop just beyond the swing" makes the stop about 0.10%
+//     of price on a 15-minute chart. A 4bp round trip is then 39% of everything
+//     you risk. Widening the stop to 2 ATR cut that to 12% and improved results
+//     substantially — it still was not enough to turn the setup positive.
+//
+//  2. THE RETEST ITSELF. With zero costs the setup still lost (-0.13R, 43.5%
+//     win at 1:1). Price continues through these levels more often than it
+//     reverses from them, so the level is not acting as support or resistance
+//     in the way the setup assumes.
+//
+//  An earlier version of this test looked strongly profitable. That was a bug:
+//  it allowed one bar to both move away from the level and return to it, and
+//  OHLC data cannot say which happened first inside the bar. Fixing that
+//  assumption erased the entire edge. If you find a backtest of this pattern
+//  showing a large edge, check whether it makes the same assumption.
+//
+//  WHAT THIS SCRIPT IS STILL GOOD FOR: marking the levels, watching how price
+//  behaves at them on your own instrument, and alerting you to retests so you
+//  can judge them yourself. A discretionary trader filtering these setups by
+//  context is doing something this backtest cannot measure. It was also never
+//  tested on AUD/CHF — that data was not available here.
+//  ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("Wickless Retest", shorttitle = "Wickless", overlay = true,
+     max_lines_count = 500, max_labels_count = 500)
+
+// ─── Detection ───────────────────────────────────────────────────────────────
+var string G_D = "Wickless detection"
+wickTol = input.float(0.0, "Max wick, as a fraction of the candle's range",
+     minval = 0.0, maxval = 0.5, step = 0.01, group = G_D,
+     tooltip = "0 = the wick must be exactly absent. 0.02 allows a wick up to 2% " +
+               "of the bar's range, which catches near-misses from feed rounding. " +
+               "Results were insensitive to this.")
+minBody = input.float(0.0, "Min body, as a fraction of range", minval = 0.0, maxval = 1.0,
+     step = 0.05, group = G_D,
+     tooltip = "Filters out wickless dojis. Also had little effect in testing.")
+
+// ─── Trend ───────────────────────────────────────────────────────────────────
+var string G_T = "Trend filter"
+useTrend  = input.bool(true, "Only take setups with the trend", group = G_T,
+     tooltip = "As described: sell setups below the EMA, buy setups above it. " +
+               "In testing, turning this OFF scored slightly better.")
+trendLen  = input.int(50, "Trend EMA length", minval = 1, group = G_T)
+
+// ─── Level behaviour ─────────────────────────────────────────────────────────
+var string G_L = "Levels"
+expiryBars = input.int(10, "Bars a level stays live", minval = 1, group = G_L)
+minMoveAtr = input.float(3.0, "Price must move this far away first (ATR)",
+     minval = 0.0, step = 0.25, group = G_L,
+     tooltip = "Stops the candle triggering its own level. This was the single " +
+               "most important parameter: below 2 ATR results were clearly worse.")
+oneLevel   = input.bool(true, "Keep only the newest level per direction", group = G_L)
+
+// ─── Trade plan ──────────────────────────────────────────────────────────────
+var string G_R = "Trade plan"
+atrLength  = input.int(14,  "ATR length",  minval = 1, group = G_R)
+slLookback = input.int(5,   "Swing lookback for the stop", minval = 1, group = G_R)
+slBuffer   = input.float(0.2, "Breathing room beyond the swing (ATR)",
+     minval = 0.0, step = 0.1, group = G_R)
+minStopAtr = input.float(2.0, "Minimum stop distance (ATR)", minval = 0.0, step = 0.5,
+     group = G_R,
+     tooltip = "0 reproduces the setup as described. Leaving it at 0 makes the " +
+               "stop so tight that spread costs swamp the trade — this was the " +
+               "second-biggest factor in testing.")
+rr         = input.float(1.0, "Reward : risk", minval = 0.1, step = 0.1, group = G_R)
+
+// ─── Display ─────────────────────────────────────────────────────────────────
+var string G_V = "Display"
+showArrows = input.bool(true,  "Wickless arrows",     group = G_V)
+showLines  = input.bool(true,  "Level lines",         group = G_V)
+showPlan   = input.bool(true,  "Entry / stop / target on retest", group = G_V)
+bullCol    = input.color(#089981, "Bullish", group = G_V)
+bearCol    = input.color(#f23645, "Bearish", group = G_V)
+
+// ─── Detection ───────────────────────────────────────────────────────────────
+rng  = high - low
+body = math.abs(close - open)
+okBody = rng > 0 and (minBody <= 0 or body / rng >= minBody)
+
+bearish = close < open
+bullish = close > open
+upperWick = high - open        // for a bearish candle the open is the top
+lowerWick = open - low         // for a bullish candle the open is the bottom
+
+wicklessBear = bearish and okBody and rng > 0 and upperWick / rng <= wickTol
+wicklessBull = bullish and okBody and rng > 0 and lowerWick / rng <= wickTol
+
+trendEma = ta.ema(close, trendLen)
+atrVal   = ta.atr(atrLength)
+uptrend  = close > trendEma
+
+// The setup as described: bearish wickless in a downtrend, bullish in an uptrend.
+setupShort = wicklessBear and (not useTrend or not uptrend)
+setupLong  = wicklessBull and (not useTrend or uptrend)
+
+plotshape(showArrows and wicklessBear, "Wickless bearish", style = shape.triangledown,
+     location = location.abovebar, color = bearCol, size = size.tiny)
+plotshape(showArrows and wicklessBull, "Wickless bullish", style = shape.triangleup,
+     location = location.belowbar, color = bullCol, size = size.tiny)
+plot(useTrend ? trendEma : na, "Trend EMA", color = color.new(color.orange, 50))
+
+// ─── Level bookkeeping ───────────────────────────────────────────────────────
+// Parallel arrays: price, direction, bar created, armed flag, and the drawn line.
+var array<float> lvPrice = array.new_float()
+var array<int>   lvDir   = array.new_int()
+var array<int>   lvBar   = array.new_int()
+var array<bool>  lvArmed = array.new_bool()
+var array<line>  lvLine  = array.new_line()
+
+retestShort = false
+retestLong  = false
+retestPrice = 0.0
+
+if barstate.isconfirmed
+    // 1. Drop expired levels.
+    i = array.size(lvPrice) - 1
+    while i >= 0
+        if bar_index - array.get(lvBar, i) > expiryBars
+            ln = array.get(lvLine, i)
+            if not na(ln)
+                line.delete(ln)
+            array.remove(lvPrice, i)
+            array.remove(lvDir, i)
+            array.remove(lvBar, i)
+            array.remove(lvArmed, i)
+            array.remove(lvLine, i)
+        i -= 1
+
+    // 2. Retest check, using levels armed by an EARLIER bar. Arming happens in
+    //    step 3, so one bar can never both arm a level and trigger it — OHLC
+    //    cannot tell us which came first inside the bar, and assuming the
+    //    convenient order is what makes a backtest of this pattern look good.
+    j = array.size(lvPrice) - 1
+    while j >= 0
+        p = array.get(lvPrice, j)
+        d = array.get(lvDir, j)
+        if array.get(lvArmed, j)
+            if d == -1 and high >= p
+                retestShort := true
+                retestPrice := p
+            else if d == 1 and low <= p
+                retestLong := true
+                retestPrice := p
+        if (d == -1 and retestShort and array.get(lvPrice, j) == retestPrice) or
+           (d == 1 and retestLong and array.get(lvPrice, j) == retestPrice)
+            ln = array.get(lvLine, j)
+            if not na(ln)
+                line.set_extend(ln, extend.none)
+                line.set_x2(ln, bar_index)
+            array.remove(lvPrice, j)
+            array.remove(lvDir, j)
+            array.remove(lvBar, j)
+            array.remove(lvArmed, j)
+            array.remove(lvLine, j)
+        j -= 1
+
+    // 3. Arm levels that price has now travelled far enough away from.
+    k = 0
+    while k < array.size(lvPrice)
+        if not array.get(lvArmed, k)
+            p = array.get(lvPrice, k)
+            d = array.get(lvDir, k)
+            if d == -1 and low <= p - minMoveAtr * atrVal
+                array.set(lvArmed, k, true)
+            else if d == 1 and high >= p + minMoveAtr * atrVal
+                array.set(lvArmed, k, true)
+        k += 1
+
+    // 4. Register this bar's setup.
+    if setupShort or setupLong
+        d = setupShort ? -1 : 1
+        if oneLevel
+            m = array.size(lvPrice) - 1
+            while m >= 0
+                if array.get(lvDir, m) == d
+                    ln = array.get(lvLine, m)
+                    if not na(ln)
+                        line.delete(ln)
+                    array.remove(lvPrice, m)
+                    array.remove(lvDir, m)
+                    array.remove(lvBar, m)
+                    array.remove(lvArmed, m)
+                    array.remove(lvLine, m)
+                m -= 1
+        array.push(lvPrice, open)
+        array.push(lvDir, d)
+        array.push(lvBar, bar_index)
+        array.push(lvArmed, false)
+        array.push(lvLine, showLines
+             ? line.new(bar_index, open, bar_index + 1, open, extend = extend.right,
+                        color = d == -1 ? bearCol : bullCol, width = 1)
+             : na)
+
+// ─── Trade plan on a retest ──────────────────────────────────────────────────
+swingHigh = ta.highest(high, slLookback)[1]
+swingLow  = ta.lowest(low, slLookback)[1]
+
+planEntry = retestPrice
+rawStopS  = math.max(nz(swingHigh, planEntry), planEntry) + slBuffer * atrVal
+rawStopL  = math.min(nz(swingLow, planEntry), planEntry) - slBuffer * atrVal
+riskS     = math.max(rawStopS - planEntry, minStopAtr * atrVal)
+riskL     = math.max(planEntry - rawStopL, minStopAtr * atrVal)
+
+planStop   = retestShort ? planEntry + riskS : planEntry - riskL
+planTarget = retestShort ? planEntry - riskS * rr : planEntry + riskL * rr
+
+if showPlan and (retestShort or retestLong)
+    col = retestShort ? bearCol : bullCol
+    label.new(bar_index, planEntry,
+         (retestShort ? "SELL " : "BUY ") + str.tostring(planEntry, format.mintick) +
+         "\nSL " + str.tostring(planStop, format.mintick) +
+         "\nTP " + str.tostring(planTarget, format.mintick),
+         style = retestShort ? label.style_label_down : label.style_label_up,
+         color = col, textcolor = color.white, size = size.small)
+    line.new(bar_index, planStop,   bar_index + 8, planStop,
+         color = color.new(bearCol, 40), style = line.style_dashed)
+    line.new(bar_index, planTarget, bar_index + 8, planTarget,
+         color = color.new(bullCol, 40), style = line.style_dashed)
+
+// ─── Alerts ──────────────────────────────────────────────────────────────────
+alertcondition(setupShort or setupLong, "Wickless setup formed",
+     "Wickless: new level on {{ticker}} @ {{close}}")
+alertcondition(retestShort, "Retest — sell setup",
+     "Wickless: SELL retest on {{ticker}} @ {{close}}")
+alertcondition(retestLong,  "Retest — buy setup",
+     "Wickless: BUY retest on {{ticker}} @ {{close}}")
+
+if retestShort
+    alert("Wickless SELL retest " + syminfo.ticker + " @ " +
+         str.tostring(planEntry, format.mintick), alert.freq_once_per_bar_close)
+if retestLong
+    alert("Wickless BUY retest " + syminfo.ticker + " @ " +
+         str.tostring(planEntry, format.mintick), alert.freq_once_per_bar_close)
