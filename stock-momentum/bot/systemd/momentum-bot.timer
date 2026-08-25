@@ -1,0 +1,16 @@
+# Weeknights at 22:30 local, after the US close. Any evening hour works — the
+# bot decides whether a rebalance is due from the newest daily bar, not the
+# clock, so a late or missed run still does the right thing.
+
+[Unit]
+Description=Run the momentum rebalance check on weeknights
+
+[Timer]
+OnCalendar=Mon..Fri 22:30
+# If the machine was asleep or off at 22:30, run at the next opportunity.
+Persistent=true
+# Stagger slightly so the data provider does not see a stampede on the 1st.
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,25 @@
+# Momentum rebalance check. Runs daily, speaks once a month.
+#
+# Install:
+#   sudo cp momentum-bot.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-bot.timer
+#
+# Edit User, WorkingDirectory and ExecStart to match where you cloned the repo.
+# The webhook lives in /etc/momentum-bot.env (chmod 600), never in this file —
+# unit files are world-readable.
+
+[Unit]
+Description=Monthly momentum rebalance check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
+EnvironmentFile=/etc/momentum-bot.env
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py
+
+# The download can hang; do not leave a run wedged until tomorrow.
+TimeoutStartSec=300
