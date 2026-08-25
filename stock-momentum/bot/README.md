@@ -36,11 +36,17 @@ Put the webhook in a root-owned file rather than in the crontab or a unit file â
 both of those are readable by every user on the box:
 
 ```bash
-sudo install -m 600 /dev/null /etc/momentum-bot.env
+sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 EOF
 ```
+
+Mode 600 owned by you: you and root can read it, nobody else. Owning it matters
+only so you can source it by hand to test â€” systemd reads `EnvironmentFile` as
+root before it drops to `User=`, so the timer works either way. If you created
+the file root-owned and `. /etc/momentum-bot.env` gives *Permission denied*,
+`sudo chown "$USER" /etc/momentum-bot.env` fixes it without loosening the mode.
 
 **The webhook URL is a password.** Anyone who has it can post to your channel.
 Keep it out of the repo, out of screenshots, and out of chat. If it leaks, delete
