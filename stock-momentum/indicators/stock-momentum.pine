@@ -34,6 +34,11 @@
 //  the point. An edge of 50 points would have been a bug, and earlier in this
 //  work it twice was.
 //
+//  RANK NOW vs POSITION — the table shows both, and they are not the same thing.
+//  Ranking moves every day; your holdings only change at a rebalance. A name can
+//  be sold at rank 17 and be back at rank 5 two weeks later, and you still do not
+//  own it until the next month-start. Trade the "position" row, not the ranking.
+//
 //  THE RISK IS REAL AND IT IS NOT A STOP-LOSS PROBLEM
 //  Momentum crashes. In 2008-09 this drew down 55.7%, and in 2009 alone it
 //  underperformed a random pick by 42 points as beaten-down names exploded
@@ -174,7 +179,11 @@ if newMonth
     wasIn := inBasket
 
 // ─── Visuals ─────────────────────────────────────────────────────────────────
-bgcolor(inBasket ? color.new(buyCol, 92) : na, title = "Held")
+// Shade what you HOLD, not what ranks top-8 today. Those differ during a month:
+// a name can climb back into the top 8 after being sold and you still do not own
+// it until the next rebalance. Shading the live rank would invite exactly that
+// mistake.
+bgcolor(wasIn ? color.new(buyCol, 92) : na, title = "Currently held")
 
 if showLabels and enterSig and barstate.isconfirmed
     label.new(bar_index, low, "BUY\n#" + str.tostring(rank), yloc = yloc.belowbar,
@@ -186,7 +195,7 @@ if showLabels and exitSig and barstate.isconfirmed
          size = size.small)
 
 // ─── Ranking table ───────────────────────────────────────────────────────────
-var table t = table.new(position.top_right, 3, tableRows + 2, border_width = 1,
+var table t = table.new(position.top_right, 3, tableRows + 3, border_width = 1,
      frame_width = 1, frame_color = color.new(color.gray, 60),
      border_color = color.new(color.gray, 70))
 
@@ -224,11 +233,18 @@ if barstate.islast and showTable
         table.cell(t, 2, r + 1, na(m) ? "—" : str.tostring(m * 100, "#.#") + "%",
              text_color = col, text_size = size.small)
 
-    table.cell(t, 0, rows + 1, "this", text_color = color.gray, text_size = size.small)
+    // Two distinct facts, deliberately on separate rows. "rank now" moves daily;
+    // "position" only changes at a rebalance, and it is the one you act on.
+    table.cell(t, 0, rows + 1, "rank now", text_color = color.gray, text_size = size.small)
     table.cell(t, 1, rows + 1, syminfo.ticker,
-         text_color = inBasket ? buyCol : sellCol, text_size = size.small)
+         text_color = inBasket ? buyCol : color.new(color.white, 30), text_size = size.small)
     table.cell(t, 2, rows + 1, rank == 999 ? "not in list" : "#" + str.tostring(rank),
-         text_color = inBasket ? buyCol : sellCol, text_size = size.small)
+         text_color = inBasket ? buyCol : color.new(color.white, 30), text_size = size.small)
+    table.cell(t, 0, rows + 2, "position", text_color = color.gray, text_size = size.small)
+    table.cell(t, 1, rows + 2, wasIn ? "HOLDING" : "flat",
+         text_color = wasIn ? buyCol : sellCol, text_size = size.small)
+    table.cell(t, 2, rows + 2, wasIn != inBasket ? "changes at rebalance" : "",
+         text_color = color.new(color.orange, 20), text_size = size.small)
 
 // ─── Alerts ──────────────────────────────────────────────────────────────────
 alertcondition(enterSig, "Enters the basket",

@@ -57,8 +57,14 @@ Size accordingly. This is a concentrated equity portfolio, not a hedge.
 3. Sell what dropped out, buy what came in. Typically 1–3 changes.
 4. Nothing else until next month.
 
-**Current basket** (data through 2026-08-24): MU, INTC, CSCO, CAT, AAPL, COP,
-JNJ, MRK. Bottom of the list: ORCL −35%, IBM −27%, CMCSA −24%.
+**Current basket**, set at the 2026-08-03 rebalance: **MU, INTC, CAT, CSCO, UNH,
+JNJ, MRK, GE**.
+
+Note that this is *not* the same as today's top 8 (MU, INTC, CSCO, CAT, AAPL, COP,
+JNJ, MRK). Rankings move daily; holdings only change at a rebalance. AAPL was
+rank 17 on 3 August and was sold; it is rank 5 today and you still do not own it
+until it is top-8 *at a rebalance*. The table shows both facts on separate rows —
+**trade the `position` row, not the ranking.**
 
 You are always fully invested across 8 names, an eighth of the account each.
 There is no stop and no target — the exit is the ranking.
