@@ -706,14 +706,50 @@ def write_latest(payload: dict) -> None:
     os.replace(tmp, LATEST)
 
 
+LOG_COLS = ("date", "buys", "sells", "basket", "account", "cash", "deposited", "pnl")
+
+
 def log_row(when, buys, sells, basket, total=0.0, cash=0.0,
             deposited=0.0, pnl=0.0) -> None:
-    new = not os.path.exists(LOG)
-    with open(LOG, "a", encoding="utf-8") as fh:
-        if new:
-            fh.write("date,buys,sells,basket,account,cash,deposited,pnl\n")
-        fh.write(f'{when},"{" ".join(buys)}","{" ".join(sells)}","{" ".join(basket)}",'
-                 f'{total:.2f},{cash:.2f},{deposited:.2f},{pnl:.2f}\n')
+    """Record one rebalance, replacing any row already logged for that date.
+
+    Two things this has to survive.
+
+    An older version of this file wrote a four-column header. Appending
+    eight-column rows underneath it left the money columns unreadable — a reader
+    maps by the header, so account, cash, deposited and pnl came back empty and
+    were rendered as zero, which is a lie about what happened. So the header is
+    checked on every write and the file rewritten when it is stale, with the old
+    rows kept and their missing columns left genuinely blank.
+
+    And a second run on a day already logged used to append a duplicate. Now it
+    replaces, which also makes --force idempotent.
+    """
+    import csv
+    rows = []
+    if os.path.exists(LOG):
+        try:
+            with open(LOG, newline="", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    r.pop(None, None)               # extra fields under a short header
+                    if r.get("date") != str(when):
+                        rows.append(r)
+        except (OSError, csv.Error):
+            rows = []
+
+    rows.append({"date": str(when), "buys": " ".join(buys), "sells": " ".join(sells),
+                 "basket": " ".join(basket), "account": f"{total:.2f}",
+                 "cash": f"{cash:.2f}", "deposited": f"{deposited:.2f}",
+                 "pnl": f"{pnl:.2f}"})
+    rows.sort(key=lambda r: r.get("date") or "")
+
+    tmp = LOG + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(LOG_COLS), extrasaction="ignore")
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in LOG_COLS})
+    os.replace(tmp, LOG)
 
 
 def main() -> int:

@@ -86,6 +86,21 @@ def history(track: str) -> list:
     return out
 
 
+def _maybe(v):
+    """A number, or None when the column is absent or blank.
+
+    The difference matters. Rows written before the account columns existed have
+    no figure at all, and rendering those as 0.00 would claim the account was
+    empty rather than admitting it was never recorded.
+    """
+    if v is None or str(v).strip() == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def rebalances() -> list:
     """Newest first — the dashboard shows the most recent month at the top."""
     out = []
@@ -94,7 +109,7 @@ def rebalances() -> list:
                     "buys": [t for t in (r.get("buys") or "").split() if t],
                     "sells": [t for t in (r.get("sells") or "").split() if t],
                     "basket": [t for t in (r.get("basket") or "").split() if t],
-                    **{k: _f(r.get(k)) for k in
+                    **{k: _maybe(r.get(k)) for k in
                        ("account", "cash", "deposited", "pnl")}})
     out.sort(key=lambda r: r["date"], reverse=True)
     return out
