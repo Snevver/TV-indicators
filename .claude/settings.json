@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit(stock-momentum/bot/**)",
+      "Write(stock-momentum/bot/**)"
+    ]
+  }
+}
