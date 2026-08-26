@@ -7,7 +7,12 @@ import { money } from "../format.js";
 // exact orders at this account's size.
 const props = defineProps({ s: Object, h: Object, sym: String });
 
-const slice = computed(() => (props.s?.total || 0) / (props.h?.hold || 8));
+// The first rebalance pays in the monthly contribution before it sizes
+// anything, so the slice is (what you hold now + this month's payment) / 8.
+// Leaving it out promised a smaller slice than the bot would actually buy.
+const monthly = computed(() => Number(props.h?.monthly) || 0);
+const pot = computed(() => (props.s?.total || 0) + monthly.value);
+const slice = computed(() => pot.value / (props.h?.hold || 8));
 const picks = computed(() => (props.h?.ranking || []).filter((r) => r.held));
 </script>
 
@@ -43,8 +48,11 @@ const picks = computed(() => (props.h?.ranking || []).filter((r) => r.held));
       </p>
 
       <div v-if="picks.length" class="foot">
-        <span class="tag">{{ money(s?.total || 0, sym) }} ÷ {{ h?.hold || 8 }}
-          = {{ money(slice, sym) }} per name</span>
+        <span class="tag">
+          <template v-if="monthly">{{ money(s?.total || 0, sym) }} +
+            {{ money(monthly, sym) }} paid in</template>
+          <template v-else>{{ money(s?.total || 0, sym) }}</template>
+          ÷ {{ h?.hold || 8 }} = {{ money(slice, sym) }} per name</span>
       </div>
     </div>
   </section>

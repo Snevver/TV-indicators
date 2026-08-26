@@ -748,6 +748,9 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
     out = {"generated": datetime.now(timezone.utc).isoformat(),
            "bar": str(bar.date()) if hasattr(bar, "date") else str(bar),
            "currency": CURRENCY, "symbol": SYM, "track": TRACK, "hold": HOLD,
+           # The opening rebalance credits this before it sizes anything, so a
+           # preview that leaves it out promises the wrong slice.
+           "monthly": MONTHLY,
            "next_rebalance": next_month_label(bar),
            "ranking": [{"ticker": tk, "momentum_pct": round(float(v) * 100, 2),
                         "held": i < HOLD}

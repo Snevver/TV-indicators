@@ -190,6 +190,11 @@ def health() -> dict:
             "track": lat.get("track", ""), "currency": lat.get("currency", ""),
             "next_rebalance": lat.get("next_rebalance", ""),
             "due": lat.get("due"), "ranking": lat.get("ranking") or [],
+            "hold": lat.get("hold") or 8,
+            # The opening rebalance credits the monthly contribution before it
+            # sizes anything, so the launch preview needs it to promise the right
+            # slice rather than one based on today's balance alone.
+            "monthly": lat.get("monthly") or 0.0,
             "t212": lat.get("t212") or {},
             "python_ok": os.path.exists(PYTHON)}
 

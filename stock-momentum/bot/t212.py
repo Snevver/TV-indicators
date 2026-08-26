@@ -544,9 +544,15 @@ def find_instruments(text: str, limit: int = 40) -> list:
         if not isinstance(it, dict):
             continue
         code = str(_pick(it, "ticker", "instrumentCode", "code", default="") or "")
-        name = str(_pick(it, "name", "shortName", "prettyName", default="") or "")
-        if needle in code.upper() or needle in name.upper():
-            out.append({"code": code, "name": name,
+        name = str(_pick(it, "name", "prettyName", default="") or "")
+        # shortName is searched separately, not as a fallback for name. Trading
+        # 212 renamed Booking's shortName to BKNG while keeping the code
+        # PCLN_US_EQ, so searching only code and name reported it as missing when
+        # it was there all along.
+        short = str(_pick(it, "shortName", default="") or "")
+        if (needle in code.upper() or needle in name.upper()
+                or needle == short.upper()):
+            out.append({"code": code, "name": f"{name} ({short})" if short else name,
                         "type": _pick(it, "type", default=""),
                         "currency": _pick(it, "currencyCode", "currency", default=""),
                         "isin": _pick(it, "isin", default="")})
