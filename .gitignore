@@ -10,3 +10,9 @@ __pycache__/
 **/data/stocks/
 __pycache__/
 *.pyc
+
+# Virtual environments are per-machine and hundreds of megabytes. The bot and
+# the web app each build their own; neither belongs in the repo.
+.venv/
+**/.venv/
+venv/
