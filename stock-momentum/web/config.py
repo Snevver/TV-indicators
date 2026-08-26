@@ -143,14 +143,20 @@ FIELDS = {
                          "Only a checkmark from THIS user approves an order. "
                          "Right-click your own name, Copy User ID."),
     "MOMENTUM_TRACK": (_choice("paper", "live"), "Which book to follow",
-                       "Not a trading switch — the bot never places an order or "
-                       "moves money on either setting. 'paper' keeps its own "
-                       "book from assumed fills; 'live' mirrors what Trading 212 "
-                       "actually holds, so the monthly instructions are worked "
-                       "out from your real positions. Only switch once the pie "
-                       "is funded and --t212-check matches."),
+                       "Which numbers the monthly instructions are worked out "
+                       "from. 'paper' keeps its own book from assumed fills; "
+                       "'live' uses what Trading 212 actually holds. Switching "
+                       "does not by itself place an order — but the bot can now "
+                       "place orders you approve, so this is not the safety "
+                       "catch it once was. Switch once --t212-check agrees with "
+                       "the broker."),
     "MOMENTUM_CURRENCY": (_choice("usd", "eur", "gbp"), "Currency",
-                          "The label on every figure. It does not convert anything."),
+                          "A LABEL ONLY — it converts nothing. The book values US "
+                          "stocks at their dollar prices, so the figures are "
+                          "dollars whatever this says. On a euro account the two "
+                          "drift apart as EUR/USD moves, and by the 0.15% "
+                          "Trading 212 charges on each conversion. Set it to "
+                          "whatever you would rather read; it changes no maths."),
     "MOMENTUM_MONTHLY": (_amount, "Monthly contribution",
                          "What you pay in each month by standing order. Added "
                          "to the paper book on rebalance day and spread over "
