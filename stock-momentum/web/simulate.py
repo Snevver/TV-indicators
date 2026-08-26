@@ -1,4 +1,4 @@
-"""Run the strategy over any window, against buy-and-hold.
+"""Run the strategy over any window, against the index.
 
 The point of this page is to answer "what would this have done between X and Y",
 so the logic has to be the same logic that produced every published figure. The
@@ -112,7 +112,7 @@ def _stats(dates, values):
 
 def run(start: str, end: str, budget: float, mode: str = "rebalance",
         fractional: bool = True, cost_bps: float = COST_BPS) -> dict:
-    """Simulate the strategy between two dates against buy-and-hold."""
+    """Simulate the strategy between two dates against holding the index."""
     import numpy as np
     import pandas as pd
 
@@ -190,13 +190,6 @@ def run(start: str, end: str, budget: float, mode: str = "rebalance",
     dates = [str(t.date()) for t, _ in curve]
     strat = [round(float(v), 2) for _, v in curve]
 
-    # Buy and hold the same forty names, equal weight, never touched.
-    p0 = px.iloc[slice_start]
-    live = [t for t in UNIVERSE if not pd.isna(p0[t])]
-    n40 = {t: (budget / len(live)) / p0[t] for t in live}
-    hold40 = [round(float(sum(n * px.iloc[i][t] for t, n in n40.items())), 2)
-              for i in range(slice_start, end_i + 1)]
-
     # A full-history run is >5,000 points, which no chart can show and which
     # bloats the response. Stats are computed on the full series above; only the
     # drawn line is thinned, and the last point is always kept.
@@ -207,11 +200,10 @@ def run(start: str, end: str, budget: float, mode: str = "rebalance",
             out = out + [v[-1]]
         return out
 
-    out = {"dates": thin(dates), "strategy": thin(strat), "hold40": thin(hold40),
+    out = {"dates": thin(dates), "strategy": thin(strat),
            "start": dates[0], "end": dates[-1], "budget": budget,
            "mode": mode, "fractional": fractional, "rebalances": log,
-           "stats": {"strategy": _stats(dates, strat),
-                     "hold40": _stats(dates, hold40)}}
+           "stats": {"strategy": _stats(dates, strat)}}
 
     if spy is not None:
         base = float(spy.iloc[slice_start])

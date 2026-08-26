@@ -69,8 +69,7 @@ async function go() {
 
 const ROWS = [
   { key: "strategy", label: "Momentum rotation", note: "top 8, rebalanced monthly", swatch: "cy" },
-  { key: "hold40", label: "All forty, held", note: "bought once, never touched", swatch: "am" },
-  { key: "spy", label: "S&P 500", note: "the index", swatch: "gy" },
+  { key: "spy", label: "S&P 500", note: "bought once and held", swatch: "am" },
 ];
 
 // Only the benchmarks the run actually produced — SPY is absent if the ETF
@@ -91,8 +90,8 @@ const beat = computed(() => {
       <span class="tag">Backtest</span>
       <h1>Simulate a window</h1>
       <p class="lede">Run the same rules the bot follows over any past period and
-        see it against simply holding. Same ranking, same monthly rebalance, same
-        10 basis points on the money that moves.</p>
+        see it against simply buying the index and holding. Same ranking, same
+        monthly rebalance, same 10 basis points on the money that moves.</p>
     </div>
 
     <div v-if="loadingData" class="hud pad">
@@ -214,11 +213,12 @@ const beat = computed(() => {
         </div>
 
         <p class="fine caveat">
-          The forty names were picked in 2026, so every line here — the rotation
-          and the buy-and-hold both — is flattered by knowing which companies
-          survived. The index is the only benchmark on this page with no
-          hindsight in it. Dividends are excluded from the stocks and included in
-          the index, which understates the strategy slightly.
+          The rotation picks from forty names chosen in 2026, so it is flattered
+          by knowing which companies survived — a list drawn in 2010 would have
+          held some that later went nowhere. The index line has no such
+          hindsight in it, which is exactly why it is the one worth comparing
+          against. Dividends are excluded from the stocks and included in the
+          index, which understates the rotation slightly.
         </p>
       </template>
     </template>

@@ -2,8 +2,8 @@
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { createChart, LineStyle, LineSeries } from "lightweight-charts";
 
-// Three lines on one scale: the strategy, holding all forty, and the index.
-// All start from the same budget, so the vertical gap is the whole answer.
+// Two lines on one scale: the strategy and the index, both starting from the
+// same budget, so the vertical gap is the whole answer.
 const props = defineProps({ result: Object, sym: { type: String, default: "$" } });
 const host = ref(null);
 let chart = null, made = [];
@@ -12,8 +12,7 @@ const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n
 
 const LINES = [
   { key: "strategy", color: "--cyan", width: 2, style: LineStyle.Solid },
-  { key: "hold40", color: "--amber", width: 1.5, style: LineStyle.Solid },
-  { key: "spy", color: "--muted", width: 1.5, style: LineStyle.Dashed },
+  { key: "spy", color: "--amber", width: 1.5, style: LineStyle.Dashed },
 ];
 
 function build() {
