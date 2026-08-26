@@ -245,6 +245,49 @@ def fees(limit: int = 50) -> list:
     return out
 
 
+def _try_env(env_name: str) -> tuple[bool, str]:
+    """One read-only GET against a named environment. Returns (worked, detail).
+
+    Used to answer the question a 401 leaves open: is the pair wrong, or is it
+    the right pair pointed at the wrong environment? Guessing costs a round trip
+    per attempt; asking costs one request.
+    """
+    import requests
+    base = {"demo": "https://demo.trading212.com/api/v0",
+            "live": "https://live.trading212.com/api/v0"}[env_name]
+    headers = {"Accept": "application/json"}
+    auth = (API_KEY, API_SECRET) if API_SECRET else None
+    if auth is None:
+        headers["Authorization"] = API_KEY
+    try:
+        r = requests.get(f"{base}/equity/account/cash", headers=headers,
+                         auth=auth, timeout=TIMEOUT)
+    except Exception as exc:                            # noqa: BLE001
+        return False, f"{type(exc).__name__}: {exc}"
+    return r.status_code == 200, f"HTTP {r.status_code}"
+
+
+def diagnose_401() -> None:
+    """Say which environment the credentials actually belong to, if either."""
+    other = "live" if ENV == "demo" else "demo"
+    print(f"  Checking whether this pair belongs to the {other} environment "
+          f"instead...")
+    ok, detail = _try_env(other)
+    if ok:
+        print(f"\n  ==> It does. These are {other.upper()} credentials, and "
+              f"T212_ENV is set to {ENV!r}.")
+        print(f"      Set 'Which account' to '{other}' on the Settings page "
+              f"(or T212_ENV={other} in an env file) and run this again.")
+        return
+    print(f"      {other}: {detail} - not that either.")
+    print("\n  ==> Both environments reject the pair. In order of likelihood:")
+    print("      1. The key and secret are in the wrong fields. The API key is")
+    print("         the username half; the secret is the password half.")
+    print("      2. One was truncated or mis-copied when it was saved.")
+    print("      3. The key was revoked, or its creation never completed.")
+    print("      Re-generate the pair in the app and save both halves again.")
+
+
 def probe() -> int:
     """Print exactly what the account returns, so the mapping above can be
     finished against reality instead of guessed at. Read-only."""
@@ -277,12 +320,14 @@ def probe() -> int:
         checks.append((f"pie {PIE_ID}", f"/equity/pies/{PIE_ID}"))
     checks.append(("transactions", "/history/transactions?limit=5"))
 
-    ok = 0
+    ok, unauthorised = 0, False
     for name, path in checks:
         print(f"--- {name}  GET {path}")
         try:
             d = _get(path, tries=1)
         except T212Error as exc:
+            if "401" in str(exc):
+                unauthorised = True
             print(f"    FAILED: {exc}\n")
             continue
         except Exception as exc:
@@ -297,6 +342,8 @@ def probe() -> int:
         time.sleep(1.2)          # the API rate-limits hard; do not hammer it
 
     print(f"{ok}/{len(checks)} endpoints answered.")
+    if not ok and unauthorised:
+        diagnose_401()
     if ok:
         print("\nNothing above is secret except the key, which is masked. Paste it "
               "back and the field mapping can be finished against the real shapes.")
