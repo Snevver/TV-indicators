@@ -28,6 +28,21 @@ Long format throughout: `time, ticker, open, high, low, close, volume`.
 days of 15-minute history, which is far too short to measure an edge. It is there
 to confirm the intraday indicators behave correctly on current data.
 
-**The stock list is today's members**, so it carries survivorship bias — companies
-that went bankrupt or dropped out are missing, which flatters any long-only
-result. The ETF file does not have this problem, which is why it comes first.
+**The stock list is now every historical member, not just today's.** It used to be
+today's 500, which is a fantasy: running them back to 2005 asks what would have
+happened if you had known in 2005 which companies would still be standing in
+2026. Measured on this data, 974 tickers were in the index at some point since
+2005, so that list was missing 479 of them — 49% of the real universe, and
+exactly the half that went bankrupt, was acquired, or fell out.
+
+`data/sp500_membership.csv.gz` holds monthly point-in-time membership from 2004,
+derived from [fja05680/sp500](https://github.com/fja05680/sp500) (MIT). The
+exporter downloads everything that list has ever contained.
+
+**Some bias remains, and it is now a number rather than a shrug.** Yahoo drops
+most companies that went bankrupt, so their prices cannot be fetched at all. The
+exporter writes `data/missing_tickers.txt` naming every one it could not get, so
+the size of the remaining gap is visible instead of assumed.
+
+To use it honestly, a backtest must rank only the names that were in the index
+in the month being tested — the membership file is what makes that possible.

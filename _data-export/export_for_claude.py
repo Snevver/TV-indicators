@@ -37,17 +37,52 @@ ETFS = ["SPY", "QQQ", "IWM", "DIA", "MDY", "EFA", "EEM", "TLT", "IEF", "HYG",
         "XLY", "XLU", "XLB", "XLRE", "XBI", "SMH", "KRE", "VNQ"]
 
 SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+MEMBERSHIP = os.path.join(OUT, "sp500_membership.csv.gz")
 
 
 def sp500():
+    """Every ticker that was in the index at ANY point, not just today's members.
+
+    THIS IS THE DIFFERENCE BETWEEN A BACKTEST AND A FANTASY. Downloading today's
+    500 names and running them back to 2005 asks what would have happened if you
+    had known, in 2005, which companies would still be standing in 2026. Measured
+    on this data: 974 tickers were in the index at some point since 2005, so the
+    old list was missing 479 of them -- 49% of the real universe, and precisely
+    the half that went bankrupt, got acquired or fell out.
+
+    The membership file lists them all, so the ones that died are at least
+    downloaded and the strategy can be ranked against what actually existed each
+    month.
+
+    Yahoo will not have prices for all of them: a company that went bankrupt is
+    usually gone from its API entirely. That is fine and expected -- what matters
+    is that the gap is reported rather than hidden, so the remaining bias is a
+    number instead of a shrug.
+    """
+    ever = set()
+    try:
+        m = pd.read_csv(MEMBERSHIP)
+        for row in m["tickers"]:
+            ever |= {t.strip() for t in str(row).split(",") if t.strip()}
+        print(f"  membership file: {len(ever)} tickers ever in the index "
+              f"({len(m)} monthly snapshots)")
+    except Exception as exc:
+        print(f"  ! membership file unreadable ({exc})")
+
     try:
         req = urllib.request.Request(SP500_URL, headers={"User-Agent": "Mozilla/5.0"})
         html = urllib.request.urlopen(req, timeout=30).read().decode()
-        syms = pd.read_html(io.StringIO(html))[0]["Symbol"].tolist()
-        return [s.replace(".", "-") for s in syms]
+        today = set(pd.read_html(io.StringIO(html))[0]["Symbol"].tolist())
+        print(f"  today's members: {len(today)}")
+        ever |= today
     except Exception as exc:
-        print(f"  ! constituent list failed ({exc}); ETFs only")
+        print(f"  ! current constituent list failed ({exc})")
+
+    if not ever:
+        print("  ! no ticker list at all; ETFs only")
         return []
+    # Yahoo spells share classes with a dash: BRK.B is BRK-B.
+    return sorted(t.replace(".", "-") for t in ever)
 
 
 def grab(tickers, label):
@@ -88,6 +123,16 @@ def main() -> int:
     if syms:
         stk = grab(syms, "S&P 500")
         if stk is not None:
+            got = set(stk.ticker.unique())
+            want = set(syms)
+            gone = sorted(want - got)
+            print(f"  coverage: {len(got)}/{len(want)} tickers returned data; "
+                  f"{len(gone)} had none (delisted, or renamed)")
+            if gone:
+                with open(os.path.join(OUT, "missing_tickers.txt"), "w") as fh:
+                    fh.write("\n".join(gone) + "\n")
+                print(f"  wrote data/missing_tickers.txt — the remaining bias, "
+                      f"named rather than hidden")
             p = os.path.join(OUT, "sp500_daily.csv.gz")
             stk.to_csv(p, index=False, compression="gzip")
             print(f"  wrote {p}  ({len(stk):,} rows, "
