@@ -4,3 +4,6 @@ rebalances.csv
 history.csv
 latest.json
 state.json.tmp
+
+# Hand-made backups from a cleanup — yours, not the repo's.
+*.bak
