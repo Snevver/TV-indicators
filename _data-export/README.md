@@ -50,9 +50,10 @@ It tries three times before giving up on a name:
 2. **Yahoo again, one at a time, slowly.** "no timezone found" is what Yahoo says
    both for a dead company and for a request it declined because a hundred
    arrived at once. Asking politely separates the two.
-3. **Stooq.** Yahoo removes a company when it stops trading, which is precisely
-   backwards for a backtest — the ones it drops are the failures. Stooq keeps
-   many delisted US symbols.
+Stooq was tried as a third source and removed. Every request, for live and dead
+tickers alike, returns a JavaScript proof-of-work challenge — a deliberate block
+on automated access, not a gap in their data. Solving it to take the data anyway
+is not something this script does.
 
 What is likely to stay missing is the 2008 wreckage: `LEHMQ`, `WAMUQ`, `BSC`,
 `MER`, `CFC`, `MTLQQ`, `EKDKQ`. Lehman, Washington Mutual, Bear Stearns, Merrill,

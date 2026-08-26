@@ -120,50 +120,16 @@ def retry_singly(missing, label, pause=1.5):
     return (pd.concat(frames, ignore_index=True) if frames else None), still
 
 
-STOOQ = "https://stooq.com/q/d/l/?s={sym}.us&i=d"
-
-
-def from_stooq(missing, pause=1.0):
-    """Second source for what Yahoo will not serve.
-
-    Yahoo drops a company when it stops trading, which is exactly backwards for a
-    backtest: the ones it removes are the failures, and a strategy measured
-    without them looks better than it was. Stooq keeps many delisted US symbols,
-    so it is worth asking before declaring a name unavailable.
-
-    It will not have all of them, and it owes us nothing -- so every failure is
-    tolerated and simply reported. Returns (frame or None, still-missing list).
-    """
-    frames, still = [], []
-    for i, t in enumerate(missing, 1):
-        if i % 25 == 0:
-            print(f"  stooq: {i} of {len(missing)}")
-        try:
-            req = urllib.request.Request(STOOQ.format(sym=t.lower().replace("-", ".")),
-                                         headers={"User-Agent": "Mozilla/5.0"})
-            body = urllib.request.urlopen(req, timeout=30).read().decode()
-        except Exception:                                  # noqa: BLE001
-            still.append(t); time.sleep(pause); continue
-        if not body or "Date,Open" not in body:
-            still.append(t); time.sleep(pause); continue
-        try:
-            df = pd.read_csv(io.StringIO(body))
-            df = df.rename(columns={"Date": "time", "Open": "open", "High": "high",
-                                    "Low": "low", "Close": "close",
-                                    "Volume": "volume"})
-            df = df[df.time >= START]
-            if df.empty or "close" not in df:
-                still.append(t); time.sleep(pause); continue
-            if "volume" not in df:
-                df["volume"] = 0
-            df.insert(1, "ticker", t)
-            frames.append(df[["time", "ticker", "open", "high", "low",
-                              "close", "volume"]])
-        except Exception:                                  # noqa: BLE001
-            still.append(t)
-        time.sleep(pause)
-    print(f"  stooq: recovered {len(frames)}, still missing {len(still)}")
-    return (pd.concat(frames, ignore_index=True) if frames else None), still
+# Stooq was tried here as a second source and removed. It is not that it lacks
+# the delisted names: every request, for live and dead tickers alike, returns a
+# JavaScript proof-of-work challenge. That is a deliberate block on automated
+# access, and solving it to take the data anyway is not something this script
+# will do.
+#
+# What is left, for the ~300 names Yahoo will not serve, is a paid feed that
+# carries delisted histories -- Norgate or Sharadar, roughly EUR 50-70 a month.
+# Until then the gap is named in missing_tickers.txt and stated wherever the
+# numbers are.
 
 
 def grab(tickers, label):
@@ -210,13 +176,6 @@ def main() -> int:
             if gone:
                 print(f"  {len(gone)} failed in batches; retrying one at a time")
                 extra, gone = retry_singly(gone, "S&P 500")
-                if extra is not None:
-                    stk = pd.concat([stk, extra], ignore_index=True)
-                    got = set(stk.ticker.unique())
-            if gone:
-                print(f"  {len(gone)} still missing; trying stooq, which keeps "
-                      f"many delisted symbols")
-                extra, gone = from_stooq(gone)
                 if extra is not None:
                     stk = pd.concat([stk, extra], ignore_index=True)
                     got = set(stk.ticker.unique())
