@@ -1161,13 +1161,42 @@ def main() -> int:
             return 0
 
         if stage == "bought":
+            # NEVER SELL WHAT YOU DO NOT HOLD.
+            #
+            # "The buy was accepted" and "the buy filled" are different claims.
+            # Outside regular hours an order can sit pending for hours, and the
+            # response says so rather than reporting a fill. Selling against a
+            # position that does not exist yet is how a test turns into a short.
+            #
+            # So the broker is asked what is actually there, and the sell is for
+            # what it says, not for what the buy requested.
+            held = None
+            try:
+                pos = t212.positions(universe=UNIVERSE)
+                held = pos.get(SMOKE_TICKER, {}).get("shares")
+            except Exception as exc:                       # noqa: BLE001
+                print(f"  ! could not read the position back ({exc})")
+            if held is None or held <= 0:
+                d.post(f"⚠️ Not selling: Trading 212 shows no {SMOKE_TICKER} "
+                       f"position.\nThe buy was accepted but may not have filled "
+                       f"— outside US market hours it can sit pending. Check the "
+                       f"app; react {d.CROSS} again once it shows.")
+                print(f"refusing to sell: broker reports no {SMOKE_TICKER} "
+                      f"holding (buy may still be pending).")
+                return 1
+            want_qty = min(abs(float(s["qty"])), float(held))
+            if abs(want_qty - abs(float(s["qty"]))) > 1e-9:
+                print(f"  ! selling {want_qty} rather than {s['qty']} — that is "
+                      f"what the broker shows as held.")
             s["stage"] = "selling"
+            s["sell_qty"] = want_qty
             save_smoke(s)
             try:
-                # Exactly what was bought, not "a euro's worth" again -- the price
-                # has moved since, and selling a recomputed size would leave a
-                # sliver behind or try to sell more than is held.
-                resp = t212.place_market_order(s["code"], -abs(float(s["qty"])))
+                # Exactly what the broker says is held, which is normally what
+                # was bought. Not "a euro's worth" recomputed -- the price has
+                # moved since, and a recomputed size would leave a sliver behind
+                # or try to sell more than exists.
+                resp = t212.place_market_order(s["code"], -abs(float(s["sell_qty"])))
             except t212.T212Error as exc:
                 s["stage"] = "unknown"
                 s["error"] = str(exc)
@@ -1177,10 +1206,11 @@ def main() -> int:
             s.update({"stage": "closed", "sell_response": resp,
                       "closed_at": datetime.now(timezone.utc).isoformat()})
             save_smoke(s)
-            d.post(f"{d.TICK} Sold it back. Round trip complete — the whole chain "
-                   f"works end to end.\nBroker said: "
-                   f"`{json.dumps(resp, default=str)[:400]}`")
-            print(f"SOLD {s['qty']} {s['code']}\n{json.dumps(resp, indent=1, default=str)}")
+            d.post(f"{d.TICK} Sold {s['sell_qty']} of `{s['code']}` back. Round "
+                   f"trip complete — the whole chain works end to end.\n"
+                   f"Broker said: `{json.dumps(resp, default=str)[:400]}`")
+            print(f"SOLD {s['sell_qty']} {s['code']}\n"
+                  f"{json.dumps(resp, indent=1, default=str)}")
             return 0
 
         print(f"nothing to do (stage {stage!r}).")
