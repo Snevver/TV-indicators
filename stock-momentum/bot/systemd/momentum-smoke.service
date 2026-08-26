@@ -7,7 +7,13 @@
 # turns into an order on its own.
 #
 # Costs nothing when idle: with no test pending, --smoke-poll exits immediately
-# without touching the network.
+# without touching the network. When a test IS pending it stays for about ninety
+# seconds asking every few seconds, so a reaction turns into an order in about
+# the time it takes you to look up from Discord -- not on the next minute tick.
+#
+# A gateway websocket or an interactions webhook would be truly instant, but both
+# need either a permanent connection or a public HTTPS endpoint, and this box is
+# deliberately not reachable from the internet.
 #
 # Install (edit CHANGEME first):
 #   sudo cp momentum-smoke.{service,timer} /etc/systemd/system/
@@ -26,4 +32,4 @@ WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
 EnvironmentFile=-/etc/momentum-bot.env
 EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
 ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --smoke-poll
-TimeoutStartSec=120
+TimeoutStartSec=180

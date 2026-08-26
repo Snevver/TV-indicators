@@ -45,6 +45,7 @@ import argparse
 import calendar
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -810,6 +811,21 @@ def write_latest(payload: dict) -> None:
 SMOKE = os.path.join(HERE, "smoke.json")
 SMOKE_TICKER = "AAPL"
 SMOKE_MAX_USD = 5.0          # a hard ceiling, so a typo cannot buy a holiday
+SMOKE_EXPIRY_MIN = 30        # an offer older than this quoted a price that moved
+SMOKE_WATCH_SEC = 90         # how long one poll waits for a reaction before exiting
+
+
+def _smoke_expired(s: dict) -> bool:
+    when = s.get("offered_at")
+    if not when:
+        return False
+    try:
+        made = datetime.fromisoformat(str(when))
+    except ValueError:
+        return False
+    if made.tzinfo is None:
+        made = made.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - made).total_seconds() > SMOKE_EXPIRY_MIN * 60
 
 
 def load_smoke() -> dict:
@@ -935,6 +951,9 @@ def main() -> int:
                         "sells it back. THIS PLACES A REAL ORDER.")
     p.add_argument("--smoke-status", action="store_true",
                    help="say whether a test position is still open")
+    p.add_argument("--smoke-once", action="store_true",
+                   help="check for a reaction once and exit, instead of watching "
+                        "for a minute or so")
     p.add_argument("--t212-find", metavar="TEXT",
                    help="search the broker's instrument list by code or name; "
                         "read-only, for names --t212-instruments could not resolve")
@@ -1031,42 +1050,84 @@ def main() -> int:
         if notional > SMOKE_MAX_USD:
             raise SystemExit(f"refusing: {notional:.2f} is over the {SMOKE_MAX_USD} cap")
 
+        # One message, one reaction, one decision. Offering buy and sell on the
+        # same message meant reading two answers off one object and hoping you
+        # meant the newer one; the sell is now asked for separately, after the
+        # buy has actually happened.
         body = (f"**Smoke test — this places a REAL order for about "
-                f"${notional:.2f}.**\n"
-                f"{d.TICK}  buy {qty} of `{code}` (~${notional:.2f} at the last "
-                f"close of ${last:,.2f})\n"
-                f"{d.CROSS}  sell it straight back\n\n"
-                f"Only a reaction from <@{d.OWNER_ID}> counts. Nothing happens "
-                f"until the next `--smoke-poll` runs.\n"
-                f"US market hours only — outside them the order will sit unfilled.")
+                f"${notional:.2f}.**\n\n"
+                f"React {d.TICK} to buy {qty} of `{code}` "
+                f"(~${notional:.2f} at the last close of ${last:,.2f}).\n"
+                f"I will ask about selling it back afterwards, in a new message.\n\n"
+                f"Only a reaction from <@{d.OWNER_ID}> counts. Expires in "
+                f"{SMOKE_EXPIRY_MIN} minutes — ignore it and nothing happens.\n"
+                f"US market hours only; outside them the order sits unfilled.")
         mid = d.post(body)
         d.offer_tick(mid, d.TICK)
-        d.offer_tick(mid, d.CROSS)
         save_smoke({"stage": "offered", "message_id": mid, "code": code,
                     "qty": qty, "last": last, "notional": notional,
                     "offered_at": datetime.now(timezone.utc).isoformat()})
         print(f"offered in Discord (message {mid}):\n  buy {qty} {code} "
-              f"~${notional:.2f}\n\nReact, then run:  --smoke-poll")
+              f"~${notional:.2f}\n\nReact {d.TICK} — the timer will do the rest.")
         return 0
 
     if args.smoke_poll:
         if not s:
             print("nothing offered. Run --smoke-offer first.")
             return 0
-        stage, mid = s.get("stage"), s.get("message_id")
-        choice = d.owner_choice(mid)
-        if choice is None:
-            print(f"no decision yet on message {mid} (stage: {stage}).")
+        stage = s.get("stage")
+
+        if stage in ("buying", "selling", "unknown"):
+            print(f"stage is {stage!r} — a previous run did not finish cleanly.\n"
+                  f"Check the Trading 212 app, then delete {SMOKE} once the "
+                  f"position matches what you expect.")
+            if s.get("error"):
+                print(f"last error: {s['error']}")
+            return 1
+
+        if stage not in ("offered", "bought"):
+            print(f"nothing to do (stage {stage!r}).")
             return 0
 
-        if stage == "offered" and choice == "no":
-            s["stage"] = "cancelled"
+        # An offer that has been sitting around is not an offer any more: the
+        # price it quoted has moved on, and a tick three days later should not
+        # buy at today's. The sell prompt never expires -- an open position has
+        # to stay closeable.
+        if stage == "offered" and _smoke_expired(s):
+            s["stage"] = "expired"
             save_smoke(s)
-            d.post(f"{d.CROSS} Smoke test cancelled. Nothing was ordered.")
-            print("cancelled before anything was placed.")
+            d.post(f"{d.CROSS} Smoke test expired after {SMOKE_EXPIRY_MIN} "
+                   f"minutes. Nothing was ordered.")
+            print("offer expired; nothing ordered.")
             return 0
 
-        if stage == "offered" and choice == "yes":
+        # Each stage watches its own message, so a stale reaction on an old one
+        # cannot drive the next step.
+        watch = s["message_id"] if stage == "offered" else s.get("sell_message_id")
+        want = d.TICK if stage == "offered" else d.CROSS
+        if not watch:
+            print(f"no message to watch for stage {stage!r}.")
+            return 1
+        # Discord cannot call us, so somebody has to ask. Asking once a minute
+        # means up to a minute of nothing happening while you stare at the
+        # message. Instead one run stays for a while and asks every few seconds,
+        # so a reaction lands in about the time it takes to notice you made it.
+        #
+        # A gateway websocket would be instant, and an interactions webhook would
+        # be too -- but that needs a public HTTPS endpoint, and this dashboard is
+        # deliberately not reachable from the internet. Polling briefly is the
+        # version that does not require opening the box up.
+        deadline = time.monotonic() + (SMOKE_WATCH_SEC if not args.smoke_once else 0)
+        while True:
+            if d.approved_by_owner(watch, want):
+                break
+            if time.monotonic() >= deadline:
+                print(f"waiting for {want} from the owner on message {watch} "
+                      f"(stage: {stage}).")
+                return 0
+            time.sleep(3)
+
+        if stage == "offered":
             # Written BEFORE the order goes out. If this run dies between the
             # request and the reply, the next one must not read "offered" and
             # buy a second time -- it reads "buying" and asks for reconciliation.
@@ -1083,13 +1144,23 @@ def main() -> int:
             s.update({"stage": "bought", "buy_response": resp,
                       "bought_at": datetime.now(timezone.utc).isoformat()})
             save_smoke(s)
-            d.post(f"{d.TICK} Bought {s['qty']} of `{s['code']}`.\n"
-                   f"Broker said: `{json.dumps(resp, default=str)[:400]}`\n\n"
-                   f"React {d.CROSS} on the original message to sell it back.")
-            print(f"BOUGHT {s['qty']} {s['code']}\n{json.dumps(resp, indent=1, default=str)}")
+            # A fresh message with a single reaction, rather than a second
+            # reaction on the first one: the question has changed, so the thing
+            # you are answering should change with it.
+            sell_id = d.post(
+                f"{d.TICK} **Bought {s['qty']} of `{s['code']}`.**\n"
+                f"Broker said: `{json.dumps(resp, default=str)[:300]}`\n\n"
+                f"Check it in the Trading 212 app, then react {d.CROSS} **on this "
+                f"message** to sell it straight back.")
+            d.offer_tick(sell_id, d.CROSS)
+            s["sell_message_id"] = sell_id
+            save_smoke(s)
+            print(f"BOUGHT {s['qty']} {s['code']}\n"
+                  f"{json.dumps(resp, indent=1, default=str)}\n"
+                  f"asked about selling in message {sell_id}")
             return 0
 
-        if stage == "bought" and choice == "no":
+        if stage == "bought":
             s["stage"] = "selling"
             save_smoke(s)
             try:
@@ -1112,15 +1183,7 @@ def main() -> int:
             print(f"SOLD {s['qty']} {s['code']}\n{json.dumps(resp, indent=1, default=str)}")
             return 0
 
-        if stage in ("buying", "selling", "unknown"):
-            print(f"stage is {stage!r} — a previous run did not finish cleanly.\n"
-                  f"Check the Trading 212 app, then delete {SMOKE} once the "
-                  f"position matches what you expect.")
-            if s.get("error"):
-                print(f"last error: {s['error']}")
-            return 1
-
-        print(f"nothing to do (stage {stage!r}, you reacted {choice!r}).")
+        print(f"nothing to do (stage {stage!r}).")
         return 0
 
     if args.t212_find:
