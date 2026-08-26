@@ -35,7 +35,8 @@ CONFIG_DIR = os.environ.get("MOMENTUM_CONFIG_DIR") or os.path.join(
 CONFIG = os.path.join(CONFIG_DIR, "momentum.env")
 ETC = "/etc/momentum-bot.env"
 
-SECRET = {"T212_API_KEY", "T212_API_SECRET", "DISCORD_WEBHOOK"}
+SECRET = {"T212_API_KEY", "T212_API_SECRET", "DISCORD_WEBHOOK",
+          "DISCORD_BOT_TOKEN"}
 
 # MOMENTUM_MODE and MOMENTUM_FRACTIONAL used to live here. Both were settled by
 # measurement -- drift, fractional -- and hardcoded in the bot, so exposing them
@@ -76,6 +77,33 @@ def _webhook(v):
     return v
 
 
+def _snowflake(v):
+    """A Discord id: 17-20 digits. Copied with Developer Mode on."""
+    v = v.strip()
+    if v and not v.isdigit():
+        raise Invalid("a Discord id is digits only — turn on Developer Mode, "
+                      "then right-click and Copy ID")
+    if v and not 15 <= len(v) <= 21:
+        raise Invalid(f"that is {len(v)} digits; a Discord id is about 18")
+    return v
+
+
+def _bot_token(v):
+    v = v.strip()
+    if not v:
+        raise Invalid("cannot be blank — leave the field empty to keep the current token")
+    # Checked before the whitespace rule: "Bot xyz" contains a space, and
+    # "copy it again without wrapping" would send you looking for the wrong thing.
+    if v.lower().startswith("bot "):
+        raise Invalid("drop the leading 'Bot ' — just the token itself")
+    if re.search(r"\s", v):
+        raise Invalid("contains a space or newline; copy it again without wrapping")
+    if v.count(".") < 2:
+        raise Invalid("a bot token has three dot-separated parts; this looks "
+                      "truncated, or it may be a webhook URL")
+    return v
+
+
 def _amount(v):
     v = v.strip()
     try:
@@ -104,6 +132,16 @@ FIELDS = {
                  "demo is the practice account, live is real money."),
     "DISCORD_WEBHOOK": (_webhook, "Discord webhook",
                         "Where the monthly rebalance is posted."),
+    "DISCORD_BOT_TOKEN": (_bot_token, "Discord bot token",
+                          "Only needed to approve orders by reaction. From the "
+                          "Discord developer portal, Bot tab. A password: anything "
+                          "holding it can act as your bot."),
+    "DISCORD_CHANNEL_ID": (_snowflake, "Discord channel id",
+                           "The channel the bot posts orders into. Developer Mode "
+                           "on, right-click the channel, Copy Channel ID."),
+    "DISCORD_OWNER_ID": (_snowflake, "Your Discord user id",
+                         "Only a checkmark from THIS user approves an order. "
+                         "Right-click your own name, Copy User ID."),
     "MOMENTUM_TRACK": (_choice("paper", "live"), "Which book to follow",
                        "Not a trading switch — the bot never places an order or "
                        "moves money on either setting. 'paper' keeps its own "

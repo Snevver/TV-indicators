@@ -127,6 +127,16 @@ except Exception as _t212_exc:                       # noqa: BLE001
     _T212_IMPORT_ERROR = f"{type(_t212_exc).__name__}: {_t212_exc}"
 else:
     _T212_IMPORT_ERROR = ""
+
+# Approval by reaction. Optional in exactly the same way: without it the bot
+# posts to the webhook and you trade by hand, which is the default.
+try:
+    import discord_api
+except Exception as _dc_exc:                         # noqa: BLE001
+    discord_api = None
+    _DISCORD_IMPORT_ERROR = f"{type(_dc_exc).__name__}: {_dc_exc}"
+else:
+    _DISCORD_IMPORT_ERROR = ""
 STATE = os.path.join(HERE, "state.json")
 LOG = os.path.join(HERE, "rebalances.csv")
 HISTORY = os.path.join(HERE, "history.csv")     # one row per day per track
@@ -856,6 +866,11 @@ def main() -> int:
                    help="record money taken out")
     p.add_argument("--fill", action="append", metavar="TICKER=SHARES@PRICE",
                    help="correct an assumed fill; repeatable")
+    p.add_argument("--discord-confirm", metavar="MESSAGE_ID",
+                   help="read back who ticked a message posted by --discord-check")
+    p.add_argument("--discord-check", action="store_true",
+                   help="verify the bot token, channel and owner id; posts one "
+                        "test message you can approve, and changes nothing else")
     p.add_argument("--t212-find", metavar="TEXT",
                    help="search the broker's instrument list by code or name; "
                         "read-only, for names --t212-instruments could not resolve")
@@ -876,6 +891,51 @@ def main() -> int:
     bk = book(state, name)
 
     # --- the optional broker link -------------------------------------------
+    if args.discord_check:
+        if discord_api is None:
+            raise SystemExit(f"discord_api.py did not load: {_DISCORD_IMPORT_ERROR}")
+        print(env_source_line())
+        d = discord_api
+        if not d.configured():
+            raise SystemExit(f"Discord approval is {d.why_not()}.\n"
+                             f"Fill those in on the Settings page.")
+        try:
+            who = d.me()
+            print(f"bot      : {who.get('username')}#{who.get('discriminator','0')} "
+                  f"(id {who.get('id')})")
+            ch = d.channel()
+            print(f"channel  : #{ch.get('name')} (id {ch.get('id')})")
+            print(f"owner    : {d.OWNER_ID}  — only a tick from this id approves\n")
+            mid = d.post("**Setup check.** Tick this message to prove approval "
+                         "works. Nothing is ordered either way.")
+            d.offer_tick(mid)
+            print(f"posted message {mid} and added {d.TICK}.")
+            print("\nTick it in Discord, then run this again to confirm it was read:")
+            print(f"  python3 momentum_bot.py --discord-confirm {mid}")
+            return 0
+        except d.DiscordError as exc:
+            raise SystemExit(f"Discord: {exc}")
+
+    if args.discord_confirm:
+        if discord_api is None:
+            raise SystemExit(f"discord_api.py did not load: {_DISCORD_IMPORT_ERROR}")
+        d = discord_api
+        if not d.configured():
+            raise SystemExit(f"Discord approval is {d.why_not()}")
+        try:
+            who = d.reactors(args.discord_confirm)
+        except d.DiscordError as exc:
+            raise SystemExit(f"Discord: {exc}")
+        if not who:
+            print("nobody has ticked it yet.")
+            return 1
+        if d.OWNER_ID in who:
+            print(f"approved by {d.OWNER_ID}. Reaction approval works.")
+            return 0
+        print(f"ticked by {', '.join(who)}, but none of them is DISCORD_OWNER_ID "
+              f"({d.OWNER_ID}). Not approved — check the owner id is yours.")
+        return 1
+
     if args.t212_find:
         if t212 is None:
             raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
