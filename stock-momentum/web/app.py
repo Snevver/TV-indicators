@@ -28,10 +28,9 @@ import secrets
 import stat
 import time
 
-from flask import (Flask, abort, g, jsonify, redirect, render_template,
-                   request, session, url_for)
+from flask import (Flask, abort, jsonify, redirect, render_template, request,
+                   session, url_for)
 
-import charts
 import config
 import data
 
@@ -130,26 +129,19 @@ def csrf_ok() -> bool:
                                str(session.get("csrf", "")))
 
 
-@app.before_request
-def make_nonce():
-    # A fresh nonce per request lets the holdings bars ship their widths as a
-    # real <style> block. Inline style attributes would need 'unsafe-inline',
-    # which is a much bigger hole than one server-generated rule set.
-    g.nonce = secrets.token_urlsafe(16)
-
-
 @app.after_request
 def headers(resp):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "no-referrer"
-    nonce = getattr(g, "nonce", "")
     # Fonts are fetched by the viewer's browser, not by this machine, so they
-    # work even when the mini PC itself is offline. Everything has a system
-    # fallback if the browser cannot reach them either.
+    # work even when the mini PC itself is offline; everything falls back to a
+    # system stack. 'unsafe-inline' for styles is what a bundled Vue app needs
+    # to inject its scoped component CSS; scripts stay strictly 'self', which is
+    # the directive that actually stops injected code running.
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data:; "
-        f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "script-src 'self'; form-action 'self'; frame-ancestors 'none'")
     return resp
@@ -157,8 +149,7 @@ def headers(resp):
 
 @app.context_processor
 def inject():
-    return {"csrf": session.get("csrf", ""), "TRACK_LABEL": data.TRACK_LABEL,
-            "nonce": getattr(g, "nonce", "")}
+    return {"csrf": session.get("csrf", ""), "TRACK_LABEL": data.TRACK_LABEL}
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -201,68 +192,71 @@ def _track() -> str:
     return data.health().get("track") or "paper"
 
 
+SPA = os.path.join(HERE, "static", "dist", "index.html")
+
+
 @app.route("/")
+@app.route("/strategy")
+@app.route("/settings")
 @login_required
-def dashboard():
+def spa():
+    """Every page is the same bundle; the client owns the routing."""
+    if not os.path.exists(SPA):
+        return ("<h1>UI not built</h1><p>Run <code>npm run build</code> in "
+                "<code>web/ui</code>, or pull a release that ships "
+                "<code>web/static/dist</code>.</p>"), 503
+    with open(SPA, encoding="utf-8") as fh:
+        html = fh.read()
+    # The CSRF token rides in a meta tag rather than the bundle, so it stays
+    # per-session and never gets cached with the JavaScript.
+    tag = f'<meta name="csrf" content="{session.get("csrf", "")}">'
+    return html.replace("<head>", "<head>" + tag, 1)
+
+
+@app.route("/api/state")
+@login_required
+def api_state():
     track = _track()
     s = data.summary(track)
-    c = data.curve(track)
     h = data.health()
-    sym = data.latest().get("symbol") or "$"
-    other = data.summary("live" if track == "paper" else "paper")
-    # Sorted here rather than in the template: Jinja's dictsort would compare the
-    # position dicts themselves, not their values.
-    held = sorted((s.get("positions") or {}).items(),
-                  key=lambda kv: -(kv[1].get("value") or 0))
-    return render_template(
-        "dashboard.html", track=track, s=s, c=c, h=h, sym=sym, other=other,
-        held=held, rebalances=data.rebalances()[:14],
-        spark=charts.sparkline(c["total"]),
-        weight_css=charts.weight_rules(s.get("positions") or {}),
-        chart_equity=charts.equity(c["dates"], c["total"], c["deposited"], sym),
-        chart_dd=charts.drawdown(c["dates"], c["drawdown"]),
-        chart_monthly=charts.monthly(c["monthly"]),
-        chart_alloc=charts.allocation(s.get("positions") or {}))
-
-
-@app.route("/strategy")
-@login_required
-def strategy():
-    return render_template("strategy.html", h=data.health())
-
-
-@app.route("/settings", methods=["GET", "POST"])
-@login_required
-def settings():
-    errors, saved = {}, False
-    if request.method == "POST":
-        if not csrf_ok():
-            abort(400)
-        values, errors = config.apply(request.form)
-        if not errors:
-            try:
-                config.write(values)
-                saved = True
-            except OSError as exc:
-                errors["_"] = f"Could not write {config.CONFIG}: {exc}"
-    return render_template("settings.html", rows=config.for_display(),
-                           errors=errors, saved=saved,
-                           config_path=config.CONFIG, etc_path=config.ETC,
-                           h=data.health())
-
-
-@app.route("/api/summary")
-@login_required
-def api_summary():
-    track = _track()
-    return jsonify({"track": track, "summary": data.summary(track),
-                    "health": data.health()})
+    h["latest_hours"] = (h.pop("latest_age") / 3600
+                         if h.get("latest_age") is not None else None)
+    h.pop("state_age", None)
+    h["hold"] = data.latest().get("hold", 8)
+    return jsonify({"track": track, "summary": s, "health": h,
+                    "symbol": data.latest().get("symbol") or "$",
+                    "other": data.summary("live" if track == "paper" else "paper")})
 
 
 @app.route("/api/history")
 @login_required
 def api_history():
-    return jsonify({t: data.curve(t) for t in data.TRACKS})
+    return jsonify(data.curve(_track()))
+
+
+@app.route("/api/rebalances")
+@login_required
+def api_rebalances():
+    return jsonify({"rows": data.rebalances()[:40]})
+
+
+@app.route("/api/config", methods=["GET", "POST"])
+@login_required
+def api_config():
+    errors = {}
+    if request.method == "POST":
+        body = request.get_json(silent=True) or {}
+        if not hmac.compare_digest(str(body.get("csrf", "")),
+                                   str(session.get("csrf", ""))):
+            return jsonify({"errors": {"_": "stale session, reload the page"}}), 400
+        values, errors = config.apply(body)
+        if not errors:
+            try:
+                config.write(values)
+            except OSError as exc:
+                errors = {"_": f"could not write {config.CONFIG}: {exc}"}
+    return jsonify({"fields": config.for_display(), "errors": errors,
+                    "paths": {"config": config.CONFIG, "etc": config.ETC}})
 
 
 @app.route("/api/action", methods=["POST"])
@@ -270,8 +264,7 @@ def api_history():
 def api_action():
     if not csrf_ok():
         return jsonify({"error": "stale form, reload the page"}), 400
-    action = (request.form.get("action") or request.json.get("action")
-              if request.is_json else request.form.get("action"))
+    action = request.form.get("action")
     if action not in data.ACTIONS:
         return jsonify({"error": "unknown action"}), 400
     return jsonify(data.run_bot(action))

@@ -2,3 +2,7 @@
 auth.json
 auth.json.tmp
 __pycache__/
+
+# The UI is committed as a built bundle in static/dist so the mini PC needs no
+# Node. Its dependencies are not.
+ui/node_modules/

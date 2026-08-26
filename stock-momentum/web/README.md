@@ -39,6 +39,26 @@ Open **http://192.168.2.37:6767**.
 
 To try it without systemd first: `../bot/.venv/bin/python app.py`.
 
+## The interface
+
+The dashboard is a Vue 3 app built with Vite, using TradingView's
+`lightweight-charts` for every time series. **The built bundle is committed** to
+`static/dist/`, so the mini PC needs no Node and deployment stays a pull and a
+restart.
+
+Only the login page is still server-rendered. That is deliberate: the password
+form should not live inside a JavaScript bundle, and an unauthenticated visitor
+never downloads the app at all.
+
+To change the interface you need Node 20+ locally:
+
+```bash
+cd stock-momentum/web/ui
+npm install
+npm run dev            # http://localhost:5173, proxied API calls need the Flask app running
+npm run build          # writes ../static/dist — commit the result
+```
+
 ## After a git pull
 
 ```bash
@@ -134,10 +154,12 @@ sparse.
 - **`ProtectSystem=strict` errors in the journal** — you cloned somewhere other
   than `~/tv-indicators`. Fix the `ReadWritePaths` lines in the installed unit.
 - **The page looks unchanged after a pull** — restart the service; see above.
-- **Fonts look generic** — the page asks the *browser* for Instrument Sans and
-  IBM Plex Mono, so it needs internet on the device you are viewing from, not on
+- **Fonts look generic** — the page asks the *browser* for Chakra Petch and
+  JetBrains Mono, so it needs internet on the device you are viewing from, not on
   the mini PC. Without it everything falls back to the system stack and the
   layout is unaffected.
+- **"UI not built"** — `static/dist` is missing. Pull again, or build it with
+  `cd ui && npm install && npm run build`.
 
 ## Files
 
@@ -146,7 +168,7 @@ sparse.
 | `app.py` | Routes, login, config writes, the action runner |
 | `data.py` | Reads the bot's files. Tolerates every one of them being missing |
 | `config.py` | Allowlist, validation, the atomic 600 write |
-| `charts.py` | Server-rendered SVG. No chart library, no CDN |
-| `static/app.css` | One stylesheet, both themes, contrast checked against WCAG AA |
-| `templates/`, `static/` | The page itself |
+| `ui/` | Vue source. Only needed to change the interface |
+| `static/dist/` | The built bundle, committed so no Node is needed to deploy |
+| `templates/login.html` | The one server-rendered page |
 | `auth.json` | Password hash and session secret, mode 600, gitignored |

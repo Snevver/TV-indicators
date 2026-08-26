@@ -1,23 +1,37 @@
-{% extends "base.html" %}
-{% block title %}Sign in — Momentum{% endblock %}
-{% block body %}
-<div class="gate">
-  <div class="brand"><span class="dotmark"></span>Momentum</div>
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Momentum</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='dist/app.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23050A12'/><path d='M5 22l6-8 5 5 10-13' stroke='%2300F0FF' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+</head>
+<body>
+<main class="gate">
+  <div class="mark-row">
+    <span class="mark"></span>
+    <span class="name">MOMENTUM</span>
+  </div>
+
   {% if setup %}
     <p class="lede">No password set yet. On the mini PC:</p>
-    <pre class="cmd">cd ~/tv-indicators/stock-momentum/web
+    <pre class="out">cd ~/tv-indicators/stock-momentum/web
 ../bot/.venv/bin/python app.py --set-password</pre>
     <p class="fine">Then reload this page.</p>
   {% else %}
     {% if error %}<p class="err">{{ error }}</p>{% endif %}
     <form method="post" class="stack">
-      <label for="pw">Password</label>
+      <label for="pw" class="tag">Access key</label>
       <input id="pw" name="password" type="password" autocomplete="current-password"
              autofocus required>
-      <button type="submit">Sign in</button>
+      <button type="submit">Authenticate</button>
     </form>
-    <p class="fine">Plain HTTP on your own network. Don't forward this port to
-      the internet.</p>
+    <p class="fine">Plain HTTP on your own network. Do not forward this port.</p>
   {% endif %}
-</div>
-{% endblock %}
+</main>
+</body>
+</html>
