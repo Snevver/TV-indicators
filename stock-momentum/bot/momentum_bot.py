@@ -79,25 +79,28 @@ HOLD = 8            # positions
 CURRENCY = os.environ.get("MOMENTUM_CURRENCY", "EUR")
 SYM = {"USD": "$", "EUR": "\u20ac", "GBP": "\u00a3"}.get(CURRENCY, CURRENCY + " ")
 
-# Can your broker buy part of a share? With fractional orders every position
-# lands exactly on its target weight and the account size stops mattering.
-# Without them a name priced above one slice simply cannot be bought, and the
-# basket quietly becomes "the cheap half of the ranking".
-FRACTIONAL = os.environ.get("MOMENTUM_FRACTIONAL", "1").lower() not in ("0", "no", "false")
-
 # Don't generate an order for loose change.
 MIN_ORDER = float(os.environ.get("MOMENTUM_MIN_ORDER", "1") or 1)
 
-# rebalance : every month, reset all eight to an equal slice. This is what the
-#             backtest measured, so it is the default.
-# drift     : only trade the names that changed, and let the survivors run.
-#             Measured better over 2005-2026 ($48.6k against $36.1k from $1,000)
-#             with a smaller drawdown, at the cost of concentration — the
-#             largest position was typically 17.6% of the account, peaking at
-#             37.9%. Far fewer orders, which matters on a small account.
-MODE = os.environ.get("MOMENTUM_MODE", "rebalance").lower()
-if MODE not in ("rebalance", "drift"):
-    raise SystemExit(f"MOMENTUM_MODE must be 'rebalance' or 'drift', not {MODE!r}")
+# TWO THINGS THAT USED TO BE SETTINGS, AND WHY THEY ARE NOT ANY MORE
+#
+# Rebalance style. The choice was between resetting all eight to an equal slice
+# every month, and trading only the names that changed so survivors run. Drift
+# won seven of eight test windows and won the full 2005-2026 history with a
+# SMALLER worst fall (55.1% against 59.7%), while placing far fewer orders --
+# which on a euro account paying 0.15% per conversion is money as well. Its cost
+# is concentration: the largest position ran at a median 17.6% against a fixed
+# 12.5%, peaking at 37.8%. Bounded, because the ranking evicts a name eventually
+# either way. Drift is now the only behaviour.
+#
+# Fractional shares. Never a performance setting -- it described whether the
+# broker would sell part of a share. Trading 212 does. Whole-share mode at a
+# EUR 1,000 account was not merely worse but unusable: six of eight names cost
+# more than a slice, so the account could not buy them at all.
+#
+# IF THE BROKER EVER STOPS SELLING PART SHARES, the unbuyable check that used to
+# live here has to come back -- nothing warns you now, because with fractional
+# orders nothing can be unbuyable.
 
 # Two books are kept side by side.
 #   paper : the strategy simulated on assumed fills. Always runs, never touched
@@ -268,55 +271,24 @@ def mark(bk, prices) -> dict:
 def plan(bk, prices, basket, total) -> list:
     """The orders that move the current book to the new basket.
 
-    Returns (ticker, delta_shares, cash_delta) with sells first, so the cash to
-    pay for the buys exists before they are applied.
+    Survivors are left exactly as they are: whatever the sells raised, plus any
+    idle cash, is split over the names that are new this month. Returns
+    (ticker, delta_shares, cash_delta) with sells first, so the cash to pay for
+    the buys exists before they are applied.
     """
     orders, pos = [], bk["positions"]
     for tk, sh in sorted(pos.items()):
         if sh > 0 and tk not in basket:
             orders.append((tk, -sh, sh * prices.get(tk, 0.0)))
 
-    if MODE == "drift":
-        # Survivors are left exactly as they are. Whatever the sells raised,
-        # plus any idle cash, is split over the names that are new this month.
-        arriving = [t for t in basket if pos.get(t, 0.0) <= 0]
-        if arriving:
-            pot = bk["cash"] + sum(o[2] for o in orders)
-            each = pot / len(arriving)
-            for tk in arriving:
-                sh = each / prices[tk]
-                if not FRACTIONAL:
-                    sh = float(int(sh))
-                if sh * prices[tk] >= MIN_ORDER:
-                    orders.append((tk, sh, -sh * prices[tk]))
-        return orders
-
-    slice_ = total / HOLD
-    want = {}
-    for tk in basket:
-        w = slice_ / prices[tk]
-        want[tk] = w if FRACTIONAL else float(int(w))   # a part share you cannot buy
-
-    if not FRACTIONAL:
-        # Rounding down eight times strands real money — at $10,000 it left 15-19%
-        # of the account permanently in cash. Spend what is left on whole shares,
-        # always topping up whichever name sits furthest below its target, so the
-        # remainder lands where it does the least damage to the equal weighting.
-        free = bk["cash"] + sum(o[2] for o in orders) - sum(
-            (want[t] - pos.get(t, 0.0)) * prices[t] for t in basket)
-        while True:
-            gaps = [(slice_ - want[t] * prices[t], t) for t in basket
-                    if prices[t] <= free + 1e-9]
-            if not gaps:
-                break
-            _, tk = max(gaps)
-            want[tk] += 1.0
-            free -= prices[tk]
-
-    for tk in basket:
-        delta = want[tk] - pos.get(tk, 0.0)
-        if abs(delta * prices[tk]) >= MIN_ORDER:
-            orders.append((tk, delta, -delta * prices[tk]))
+    arriving = [t for t in basket if pos.get(t, 0.0) <= 0]
+    if arriving:
+        pot = bk["cash"] + sum(o[2] for o in orders)
+        each = pot / len(arriving)
+        for tk in arriving:
+            sh = each / prices[tk]
+            if sh * prices[tk] >= MIN_ORDER:
+                orders.append((tk, sh, -sh * prices[tk]))
     return orders
 
 
@@ -351,13 +323,6 @@ def parse_fill(spec: str):
         return tk.strip().upper(), float(sh), float(pr)
     except ValueError:
         raise SystemExit(f"--fill wants TICKER=SHARES@PRICE, got {spec!r}")
-
-
-def unbuyable(basket, prices, total) -> list:
-    """Names the account cannot hold at an equal weight without part shares."""
-    if FRACTIONAL:
-        return []
-    return [t for t in basket if prices[t] > total / HOLD]
 
 
 def refresh(state) -> bool:
@@ -498,7 +463,7 @@ def render_plain(bar, buys, sells, basket, scores, m=None, orders=None,
                   f"({m['pnl']:+,.2f} = {m['pnl_pct']:+.1f}% on {money(m['deposited'])} in)",
                   f"  invested  : {money(m['invested'])}",
                   f"  cash      : {money(m['cash'])}",
-                  f"  slice      : {money(m['total'] / HOLD)} per name   [{MODE}]"]
+                  f"  slice      : {money(m['total'] / HOLD)} per name"]
     if orders and prices is not None:
         lines += ["", f"  ORDERS ({len(orders)}):"] + render_orders(orders, prices)
     lines.append("")
@@ -516,8 +481,7 @@ def clip(v: str, limit: int = 1024) -> str:
 
 
 def render_embed(bar, buys, sells, basket, scores, first: bool,
-                 test: bool = False, m=None, orders=None, prices=None,
-                 cannot=()) -> dict:
+                 test: bool = False, m=None, orders=None, prices=None) -> dict:
     """The Discord payload. An embed rather than a wall of text: the changes are
     the thing you act on, so they go at the top in a diff block, where Discord
     colours additions green and removals red on its own."""
@@ -569,19 +533,14 @@ def render_embed(bar, buys, sells, basket, scores, first: bool,
     title = "Opening position" if first else "Monthly rebalance"
     if test:
         title = "TEST — " + title
-    if test:
-        footer = "Test message · nothing saved · do not trade this"
-    elif cannot:
-        footer = (f"{', '.join(cannot)} cost more than one slice — turn on "
-                  f"fractional shares or add funds")
-    else:
-        footer = f"Buy near the US close · next rebalance {next_month_label(bar)}"
+    footer = ("Test message · nothing saved · do not trade this" if test else
+              f"Buy near the US close · next rebalance {next_month_label(bar)}")
 
     return {"embeds": [{
         "title": title,
         "description": f"**{bar.strftime('%-d %B %Y')}** · 6-month momentum, "
                        f"top {HOLD} of {len(UNIVERSE)}",
-        "color": AMBER if (test or cannot) else (GREEN if (changed or first) else BLURPLE),
+        "color": AMBER if test else (GREEN if (changed or first) else BLURPLE),
         "fields": fields,
         "footer": {"text": footer},
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -662,8 +621,7 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
     """Everything the dashboard renders from, both tracks, no network needed."""
     out = {"generated": datetime.now(timezone.utc).isoformat(),
            "bar": str(bar.date()) if hasattr(bar, "date") else str(bar),
-           "currency": CURRENCY, "symbol": SYM, "mode": MODE, "track": TRACK,
-           "fractional": FRACTIONAL, "hold": HOLD,
+           "currency": CURRENCY, "symbol": SYM, "track": TRACK, "hold": HOLD,
            "next_rebalance": next_month_label(bar),
            "ranking": [{"ticker": tk, "momentum_pct": round(float(v) * 100, 2),
                         "held": i < HOLD}
@@ -688,7 +646,6 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
                                "weight_pct": round(r["value"] / m["total"] * 100, 2)
                                if m["total"] else 0.0}
                           for tk, r in m["rows"].items()},
-            "unbuyable": unbuyable(list(scores.index[:HOLD]), prices, m["total"]),
         }
     out["t212"] = {"available": t212 is not None,
                    "configured": bool(t212 is not None and t212.configured()),
@@ -894,7 +851,7 @@ def main() -> int:
                   f"{m['pnl']:+,.2f} = {m['pnl_pct']:+.1f}% "
                   f"on {money(m['deposited'])} paid in")
             print(f"  invested  {money(m['invested'])}   "
-                  f"cash {money(m['cash'])}   [{name} · {MODE}]")
+                  f"cash {money(m['cash'])}   [{name}]")
             print(f"  open      {m['unrealised']:+,.2f}   "
                   f"banked {m['realised']:+,.2f}")
             print(f"  since     {bk.get('last_rebalance') or 'never'}\n")
@@ -938,14 +895,7 @@ def main() -> int:
 
     m = mark(bk, prices)
     orders = plan(bk, prices, basket, m["total"]) if m["total"] > 0 else []
-    cannot = unbuyable(basket, prices, m["total"]) if m["total"] > 0 else []
-
     print(render_plain(bar, buys, sells, basket, scores, m, orders, prices))
-    if cannot:
-        print(f"\n  ! {', '.join(cannot)} cost more than one "
-              f"{money(m['total'] / HOLD)} slice and cannot be bought whole.")
-        print("    Set MOMENTUM_FRACTIONAL=1 if your broker sells part shares, "
-              "or add funds.")
     if m["total"] <= 0:
         print("\n  ! no money on the book — run --deposit AMOUNT so the sizing "
               "and the profit and loss mean something.")
@@ -959,7 +909,7 @@ def main() -> int:
             raise SystemExit("no webhook set ($DISCORD_WEBHOOK) — nothing to test")
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         test=True, m=m, orders=orders,
-                                        prices=prices, cannot=cannot))
+                                        prices=prices))
         print("\n[--test] posted to Discord. state.json and rebalances.csv "
               "untouched — this was not a rebalance, and the book did not move.")
         return 0
@@ -968,8 +918,7 @@ def main() -> int:
         print("\nbasket unchanged and nothing to trim — not posting")
     elif args.webhook:
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
-                                        m=m, orders=orders, prices=prices,
-                                        cannot=cannot))
+                                        m=m, orders=orders, prices=prices))
         print("\nposted to Discord")
     else:
         print("\nno webhook set ($DISCORD_WEBHOOK) — printed only")

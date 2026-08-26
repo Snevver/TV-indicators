@@ -1,7 +1,7 @@
 """Everything the dashboard reads. Nothing here imports momentum_bot.
 
 That is deliberate. momentum_bot reads its whole configuration at import time and
-raises SystemExit on a bad MOMENTUM_MODE, so a long-lived web process that
+reads every MOMENTUM_* variable at import, so a long-lived web process that
 imported it would serve stale settings forever and could refuse to start over a
 typo in a config file. The web app reads the bot's files instead, and shells out
 to a fresh process when it needs live prices.
@@ -169,7 +169,7 @@ def summary(track: str) -> dict:
             "cash": _f(bk.get("cash")), "deposited": _f(bk.get("deposited")),
             "pnl": 0.0, "pnl_pct": 0.0, "realised": _f(bk.get("realised")),
             "unrealised": 0.0, "positions": {}, "basket": bk.get("basket") or [],
-            "last_rebalance": bk.get("last_rebalance"), "unbuyable": [],
+            "last_rebalance": bk.get("last_rebalance"),
             "equity": bk.get("equity") or [], "stale": True, "bar": "",
             "generated": ""}
 
@@ -188,7 +188,6 @@ def health() -> dict:
             "has_history": bool(history("paper") or history("live")),
             "bar": lat.get("bar", ""), "mode": lat.get("mode", ""),
             "track": lat.get("track", ""), "currency": lat.get("currency", ""),
-            "fractional": lat.get("fractional", True),
             "next_rebalance": lat.get("next_rebalance", ""),
             "due": lat.get("due"), "ranking": lat.get("ranking") or [],
             "t212": lat.get("t212") or {},

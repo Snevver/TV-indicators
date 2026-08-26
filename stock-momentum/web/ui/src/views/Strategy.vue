@@ -54,7 +54,7 @@ const h = computed(() => store.state?.health || {});
         an 85% fall. Against the index, which you could actually have bought,
         $1,000 became $36,110 versus $6,233.</p>
 
-      <p class="fine mode">Running <b>{{ h.mode || "rebalance" }}</b> mode on the
+      <p class="fine mode">Trading the
         <b>{{ h.track === "live" ? "Trading 212" : "paper" }}</b> book.</p>
     </section>
   </div>

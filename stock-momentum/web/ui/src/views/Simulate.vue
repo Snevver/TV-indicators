@@ -11,10 +11,7 @@ const error = ref("");
 const busy = ref(false);
 const loadingData = ref(true);
 
-const form = ref({
-  start: "2020-01-01", end: "", budget: 1000,
-  mode: "rebalance", fractional: "1",
-});
+const form = ref({ start: "2020-01-01", end: "", budget: 1000 });
 
 const sym = computed(() => store.state?.symbol || "$");
 
@@ -50,16 +47,13 @@ async function go() {
   busy.value = true; error.value = "";
   try {
     result.value = await api.simulate({
-      start: form.value.start, end: form.value.end,
-      budget: form.value.budget, mode: form.value.mode,
-      fractional: form.value.fractional,
+      start: form.value.start, end: form.value.end, budget: form.value.budget,
     });
   } catch (e) {
     // The endpoint reports why in the body; surface that rather than a status.
     try {
       const r = await fetch("/api/simulate?" + new URLSearchParams({
-        start: form.value.start, end: form.value.end, budget: form.value.budget,
-        mode: form.value.mode, fractional: form.value.fractional }),
+        start: form.value.start, end: form.value.end, budget: form.value.budget }),
         { credentials: "same-origin" });
       error.value = (await r.json()).error || String(e.message || e);
     } catch (_) { error.value = String(e.message || e); }
@@ -91,7 +85,8 @@ const beat = computed(() => {
       <h1>Simulate a window</h1>
       <p class="lede">Run the same rules the bot follows over any past period and
         see it against simply buying the index and holding. Same ranking, same
-        monthly rebalance, same 10 basis points on the money that moves.</p>
+        monthly trade, same 10 basis points on the money that moves — only the
+        names that changed are traded, exactly as the bot does it.</p>
     </div>
 
     <div v-if="loadingData" class="hud pad">
@@ -113,20 +108,6 @@ const beat = computed(() => {
         <div class="f">
           <label class="tag" for="b">Budget</label>
           <input id="b" type="number" v-model.number="form.budget" min="1" step="100">
-        </div>
-        <div class="f">
-          <label class="tag" for="m">Style</label>
-          <select id="m" v-model="form.mode">
-            <option value="rebalance">rebalance</option>
-            <option value="drift">drift</option>
-          </select>
-        </div>
-        <div class="f">
-          <label class="tag" for="fr">Shares</label>
-          <select id="fr" v-model="form.fractional">
-            <option value="1">fractional</option>
-            <option value="0">whole only</option>
-          </select>
         </div>
         <button type="submit" :disabled="busy">{{ busy ? "Running…" : "Run" }}</button>
       </form>
@@ -156,8 +137,7 @@ const beat = computed(() => {
         <div class="hud">
           <div class="hud-head">
             <h2>Growth of {{ money(result.budget, sym) }}</h2>
-            <span class="tag">{{ result.rebalances.length }} rebalances ·
-              {{ result.mode }}{{ result.fractional ? "" : " · whole shares" }}</span>
+            <span class="tag">{{ result.rebalances.length }} rebalances</span>
           </div>
           <div class="hud-body">
             <SimChart :result="result" :sym="sym" />

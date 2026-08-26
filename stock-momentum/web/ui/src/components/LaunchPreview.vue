@@ -8,11 +8,7 @@ import { money } from "../format.js";
 const props = defineProps({ s: Object, h: Object, sym: String });
 
 const slice = computed(() => (props.s?.total || 0) / (props.h?.hold || 8));
-const picks = computed(() =>
-  (props.h?.ranking || []).filter((r) => r.held).map((r) => ({
-    ...r,
-    cannot: (props.s?.unbuyable || []).includes(r.ticker),
-  })));
+const picks = computed(() => (props.h?.ranking || []).filter((r) => r.held));
 </script>
 
 <template>
@@ -35,12 +31,11 @@ const picks = computed(() =>
 
       <div v-if="picks.length" class="picks">
         <div v-for="(p, i) in picks" :key="p.ticker" class="pick"
-             :class="{ blocked: p.cannot }" :style="{ '--d': i * 70 + 'ms' }">
+             :style="{ '--d': i * 70 + 'ms' }">
           <span class="rank mono">{{ String(i + 1).padStart(2, '0') }}</span>
           <span class="sym mono">{{ p.ticker }}</span>
           <span class="mom mono">{{ p.momentum_pct >= 0 ? '+' : '' }}{{ p.momentum_pct.toFixed(1) }}%</span>
           <span class="amt mono">{{ money(slice, sym) }}</span>
-          <span v-if="p.cannot" class="warn tag">too expensive</span>
         </div>
       </div>
       <p v-else class="fine">
@@ -66,12 +61,10 @@ const picks = computed(() =>
   border: 1px solid var(--hair); background: rgba(0,240,255,.035);
   animation: in .45s ease-out both; animation-delay: var(--d);
 }
-.pick.blocked { border-color: rgba(255,180,67,.35); background: rgba(255,180,67,.05) }
 .rank { color: var(--faint); font-size: .72rem }
 .sym { font-weight: 700; color: var(--ink); letter-spacing: .06em }
 .mom { color: var(--up); font-size: .8rem }
 .amt { color: var(--cyan); font-size: .85rem; font-weight: 500 }
-.warn { color: var(--amber) }
 .foot { margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--hair) }
 @keyframes in { from { opacity: 0; transform: translateY(6px) } }
 @media (max-width: 640px) {

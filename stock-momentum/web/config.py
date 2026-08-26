@@ -31,6 +31,11 @@ ETC = "/etc/momentum-bot.env"
 
 SECRET = {"T212_API_KEY", "DISCORD_WEBHOOK"}
 
+# MOMENTUM_MODE and MOMENTUM_FRACTIONAL used to live here. Both were settled by
+# measurement -- drift, fractional -- and hardcoded in the bot, so exposing them
+# would only be a way to configure something it can no longer do. Any leftover
+# lines in an env file are inert.
+
 
 class Invalid(ValueError):
     """A setting the user typed that we will not write."""
@@ -101,14 +106,6 @@ FIELDS = {
     "MOMENTUM_TRACK": (_choice("paper", "live"), "Trading",
                        "Which book the bot acts on. Orders are planned from it, "
                        "so switch to live only once Trading 212 is connected."),
-    "MOMENTUM_MODE": (_choice("rebalance", "drift"), "Rebalance style",
-                      "rebalance resets all eight to an equal slice each month. "
-                      "drift trades only the names that changed and lets winners "
-                      "run — fewer orders, and it measured better."),
-    "MOMENTUM_FRACTIONAL": (_choice("0", "1"), "Fractional shares",
-                            "Trading 212 sells part shares, so this should be on. "
-                            "Off, a name costing more than one slice cannot be "
-                            "bought at all."),
     "MOMENTUM_CURRENCY": (_choice("usd", "eur", "gbp"), "Currency",
                           "The label on every figure. It does not convert anything."),
     "MOMENTUM_MIN_ORDER": (_amount, "Smallest order",
@@ -166,8 +163,6 @@ def for_display() -> list:
 def _choices_for(name):
     return {"T212_ENV": ["demo", "live"],
             "MOMENTUM_TRACK": ["paper", "live"],
-            "MOMENTUM_MODE": ["rebalance", "drift"],
-            "MOMENTUM_FRACTIONAL": ["1", "0"],
             "MOMENTUM_CURRENCY": ["usd", "eur", "gbp"]}.get(name)
 
 

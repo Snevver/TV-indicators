@@ -110,9 +110,12 @@ def _stats(dates, values):
             if len(r) > 2 else 0.0}
 
 
-def run(start: str, end: str, budget: float, mode: str = "rebalance",
-        fractional: bool = True, cost_bps: float = COST_BPS) -> dict:
-    """Simulate the strategy between two dates against holding the index."""
+def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict:
+    """Simulate the strategy between two dates against holding the index.
+
+    Drift with fractional shares, which is the only configuration the bot runs,
+    so this page cannot show a result the bot would not produce.
+    """
     import numpy as np
     import pandas as pd
 
@@ -151,7 +154,7 @@ def run(start: str, end: str, budget: float, mode: str = "rebalance",
         prices = px.iloc[a]
         value = budget if not shares else sum(n * prices[t] for t, n in shares.items())
 
-        if mode == "drift" and shares:
+        if shares:
             leaving = [t for t in shares if t not in top]
             arriving = [t for t in top if t not in shares]
             cash = sum(shares[t] * prices[t] for t in leaving)
@@ -163,17 +166,11 @@ def run(start: str, end: str, budget: float, mode: str = "rebalance",
             if arriving:
                 each = cash / len(arriving)
                 for t in arriving:
-                    n = each / prices[t]
-                    shares[t] = float(int(n)) if not fractional else n
+                    shares[t] = each / prices[t]
         else:
-            turn = (len(set(top) ^ set(shares)) / max(len(top) + len(shares), 1)
-                    if shares else 1.0)
-            value *= (1.0 - turn * cost_bps / 10_000.0)
+            value *= (1.0 - cost_bps / 10_000.0)      # the opening purchase
             per = value / HOLD
-            shares = {}
-            for t in top:
-                n = per / prices[t]
-                shares[t] = float(int(n)) if not fractional else n
+            shares = {t: per / prices[t] for t in top}
 
         held = sum(n * prices[t] for t, n in shares.items())
         log.append({"date": str(idx[a].date()), "basket": top,
@@ -202,7 +199,7 @@ def run(start: str, end: str, budget: float, mode: str = "rebalance",
 
     out = {"dates": thin(dates), "strategy": thin(strat),
            "start": dates[0], "end": dates[-1], "budget": budget,
-           "mode": mode, "fractional": fractional, "rebalances": log,
+           "rebalances": log,
            "stats": {"strategy": _stats(dates, strat)}}
 
     if spy is not None:

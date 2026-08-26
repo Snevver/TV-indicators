@@ -32,7 +32,7 @@ const metrics = computed(() => [
   { k: "Next rebalance", v: (h.value.next_rebalance || "—").split(" ")[0],
     s: (h.value.next_rebalance || "").split(" ")[1] || "unknown" },
   { k: "Last traded", v: s.value.last_rebalance || "never",
-    s: `${h.value.mode || "rebalance"} mode` },
+    s: "monthly" },
   { k: "Worst drop", v: (hist.value.maxdd ?? 0).toFixed(1) + "%",
     s: "from the high", tone: (hist.value.maxdd ?? 0) < -0.05 ? "down" : "" },
   { k: "Price feed", v: h.value.bar || "—", s: hoursAgo(h.value.latest_hours) },
@@ -43,8 +43,6 @@ const health = computed(() => [
     state: h.value.latest_hours != null && h.value.latest_hours < 36 ? "on" : "warn" },
   { label: "Trading 212", value: h.value.t212?.configured ? (h.value.t212.env || "on") : "off",
     state: h.value.t212?.configured ? "on" : "off" },
-  { label: "Fractional", value: h.value.fractional ? "on" : "off",
-    state: h.value.fractional ? "on" : "warn" },
   { label: "Trading", value: h.value.track === "live" ? "Trading 212" : "Paper", state: "on" },
   { label: "Feed", value: store.error ? "error" : "nominal", state: store.error ? "warn" : "on" },
 ]);
@@ -80,13 +78,6 @@ const health = computed(() => [
       <MetricRail :items="metrics" />
 
       <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
-
-      <section v-if="s.unbuyable?.length" class="note alert">
-        <h2>{{ s.unbuyable.join(", ") }} cost more than one slice</h2>
-        <p class="lede">Whole-share mode is on, so these cannot be bought at
-          {{ money((s.total || 0) / (h.hold || 8), sym) }} each. Turn on fractional
-          shares in Settings, or the basket becomes the cheap half of the ranking.</p>
-      </section>
 
       <div v-if="!empty" class="hud">
         <div class="hud-head"><h2>Holdings</h2>

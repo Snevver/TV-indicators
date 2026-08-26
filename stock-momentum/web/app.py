@@ -284,14 +284,10 @@ def api_simulate():
     if not 1 <= budget <= 100_000_000:
         return jsonify({"error": "budget must be between 1 and 100,000,000"}), 400
 
-    mode = (q.get("mode") or "rebalance").lower()
-    if mode not in ("rebalance", "drift"):
-        return jsonify({"error": "mode must be rebalance or drift"}), 400
-
+    # mode and fractional used to be query parameters. They are ignored rather
+    # than rejected, so an old bookmark still works.
     try:
-        return jsonify(simulate.run(
-            q.get("start", ""), q.get("end", ""), budget, mode,
-            fractional=(q.get("fractional", "1") != "0")))
+        return jsonify(simulate.run(q.get("start", ""), q.get("end", ""), budget))
     except simulate.NoData as exc:
         return jsonify({"error": str(exc)}), 503
     except ValueError as exc:

@@ -39,46 +39,37 @@ both of those are readable by every user on the box:
 sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
-MOMENTUM_CURRENCY=USD
-MOMENTUM_FRACTIONAL=1
+MOMENTUM_CURRENCY=EUR
 EOF
 ```
 
-`MOMENTUM_CURRENCY` is the label on every figure. `MOMENTUM_FRACTIONAL` says
-whether your broker will sell you part of a share — see **Fractional shares**
-below, because at a small account it decides whether the strategy works at all.
+`MOMENTUM_CURRENCY` is the label on every figure. It does not convert anything.
 
-Two more, both optional:
+`MOMENTUM_MIN_ORDER` (default `1`) is optional: don't generate an order below
+this, so a rebalance doesn't ask you to trade forty cents of something.
 
-- `MOMENTUM_MIN_ORDER` (default `1`) — don't generate an order below this, so a
-  rebalance doesn't ask you to trade forty cents of something.
-- `MOMENTUM_MODE` (default `rebalance`) — `rebalance` resets all eight to an
-  equal slice every month, which is what the backtest measured. `drift` trades
-  only the names that changed and lets the survivors run: measured better over
-  2005–2026 ($48.6k against $36.1k from $1,000) with a smaller drawdown, at the
-  cost of concentration — the largest position was typically 17.6% of the
-  account and peaked at 37.9%. It also places far fewer orders.
+`MOMENTUM_TRACK` (default `paper`) picks which book the bot trades. See
+**The two books** in `../web/README.md`.
 
-Mode 600 owned by you: you and root can read it, nobody else. Owning it matters
-only so you can source it by hand to test — systemd reads `EnvironmentFile` as
-root before it drops to `User=`, so the timer works either way. If you created
-the file root-owned and `. /etc/momentum-bot.env` gives *Permission denied*,
-`sudo chown "$USER" /etc/momentum-bot.env` fixes it without loosening the mode.
+### Two settings that used to be here
 
-**The webhook URL is a password.** Anyone who has it can post to your channel.
-Keep it out of the repo, out of screenshots, and out of chat. If it leaks, delete
-the webhook in Discord and make a new one — that instantly invalidates the old
-URL.
+`MOMENTUM_MODE` and `MOMENTUM_FRACTIONAL` are gone. Both were settled by
+measurement and are now the only behaviour:
 
-Check the whole thing works before automating it:
+- **Drift**, not full re-equalisation. Only the names that changed get traded;
+  survivors are left alone. Drift won seven of eight test windows and won the
+  full 2005–2026 history with a *smaller* worst fall (55.1% against 59.7%),
+  while placing far fewer orders — which on a euro account paying 0.15% per
+  conversion is money as well. Its cost is concentration: the largest position
+  ran at a median 17.6% against a fixed 12.5%, peaking at 37.8%.
+- **Fractional shares.** Never a performance setting — it described whether the
+  broker sells part of a share, and Trading 212 does. At €1,000 with whole
+  shares only, six of eight names cost more than a slice and the account could
+  not buy them at all.
 
-```bash
-set -a; . /etc/momentum-bot.env; set +a
-.venv/bin/python momentum_bot.py --dry
-```
-
-`--dry` ranks, prints, and posts nothing. If the top 12 resembles the
-indicator's table on TradingView, you are wired up correctly.
+Leftover lines for either in an env file are inert. **If your broker ever stops
+selling part shares**, the unbuyable check that used to warn about this is gone
+and would have to come back — nothing flags it now.
 
 ## Telling it about your money
 
@@ -108,29 +99,6 @@ python momentum_bot.py --fill MU=-0.15@831.00     # a sale it does not know abou
 
 Repeatable, and the P&L follows. If you never bother, the numbers stay close and
 drift slowly. Check them against the broker every few months.
-
-## Fractional shares
-
-`MOMENTUM_FRACTIONAL=1` assumes your broker will sell you part of a share. If it
-will, account size stops mattering: every position lands exactly on its target
-weight, and a $830 stock fits into a $125 slice as 0.1507 shares.
-
-`MOMENTUM_FRACTIONAL=0` rounds every order down to a whole share. On a small
-account that quietly breaks the strategy. At $1,000 in August 2026 the slice was
-$125 and six of the eight names cost more than that, so the account would have
-held four names — picked by share price rather than by momentum. The bot spots
-this, turns the message amber and names the stocks it could not buy, but it
-cannot fix it for you.
-
-Whole shares also strand cash: rounding down eight times left 15–19% of a
-$10,000 account uninvested, so after sizing the positions the bot spends what is
-left topping up whichever names sit furthest below their target.
-
-**Check before you trade.** Not every broker offers fractional orders, and some
-offer them only on selected stocks or only as market orders. Place one small
-fractional order by hand and see whether it fills. If it does, set the flag to
-`1` and any account size works. If it does not, you need roughly $10,000 for the
-eight weights to be even approximately right.
 
 ## Trading 212 (optional, off until you turn it on)
 
@@ -315,10 +283,6 @@ Both are gitignored.
 - **Works by hand, silent from the timer** — almost always the environment.
   `sudo systemctl start momentum-bot.service` then read the journal; an
   `EnvironmentFile` that does not exist makes the unit fail before Python runs.
-- **The message is amber and names stocks it "could not buy"** — the account is
-  in whole-share mode and those names cost more than one slice. Turn on
-  fractional shares, or fund the account to roughly $10,000. Until then you are
-  holding a subset chosen by share price. See **Fractional shares**.
 - **`--status` says $0.00 with positions on the book** — you never ran
   `--deposit`, so the bot has no idea what you paid in and every percentage is
   measured against zero.
