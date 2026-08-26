@@ -1,0 +1,29 @@
+# Reads back your Discord reaction and acts on it.
+#
+# WHY A TIMER AND NOT A LISTENER
+# Discord cannot call us. A reaction sits on the message until something asks
+# whether it is there, so either you press a button or this asks for you. It is
+# the same question either way; the timer just asks every minute so a reaction
+# turns into an order on its own.
+#
+# Costs nothing when idle: with no test pending, --smoke-poll exits immediately
+# without touching the network.
+#
+# Install (edit CHANGEME first):
+#   sudo cp momentum-smoke.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-smoke.timer
+
+[Unit]
+Description=Act on a Discord reaction to a smoke test
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
+EnvironmentFile=-/etc/momentum-bot.env
+EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --smoke-poll
+TimeoutStartSec=120
