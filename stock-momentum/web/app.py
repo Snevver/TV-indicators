@@ -284,10 +284,19 @@ def api_simulate():
     if not 1 <= budget <= 100_000_000:
         return jsonify({"error": "budget must be between 1 and 100,000,000"}), 400
 
+    try:
+        monthly = float(q.get("monthly", "0") or 0)
+    except ValueError:
+        return jsonify({"error": "the monthly amount must be a number"}), 400
+    if not 0 <= monthly <= 1_000_000:
+        return jsonify({"error": "the monthly amount must be between 0 and "
+                                 "1,000,000"}), 400
+
     # mode and fractional used to be query parameters. They are ignored rather
     # than rejected, so an old bookmark still works.
     try:
-        return jsonify(simulate.run(q.get("start", ""), q.get("end", ""), budget))
+        return jsonify(simulate.run(q.get("start", ""), q.get("end", ""), budget,
+                                    monthly=monthly))
     except simulate.NoData as exc:
         return jsonify({"error": str(exc)}), 503
     except ValueError as exc:

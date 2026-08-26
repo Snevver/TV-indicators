@@ -51,6 +51,44 @@ this, so a rebalance doesn't ask you to trade forty cents of something.
 `MOMENTUM_TRACK` (default `paper`) picks which book the bot trades. See
 **The two books** in `../web/README.md`.
 
+`MOMENTUM_MONTHLY` (default `0`, off) is what you pay in by standing order each
+month. On rebalance day it is credited to the **paper** book and spread over all
+eight holdings; sell proceeds keep funding the arriving names on their own,
+which is how it was measured — that beat putting the new money into the arrivals
+in seven of eight windows and over the full history, by about 1.3%. A narrow
+win, but it is also what a Trading 212 pie does with a standing order.
+
+It is paper-only on purpose. The live book takes its cash from Trading 212, so
+crediting it here would count the same euros twice. And the paper book is a
+model: if the transfer bounces, this is a claim about money that never arrived.
+The rebalance message says so.
+
+Undoing one is fiddly on purpose, because by then the money is already in
+shares: `--deposit` refuses a negative amount and `--withdraw` only works while
+the cash is still uninvested. After a rebalance has spent it, correct the eight
+positions with `--fill TICKER=-SHARES@PRICE` and set the contribution to 0 until
+the standing order is reliable.
+
+Because contributions make `final ÷ first − 1` count your own deposits as
+profit, anything that reports a percentage once this is on uses a money-weighted
+return instead. The bot's own figure was always `total ÷ deposited − 1`, so it
+was already correct.
+
+### Where settings are read from
+
+Two files, both read, in this order:
+
+```
+/etc/momentum-bot.env                  # set over SSH, mode 600
+~/.config/momentum/momentum.env        # what the dashboard's Settings page writes
+```
+
+The second wins, matching how systemd applies `EnvironmentFile`. The bot loads
+both itself, so it does not matter whether it was started by systemd or typed at
+a shell — no `set -a` needed. An exported variable still beats both files, so
+`T212_ENV=demo python3 momentum_bot.py --t212-probe` works for a one-off.
+`--status` and `--t212-probe` print which files they read.
+
 ### Two settings that used to be here
 
 `MOMENTUM_MODE` and `MOMENTUM_FRACTIONAL` are gone. Both were settled by

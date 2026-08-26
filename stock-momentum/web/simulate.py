@@ -110,11 +110,43 @@ def _stats(dates, values):
             if len(r) > 2 else 0.0}
 
 
-def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict:
+def _irr(flows, years) -> float:
+    """Annual money-weighted return. `flows` is [(years_from_start, amount)] with
+    money paid in negative and the closing value positive.
+
+    With contributions arriving every month, final/first - 1 is not a return at
+    all -- it counts your own deposits as profit. This is the rate that actually
+    solves the cash flows. Bisection rather than scipy: one dependency less, and
+    the bracket is wide enough for anything a market can do.
+    """
+    def npv(r):
+        return sum(a / ((1.0 + r) ** t) for t, a in flows)
+    lo, hi = -0.9999, 10.0
+    if npv(lo) * npv(hi) > 0:
+        return float("nan")
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        if npv(lo) * npv(mid) <= 0:
+            hi = mid
+        else:
+            lo = mid
+    return (lo + hi) / 2.0 * 100.0
+
+
+def run(start: str, end: str, budget: float, monthly: float = 0.0,
+        cost_bps: float = COST_BPS) -> dict:
     """Simulate the strategy between two dates against holding the index.
 
     Drift with fractional shares, which is the only configuration the bot runs,
     so this page cannot show a result the bot would not produce.
+
+    `monthly` is paid in on every rebalance after the first. Sell proceeds keep
+    funding the arriving names exactly as they always did; only the NEW money is
+    spread across the whole basket. Measured over eight windows that beat putting
+    it all into the arrivals in seven of them, and won the full history with a
+    slightly smaller worst fall -- though only by about 1.3%, so it is a
+    preference, not a discovery. It is also what a Trading 212 pie does with a
+    standing order, which matters for the live track.
     """
     import numpy as np
     import pandas as pd
@@ -127,6 +159,8 @@ def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict
     hi = pd.Timestamp(end)
     if hi <= lo:
         raise ValueError("the end date must be after the start date")
+    if monthly < 0:
+        raise ValueError("a monthly contribution cannot be negative")
 
     earliest = idx[LOOKBACK + SKIP + 1]
     if lo < earliest:
@@ -135,8 +169,6 @@ def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict
     if lo > idx[-1]:
         raise ValueError(f"the data ends {idx[-1].date()}")
 
-    # Every first-trading-day-of-month inside the window, which is the point the
-    # bot trades and the backtest measures.
     anchors = (pd.Series(np.arange(len(idx)), index=idx)
                .groupby([idx.year, idx.month]).first().to_numpy())
     anchors = [int(a) for a in anchors
@@ -147,28 +179,49 @@ def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict
 
     end_i = int(np.searchsorted(idx, hi, side="right") - 1)
     slice_start = anchors[0]
+    fee = cost_bps / 10_000.0
 
+    # The arithmetic below is the published one, unchanged: with monthly=0 this
+    # loop is the original line for line. Contributions are layered on top so a
+    # figure already quoted from this page cannot move underneath it.
     shares, curve, log = {}, [], []
+    contributed = 0.0
+    flows = []                      # (date, amount paid in) for the IRR
     for k, a in enumerate(anchors):
         top = list(_momentum(px, a).index[:HOLD])
         prices = px.iloc[a]
         value = budget if not shares else sum(n * prices[t] for t, n in shares.items())
 
         if shares:
+            if monthly:
+                contributed += monthly
+                flows.append((idx[a], monthly))
+                value += monthly
+
             leaving = [t for t in shares if t not in top]
             arriving = [t for t in top if t not in shares]
             cash = sum(shares[t] * prices[t] for t in leaving)
             traded = cash * (2 if arriving else 1)
-            value -= traded * cost_bps / 10_000.0
-            cash -= cash * cost_bps / 10_000.0
+            value -= traded * fee
+            cash -= cash * fee
             for t in leaving:
                 del shares[t]
             if arriving:
                 each = cash / len(arriving)
                 for t in arriving:
                     shares[t] = each / prices[t]
+
+            # New money only, spread over the whole basket. Sell proceeds keep
+            # funding the arrivals above, exactly as they always did.
+            if monthly:
+                value -= monthly * fee
+                each = monthly / len(top)
+                for t in top:
+                    shares[t] = shares.get(t, 0.0) + each / prices[t]
         else:
-            value *= (1.0 - cost_bps / 10_000.0)      # the opening purchase
+            contributed += budget
+            flows.append((idx[a], budget))
+            value *= (1.0 - fee)                  # the opening purchase
             per = value / HOLD
             shares = {t: per / prices[t] for t in top}
 
@@ -176,7 +229,8 @@ def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict
         log.append({"date": str(idx[a].date()), "basket": top,
                     "value": round(float(value), 2),
                     "invested": round(float(held), 2),
-                    "cash": round(float(value - held), 2)})
+                    "cash": round(float(value - held), 2),
+                    "paid_in": round(float(contributed), 2)})
 
         nxt = anchors[k + 1] if k + 1 < len(anchors) else end_i + 1
         cash_left = value - held
@@ -197,16 +251,71 @@ def run(start: str, end: str, budget: float, cost_bps: float = COST_BPS) -> dict
             out = out + [v[-1]]
         return out
 
+    paid_on = {str(t.date()): amt for t, amt in flows}
+
+    def money_stats(values):
+        """Money figures come from the account itself; risk figures come from a
+        series with the deposits taken out.
+
+        A contribution is not a gain, but on the raw curve it looks exactly like
+        one: a +150 step reads as a positive day, inflating volatility and
+        papering over falls. So worst fall and volatility are measured on a
+        time-weighted series -- each day's return computed after removing that
+        day's payment -- which is how a fund reports performance. With
+        monthly=0 there is nothing to remove and this reduces to the old numbers
+        exactly.
+        """
+        s = _stats(dates, values)
+        if not monthly:
+            return s
+
+        tw = [1.0]
+        for i in range(1, len(values)):
+            prev = values[i - 1]
+            added = paid_on.get(dates[i], 0.0)
+            tw.append(tw[-1] * (((values[i] - added) / prev) if prev > 0 else 1.0))
+        risk = _stats(dates, tw)
+        s["maxdd_pct"] = risk["maxdd_pct"]
+        s["vol_pct"] = risk["vol_pct"]
+
+        last = pd.Timestamp(dates[-1])
+        first = flows[0][0]
+        # Time runs forward from the first payment. Measuring it backwards from
+        # the end discounts the oldest contribution hardest, which turns a
+        # tripled account into a negative rate.
+        cf = [((t - first).days / 365.25, -amt) for t, amt in flows]
+        span = max((last - first).days / 365.25, 1e-9)
+        cf.append((span, values[-1]))
+        s["paid_in"] = round(contributed, 2)
+        s["gain"] = round(values[-1] - contributed, 2)
+        s["ret_pct"] = None                       # meaningless with cash flows
+        s["cagr_pct"] = None
+        s["irr_pct"] = (round(_irr(cf, span), 2) if span > 0.4 else None)
+        return s
+
     out = {"dates": thin(dates), "strategy": thin(strat),
            "start": dates[0], "end": dates[-1], "budget": budget,
+           "monthly": monthly, "paid_in": round(contributed, 2),
            "rebalances": log,
-           "stats": {"strategy": _stats(dates, strat)}}
+           "stats": {"strategy": money_stats(strat)}}
 
     if spy is not None:
         base = float(spy.iloc[slice_start])
         if base > 0:
-            bench = [round(float(spy.iloc[i]) / base * budget, 2)
-                     for i in range(slice_start, end_i + 1)]
-            out["stats"]["spy"] = _stats(dates, bench)
+            if monthly:
+                # The index has to receive the same money on the same days, or
+                # the comparison is rigged: a line that gets fresh cash every
+                # month will beat one that does not, whatever it holds.
+                by_date = {t: amt for t, amt in flows}
+                units, bench = 0.0, []
+                for i in range(slice_start, end_i + 1):
+                    when = idx[i]
+                    if when in by_date:
+                        units += by_date[when] / float(spy.iloc[i])
+                    bench.append(round(units * float(spy.iloc[i]), 2))
+            else:
+                bench = [round(float(spy.iloc[i]) / base * budget, 2)
+                         for i in range(slice_start, end_i + 1)]
+            out["stats"]["spy"] = money_stats(bench)
             out["spy"] = thin(bench)
     return out

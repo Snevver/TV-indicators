@@ -151,6 +151,16 @@ SYM = {"USD": "$", "EUR": "\u20ac", "GBP": "\u00a3"}.get(CURRENCY, CURRENCY + " 
 # Don't generate an order for loose change.
 MIN_ORDER = float(os.environ.get("MOMENTUM_MIN_ORDER", "1") or 1)
 
+# What a standing order pays in each month. Credited to the PAPER book on
+# rebalance day and spread over all eight holdings -- sell proceeds keep funding
+# the arriving names on their own, which is how it was measured. 0 turns it off.
+#
+# Paper only, deliberately. The live book takes its cash from Trading 212, so
+# crediting it here would count the same euros twice. And the paper book is a
+# model: if the transfer bounces, this number is a claim about money that never
+# arrived, which is why every message that uses it says so.
+MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
+
 # TWO THINGS THAT USED TO BE SETTINGS, AND WHY THEY ARE NOT ANY MORE
 #
 # Rebalance style. The choice was between resetting all eight to an equal slice
@@ -337,27 +347,51 @@ def mark(bk, prices) -> dict:
             "unrealised": sum(r["pnl"] for r in rows.values())}
 
 
-def plan(bk, prices, basket, total) -> list:
+def plan(bk, prices, basket, total, contribution: float = 0.0) -> list:
     """The orders that move the current book to the new basket.
 
-    Survivors are left exactly as they are: whatever the sells raised, plus any
-    idle cash, is split over the names that are new this month. Returns
-    (ticker, delta_shares, cash_delta) with sells first, so the cash to pay for
-    the buys exists before they are applied.
+    Whatever the sells raised, plus any idle cash, is split over the names that
+    are new this month; survivors are not trimmed to fund them, which is what
+    lets winners run. Returns (ticker, delta_shares, cash_delta) with sells
+    first, so the cash to pay for the buys exists before they are applied.
+
+    `contribution` is this month's new money, which bk["cash"] already holds. It
+    is taken back out of the pot that funds the arrivals and spread over the
+    whole basket instead -- survivors included. Measured against putting it all
+    into the arrivals, that won seven of eight windows and the full history, by
+    about 1.3%. A narrow win, but it is also what a Trading 212 pie does with a
+    standing order. With contribution=0 this function is unchanged.
     """
-    orders, pos = [], bk["positions"]
+    pos = bk["positions"]
+    sells = []
     for tk, sh in sorted(pos.items()):
         if sh > 0 and tk not in basket:
-            orders.append((tk, -sh, sh * prices.get(tk, 0.0)))
+            sells.append((tk, -sh, sh * prices.get(tk, 0.0)))
 
-    arriving = [t for t in basket if pos.get(t, 0.0) <= 0]
-    if arriving:
-        pot = bk["cash"] + sum(o[2] for o in orders)
+    # A name with no price today cannot be sized, so it is skipped rather than
+    # guessed at. Sells above already tolerate this; spreading a contribution
+    # over the whole basket is the first thing that can reach a survivor.
+    def priced(tickers):
+        return [t for t in tickers if prices.get(t, 0.0) > 0]
+
+    buys = {}
+    arriving = priced(t for t in basket if pos.get(t, 0.0) <= 0)
+    pot = bk["cash"] + sum(o[2] for o in sells) - contribution
+    if arriving and pot > 0:
         each = pot / len(arriving)
         for tk in arriving:
-            sh = each / prices[tk]
-            if sh * prices[tk] >= MIN_ORDER:
-                orders.append((tk, sh, -sh * prices[tk]))
+            buys[tk] = buys.get(tk, 0.0) + each / prices[tk]
+    spread_over = priced(basket)
+    if contribution > 0 and spread_over:
+        each = contribution / len(spread_over)
+        for tk in spread_over:
+            buys[tk] = buys.get(tk, 0.0) + each / prices[tk]
+
+    orders = list(sells)
+    for tk in basket:                      # basket order, so the message reads well
+        sh = buys.get(tk, 0.0)
+        if sh > 0 and sh * prices[tk] >= MIN_ORDER:
+            orders.append((tk, sh, -sh * prices[tk]))
     return orders
 
 
@@ -977,9 +1011,27 @@ def main() -> int:
     sells = [t for t in held if t not in basket]
     first = not held
 
+    # A standing order lands before the rebalance, so the new money is part of
+    # what gets allocated today. --dry and --test return before the save below,
+    # so nothing is persisted by a preview.
+    paid_in_today = 0.0
+    if MONTHLY > 0 and name == "paper":
+        bk["cash"] += MONTHLY
+        bk["deposited"] += MONTHLY
+        paid_in_today = MONTHLY
+
     m = mark(bk, prices)
-    orders = plan(bk, prices, basket, m["total"]) if m["total"] > 0 else []
+    orders = (plan(bk, prices, basket, m["total"], contribution=paid_in_today)
+              if m["total"] > 0 else [])
     print(render_plain(bar, buys, sells, basket, scores, m, orders, prices))
+    if paid_in_today:
+        print(f"\n  + {money(paid_in_today)} paid in this month, spread over all "
+              f"{len(basket)} holdings.")
+        print(f"    The paper book assumes it landed. If the transfer bounced, "
+              f"the book now holds shares it did not pay for: correct them with "
+              f"--fill TICKER=-SHARES@PRICE and set Monthly to 0 until the "
+              f"standing order is reliable. --withdraw only helps while the "
+              f"cash is still uninvested, which after this run it is not.")
     if m["total"] <= 0:
         print("\n  ! no money on the book — run --deposit AMOUNT so the sizing "
               "and the profit and loss mean something.")

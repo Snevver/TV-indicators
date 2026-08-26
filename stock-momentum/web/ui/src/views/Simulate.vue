@@ -11,7 +11,7 @@ const error = ref("");
 const busy = ref(false);
 const loadingData = ref(true);
 
-const form = ref({ start: "2020-01-01", end: "", budget: 1000 });
+const form = ref({ start: "2020-01-01", end: "", budget: 1000, monthly: 0 });
 
 const sym = computed(() => store.state?.symbol || "$");
 
@@ -48,12 +48,14 @@ async function go() {
   try {
     result.value = await api.simulate({
       start: form.value.start, end: form.value.end, budget: form.value.budget,
+      monthly: form.value.monthly || 0,
     });
   } catch (e) {
     // The endpoint reports why in the body; surface that rather than a status.
     try {
       const r = await fetch("/api/simulate?" + new URLSearchParams({
-        start: form.value.start, end: form.value.end, budget: form.value.budget }),
+        start: form.value.start, end: form.value.end, budget: form.value.budget,
+        monthly: form.value.monthly || 0 }),
         { credentials: "same-origin" });
       error.value = (await r.json()).error || String(e.message || e);
     } catch (_) { error.value = String(e.message || e); }
@@ -61,20 +63,30 @@ async function go() {
   } finally { busy.value = false; }
 }
 
-const ROWS = [
+const contrib = computed(() => (result.value?.monthly || 0) > 0);
+
+const ROWS = computed(() => [
   { key: "strategy", label: "Momentum rotation", note: "top 8, rebalanced monthly", swatch: "cy" },
-  { key: "spy", label: "S&P 500", note: "bought once and held", swatch: "am" },
-];
+  { key: "spy", label: "S&P 500",
+    note: contrib.value ? "the same payments, into the index" : "bought once and held",
+    swatch: "am" },
+]);
 
 // Only the benchmarks the run actually produced — SPY is absent if the ETF
 // export is missing.
 const shownRows = computed(() =>
-  ROWS.filter((r) => result.value?.stats?.[r.key]));
+  ROWS.value.filter((r) => result.value?.stats?.[r.key]));
 
+// With money arriving every month, final ÷ first − 1 counts your own deposits as
+// profit, so the API sends a money-weighted return instead and leaves ret_pct
+// null. Compare whichever one the run actually produced.
 const beat = computed(() => {
   const st = result.value?.stats;
   if (!st?.strategy || !st?.spy) return null;
-  return st.strategy.ret_pct - st.spy.ret_pct;
+  const a = contrib.value ? st.strategy.irr_pct : st.strategy.ret_pct;
+  const b = contrib.value ? st.spy.irr_pct : st.spy.ret_pct;
+  if (a === null || b === null || a === undefined || b === undefined) return null;
+  return a - b;
 });
 </script>
 
@@ -107,7 +119,12 @@ const beat = computed(() => {
         </div>
         <div class="f">
           <label class="tag" for="b">Budget</label>
-          <input id="b" type="number" v-model.number="form.budget" min="1" step="100">
+          <input id="b" type="number" v-model.number="form.budget" min="1" step="any">
+        </div>
+        <div class="f">
+          <label class="tag" for="mo">Monthly</label>
+          <input id="mo" type="number" v-model.number="form.monthly" min="0" step="any"
+                 title="Paid in on every rebalance after the first. 0 for none.">
         </div>
         <button type="submit" :disabled="busy">{{ busy ? "Running…" : "Run" }}</button>
       </form>
@@ -122,7 +139,7 @@ const beat = computed(() => {
       <template v-if="result && !error">
         <div class="verdict hud" v-if="beat !== null">
           <span class="tag">{{ result.start }} → {{ result.end }}</span>
-          <p class="line">
+          <p class="line" v-if="!contrib">
             <b class="mono" :class="beat >= 0 ? 'up' : 'down'">
               {{ money(result.stats.strategy.final, sym) }}</b>
             against <b class="mono">{{ money(result.stats.spy.final, sym) }}</b>
@@ -132,11 +149,33 @@ const beat = computed(() => {
             through a worst fall of
             <b class="down mono">{{ result.stats.strategy.maxdd_pct.toFixed(1) }}%</b>.
           </p>
+          <p class="line" v-else>
+            You paid in <b class="mono">{{ money(result.stats.strategy.paid_in, sym) }}</b>
+            and finished with
+            <b class="mono" :class="beat >= 0 ? 'up' : 'down'">
+              {{ money(result.stats.strategy.final, sym) }}</b> —
+            a gain of
+            <b class="mono" :class="result.stats.strategy.gain >= 0 ? 'up' : 'down'">
+              {{ money(result.stats.strategy.gain, sym) }}</b>, worth
+            <b :class="beat >= 0 ? 'up' : 'down'">{{ result.stats.strategy.irr_pct?.toFixed(1) }}%
+            a year</b>. The same payments into the index made
+            <b class="mono">{{ money(result.stats.spy.gain, sym) }}</b>
+            at <b>{{ result.stats.spy.irr_pct?.toFixed(1) }}%</b>, through a worst
+            fall of
+            <b class="down mono">{{ result.stats.strategy.maxdd_pct.toFixed(1) }}%</b>.
+          </p>
+          <p class="line sub" v-if="contrib">
+            Because money keeps arriving, a plain start-to-finish percentage would
+            count your own deposits as profit. The yearly figure above is
+            money-weighted, and the index receives the same amount on the same
+            days so the comparison is like for like.
+          </p>
         </div>
 
         <div class="hud">
           <div class="hud-head">
-            <h2>Growth of {{ money(result.budget, sym) }}</h2>
+            <h2>Growth of {{ money(result.budget, sym) }}<template v-if="contrib">
+              plus {{ money(result.monthly, sym) }} a month</template></h2>
             <span class="tag">{{ result.rebalances.length }} rebalances</span>
           </div>
           <div class="hud-body">
@@ -164,10 +203,13 @@ const beat = computed(() => {
                   <b>{{ r.label }}</b><span class="sub">{{ r.note }}</span>
                 </td>
                 <td class="mono">{{ money(result.stats[r.key].final, sym) }}</td>
-                <td class="mono" :class="result.stats[r.key].ret_pct >= 0 ? 'up' : 'down'">
+                <td class="mono" v-if="result.stats[r.key].ret_pct == null">—</td>
+                <td class="mono" v-else
+                    :class="result.stats[r.key].ret_pct >= 0 ? 'up' : 'down'">
                   {{ pct(result.stats[r.key].ret_pct, 1) }}</td>
-                <td class="mono">{{ result.stats[r.key].cagr_pct == null
-                  ? "—" : pct(result.stats[r.key].cagr_pct, 1) }}</td>
+                <td class="mono">{{ (result.stats[r.key].irr_pct
+                  ?? result.stats[r.key].cagr_pct) == null ? "—"
+                  : pct(result.stats[r.key].irr_pct ?? result.stats[r.key].cagr_pct, 1) }}</td>
                 <td class="mono down">−{{ result.stats[r.key].maxdd_pct.toFixed(1) }}%</td>
                 <td class="mono dim">{{ result.stats[r.key].vol_pct.toFixed(0) }}%</td>
               </tr>
@@ -223,6 +265,8 @@ const beat = computed(() => {
 .verdict .line { font-size: 1.02rem; color: var(--body); max-width: 78ch;
   line-height: 1.6 }
 .verdict b { color: var(--ink) }
+/* The caveat under the verdict: present, but not competing with it. */
+.verdict .line.sub { font-size: .84rem; color: var(--faint); max-width: 72ch }
 
 .key { display: flex; gap: 20px; flex-wrap: wrap; padding: 10px 4px 2px;
   font-size: .76rem; color: var(--faint) }

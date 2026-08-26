@@ -120,6 +120,11 @@ FIELDS = {
                        "so switch to live only once Trading 212 is connected."),
     "MOMENTUM_CURRENCY": (_choice("usd", "eur", "gbp"), "Currency",
                           "The label on every figure. It does not convert anything."),
+    "MOMENTUM_MONTHLY": (_amount, "Monthly contribution",
+                         "What you pay in each month by standing order. Added "
+                         "to the paper book on rebalance day and spread over "
+                         "all eight holdings. 0 turns it off. The live track "
+                         "takes its cash from Trading 212 instead."),
     "MOMENTUM_MIN_ORDER": (_amount, "Smallest order",
                            "Skip orders below this, so a rebalance does not ask "
                            "you to trade forty cents of something."),
