@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Momentum{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>📈</text></svg>">
+</head>
+<body>
+{% if session.get('in') %}
+<header class="top">
+  <a class="brand" href="/">Momentum</a>
+  <nav>
+    <a href="/" class="{{ 'on' if request.path == '/' }}">Dashboard</a>
+    <a href="/strategy" class="{{ 'on' if request.path == '/strategy' }}">Strategy</a>
+    <a href="/settings" class="{{ 'on' if request.path == '/settings' }}">Settings</a>
+  </nav>
+  <form method="post" action="/logout" class="signout">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="ghost">Sign out</button>
+  </form>
+</header>
+{% endif %}
+<main class="wrap">{% block body %}{% endblock %}</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

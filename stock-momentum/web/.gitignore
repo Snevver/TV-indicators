@@ -1,0 +1,4 @@
+# Local to this machine — never the repo's.
+auth.json
+auth.json.tmp
+__pycache__/

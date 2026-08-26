@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}{{ TRACK_LABEL[track] }} — Momentum{% endblock %}
+{% macro money(v) %}{{ sym }}{{ '{:,.2f}'.format(v or 0) }}{% endmacro %}
+{% block body %}
+
+<div class="switch" role="group" aria-label="Which account">
+  {% for t in ['paper', 'live'] %}
+    <a href="/?track={{ t }}" class="{{ 'on' if track == t }}">{{ TRACK_LABEL[t] }}</a>
+  {% endfor %}
+  <span class="spacer"></span>
+  <button id="refresh" class="ghost" data-csrf="{{ csrf }}">Refresh prices</button>
+</div>
+
+{% if track == 'live' and not h.t212.get('configured') %}
+<section class="note">
+  <h2>Trading 212 isn't connected</h2>
+  <p>{{ h.t212.get('reason') or 'No API key is set.' }} Until it is, this side has
+     nothing to show — the paper book is where the strategy is running.</p>
+  <p><a href="/settings">Connect it in Settings</a>, then use Probe to check the key.</p>
+</section>
+{% elif s.stale and not s.positions %}
+<section class="note">
+  <h2>Nothing recorded yet</h2>
+  <p>The bot hasn't run since this book was funded. It wakes on weeknights at
+     21:00 and opens its position on the first trading day of the month.</p>
+  {% if s.deposited %}<p>{{ money(s.deposited) }} is paid in and waiting.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="tiles">
+  <div class="tile lead">
+    <span class="k">Account</span>
+    <span class="v">{{ money(s.total) }}</span>
+    <span class="d {{ 'up' if (s.pnl or 0) >= 0 else 'down' }}">
+      {{ '{:+,.2f}'.format(s.pnl or 0) }} · {{ '{:+.1f}'.format(s.pnl_pct or 0) }}%
+    </span>
+    <span class="f">on {{ money(s.deposited) }} paid in</span>
+  </div>
+  <div class="tile">
+    <span class="k">Invested</span><span class="v">{{ money(s.invested) }}</span>
+    <span class="f">{{ (s.positions or {})|length }} names</span>
+  </div>
+  <div class="tile">
+    <span class="k">Cash</span><span class="v">{{ money(s.cash) }}</span>
+    <span class="f">not in a stock</span>
+  </div>
+  <div class="tile">
+    <span class="k">Banked</span>
+    <span class="v {{ 'up' if (s.realised or 0) >= 0 else 'down' }}">{{ money(s.realised) }}</span>
+    <span class="f">realised by selling</span>
+  </div>
+  <div class="tile">
+    <span class="k">Next rebalance</span>
+    <span class="v small">{{ h.next_rebalance or '—' }}</span>
+    <span class="f">last {{ s.last_rebalance or 'never' }}</span>
+  </div>
+</section>
+
+{% if s.unbuyable %}
+<section class="warn">
+  <h2>{{ s.unbuyable|join(', ') }} cost more than one slice</h2>
+  <p>Whole-share mode is on, so these can't be bought at
+     {{ money((s.total or 0) / 8) }} each. Turn on fractional shares in Settings,
+     or add funds — otherwise the basket quietly becomes the cheap half of the
+     ranking.</p>
+</section>
+{% endif %}
+
+{% if s.positions %}
+<section>
+  <h2>Holdings</h2>
+  <div class="card">{{ chart_weights|safe }}</div>
+  <div class="scroll"><table>
+    <thead><tr><th>Name</th><th>Shares</th><th>Price</th><th>Value</th>
+      <th>Weight</th><th>Cost</th><th>P&amp;L</th></tr></thead>
+    <tbody>
+    {% for tk, p in held %}
+      <tr>
+        <td class="tk">{{ tk }}</td>
+        <td class="n">{{ '{:,.4f}'.format(p.shares).rstrip('0').rstrip('.') }}</td>
+        <td class="n">{{ money(p.price) }}</td>
+        <td class="n">{{ money(p.value) }}</td>
+        <td class="n">{{ '{:.1f}'.format(p.weight_pct) }}%</td>
+        <td class="n dim">{{ money(p.cost) }}</td>
+        <td class="n {{ 'up' if p.pnl >= 0 else 'down' }}">
+          {{ '{:+.1f}'.format(p.pnl_pct) }}%</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+
+<section>
+  <h2>Progress</h2>
+  <p class="lede">The account against what you paid into it. The gap between the
+     two lines is everything the strategy has made or lost.</p>
+  <div class="card">
+    {{ chart_equity|safe }}
+    <div class="legend">
+      <span><i class="sw strat"></i>Account</span>
+      <span><i class="sw paid"></i>Paid in</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Below the high-water mark</h2>
+  <p class="lede">Zero is a fresh account high. Everything under it is time spent
+     waiting to get back to even — the part that actually decides whether you
+     stick with this.</p>
+  <div class="card">{{ chart_dd|safe }}</div>
+  {% if c.maxdd < -0.5 %}
+  <p class="fine">Worst so far: {{ '{:.1f}'.format(c.maxdd) }}%. The strategy's
+     worst in twenty-one years of backtest was 59.7%.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>By month</h2>
+  <div class="card">{{ chart_monthly|safe }}</div>
+</section>
+
+{% if rebalances %}
+<section>
+  <h2>Rebalances</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Date</th><th>Bought</th><th>Sold</th><th>Account</th></tr></thead>
+    <tbody>
+    {% for r in rebalances %}
+      <tr>
+        <td class="n">{{ r.date }}</td>
+        <td>{% for t in r.buys %}<span class="pill up">{{ t }}</span>{% else %}<span class="dim">—</span>{% endfor %}</td>
+        <td>{% for t in r.sells %}<span class="pill down">{{ t }}</span>{% else %}<span class="dim">—</span>{% endfor %}</td>
+        <td class="n">{{ money(r.account) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+
+<section>
+  <h2>Health</h2>
+  <div class="scroll"><table class="kv">
+    <tbody>
+      <tr><td>Prices from</td><td class="n">{{ h.bar or 'never' }}</td></tr>
+      <tr><td>Snapshot age</td><td class="n">
+        {% if h.latest_age is none %}never run{% else %}{{ (h.latest_age / 3600)|round(1) }} hours{% endif %}</td></tr>
+      <tr><td>Rebalance style</td><td class="n">{{ h.mode or '—' }}</td></tr>
+      <tr><td>Trading</td><td class="n">{{ TRACK_LABEL.get(h.track, h.track or '—') }}</td></tr>
+      <tr><td>Fractional shares</td><td class="n">{{ 'on' if h.fractional else 'off' }}</td></tr>
+      <tr><td>Trading 212</td><td class="n">
+        {% if h.t212.get('configured') %}connected · {{ h.t212.get('env') }}{% if h.t212.get('pie') %} · pie {{ h.t212.get('pie') }}{% endif %}
+        {% else %}not connected{% endif %}</td></tr>
+      <tr><td>Other book</td><td class="n">
+        {{ TRACK_LABEL['live' if track == 'paper' else 'paper'] }}: {{ money(other.total) }}</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+{% if h.ranking %}
+<section>
+  <h2>The ranking right now</h2>
+  <p class="lede">Six-month momentum, skipping the last month. The top eight are
+     what the strategy holds; the rest are what it would buy if they climbed.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>#</th><th>Name</th><th>Momentum</th><th></th></tr></thead>
+    <tbody>
+    {% for r in h.ranking[:14] %}
+      <tr class="{{ 'held' if r.held }}">
+        <td class="n dim">{{ loop.index }}</td>
+        <td class="tk">{{ r.ticker }}</td>
+        <td class="n">{{ '{:+.1f}'.format(r.momentum_pct) }}%</td>
+        <td>{% if r.held %}<span class="pill up">held</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endif %}
+
+<section>
+  <h2>Run something</h2>
+  <p class="lede">Each runs the bot in a fresh process, so it picks up whatever
+     Settings currently say.</p>
+  <div class="actions" data-csrf="{{ csrf }}">
+    <button data-action="dry">Dry run</button>
+    <button data-action="refresh">Refresh prices</button>
+    <button data-action="test">Send a test to Discord</button>
+    <button data-action="probe">Probe Trading 212</button>
+    <button data-action="check">Compare with broker</button>
+  </div>
+  <pre id="out" class="out" hidden></pre>
+</section>
+
+{% endblock %}

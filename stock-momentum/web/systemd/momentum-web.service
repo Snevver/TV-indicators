@@ -1,0 +1,45 @@
+# The momentum dashboard. Unlike the bot, this one runs continuously.
+#
+# Install:
+#   sudo cp momentum-web.service /etc/systemd/system/
+#   sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-web.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-web
+#
+# Substitute CHANGEME in /etc, not in the checkout — editing the tracked file
+# makes the next git pull conflict.
+#
+# No secrets in here. Unit files are world-readable; the API key and webhook
+# live in the two EnvironmentFiles below, both mode 600.
+
+[Unit]
+Description=Momentum dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/web
+# /etc first, then the file the Settings page writes, so the browser wins.
+EnvironmentFile=-/etc/momentum-bot.env
+EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python app.py
+Restart=always
+RestartSec=5
+
+# It reads the bot's files, runs the bot, and writes its own config. Nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/CHANGEME/tv-indicators/stock-momentum/bot
+ReadWritePaths=/home/CHANGEME/tv-indicators/stock-momentum/web
+ReadWritePaths=/home/CHANGEME/.config/momentum
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

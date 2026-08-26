@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Momentum{% endblock %}
+{% block body %}
+<div class="gate">
+  <h1>Momentum</h1>
+  {% if setup %}
+    <p class="lede">No password has been set yet. On the mini PC, run:</p>
+    <pre class="cmd">cd ~/tv-indicators/stock-momentum/web
+../bot/.venv/bin/python app.py --set-password</pre>
+    <p class="fine">Then reload this page.</p>
+  {% else %}
+    <p class="lede">This dashboard is for one person. Enter the password you set.</p>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <form method="post" class="stack">
+      <label for="pw">Password</label>
+      <input id="pw" name="password" type="password" autocomplete="current-password"
+             autofocus required>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="fine">Plain HTTP on your own network — don't forward this port to
+      the internet.</p>
+  {% endif %}
+</div>
+{% endblock %}
