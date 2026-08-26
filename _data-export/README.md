@@ -39,10 +39,29 @@ exactly the half that went bankrupt, was acquired, or fell out.
 derived from [fja05680/sp500](https://github.com/fja05680/sp500) (MIT). The
 exporter downloads everything that list has ever contained.
 
-**Some bias remains, and it is now a number rather than a shrug.** Yahoo drops
-most companies that went bankrupt, so their prices cannot be fetched at all. The
-exporter writes `data/missing_tickers.txt` naming every one it could not get, so
-the size of the remaining gap is visible instead of assumed.
+**Some bias remains, and it is now a number rather than a shrug.** The exporter
+writes `data/missing_tickers.txt` naming every ticker it could not get, so the
+size of the gap is visible instead of assumed. The first full run left 322 of
+992 unavailable.
+
+It tries three times before giving up on a name:
+
+1. **Yahoo, in batches of 100.** Fast, and enough for anything still listed.
+2. **Yahoo again, one at a time, slowly.** "no timezone found" is what Yahoo says
+   both for a dead company and for a request it declined because a hundred
+   arrived at once. Asking politely separates the two.
+3. **Stooq.** Yahoo removes a company when it stops trading, which is precisely
+   backwards for a backtest — the ones it drops are the failures. Stooq keeps
+   many delisted US symbols.
+
+What is likely to stay missing is the 2008 wreckage: `LEHMQ`, `WAMUQ`, `BSC`,
+`MER`, `CFC`, `MTLQQ`, `EKDKQ`. Lehman, Washington Mutual, Bear Stearns, Merrill,
+Countrywide, old GM, Kodak. Losing those specifically means the crisis window
+still looks kinder than it was, and any backtest covering 2008 should say so.
+
+Paid sources solve it properly — Norgate and Sharadar both ship delisted
+histories for roughly EUR 50-70 a month — but the free path above is worth
+exhausting first.
 
 To use it honestly, a backtest must rank only the names that were in the index
 in the month being tested — the membership file is what makes that possible.
