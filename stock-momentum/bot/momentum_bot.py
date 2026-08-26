@@ -944,6 +944,19 @@ def main() -> int:
         hits = t212.find_instruments(args.t212_find)
         if not hits:
             print(f"nothing matching {args.t212_find!r}")
+            # A miss can mean the instrument is absent, or that the field being
+            # searched is not called what this code assumes. Show a real row so
+            # the difference is visible instead of guessed at.
+            try:
+                rows = t212.instruments()
+                if rows:
+                    print(f"\n  {len(rows):,} instruments searched. Fields on a "
+                          f"row: {', '.join(sorted(rows[0]))}")
+                    print(f"  Example: {json.dumps(rows[0], default=str)[:400]}")
+                    print("\n  If none of those fields is a company name, this "
+                          "search only ever matched codes.")
+            except Exception as exc:                       # noqa: BLE001
+                print(f"  (could not show a sample row: {exc})")
             return 1
         print(f"{len(hits)} match(es) for {args.t212_find!r}:\n")
         for h in hits:
