@@ -7,10 +7,16 @@ stays authoritative for anything you set over SSH. The web app never writes it:
 cannot create a temp file beside it, which makes an atomic replace impossible.
 A half-written env file is a bot that will not start.
 
-So the app owns a second file, ~/.config/momentum/momentum.env, and the systemd
-units read both. systemd applies EnvironmentFile entries in order, so anything
-set here wins over /etc. That is the intended precedence: what you last changed
-in the browser is what runs.
+So the app owns a second file, ~/.config/momentum/momentum.env, and both the
+web unit and the bot unit read both files. systemd applies EnvironmentFile
+entries in order, so anything set here wins over /etc. That is the intended
+precedence: what you last changed in the browser is what runs.
+
+The bot's unit used to read only /etc, so settings saved here -- including
+MOMENTUM_TRACK, which decides the book orders are planned from -- reached this
+dashboard and never reached the bot. momentum_bot.py now also loads both files
+itself, so a run started by hand resolves settings identically to one started by
+systemd. If you add a file to that list, add it in both places.
 
 SECRETS ARE WRITE-ONLY
 A stored key is never sent back to the browser. The form shows whether one is

@@ -5,9 +5,10 @@
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now momentum-bot.timer
 #
-# Edit User, WorkingDirectory and ExecStart to match where you cloned the repo.
-# The webhook lives in /etc/momentum-bot.env (chmod 600), never in this file —
-# unit files are world-readable.
+# Edit User, WorkingDirectory, ExecStart and the CHANGEME in the second
+# EnvironmentFile to match where you cloned the repo and who runs it.
+# Secrets live in the env files (chmod 600), never in this file — unit files
+# are world-readable.
 
 [Unit]
 Description=Monthly momentum rebalance check
@@ -18,7 +19,11 @@ Wants=network-online.target
 Type=oneshot
 User=CHANGEME
 WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
-EnvironmentFile=/etc/momentum-bot.env
+# Both files, in this order, so the dashboard's settings win -- exactly what
+# momentum-web.service does. The leading '-' means a file that does not exist
+# yet is not an error; ~/.config/momentum is only created on the first save.
+EnvironmentFile=-/etc/momentum-bot.env
+EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
 ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py
 
 # The download can hang; do not leave a run wedged until tomorrow.

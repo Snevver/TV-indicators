@@ -250,9 +250,10 @@ def probe() -> int:
     finished against reality instead of guessed at. Read-only."""
     if not configured():
         print(why_not() or "not configured")
-        print("\nSet T212_API_KEY, T212_API_SECRET and T212_ENV in "
-              "/etc/momentum-bot.env, then:")
-        print("  set -a; . /etc/momentum-bot.env; set +a")
+        print("\nSet them on the dashboard's Settings page, or by hand in")
+        print("  ~/.config/momentum/momentum.env   (what Settings writes)")
+        print("  /etc/momentum-bot.env             (mode 600, set over SSH)")
+        print("\nBoth are read automatically -- no need to source anything.")
         return 1
 
     print(f"env      : {ENV}")

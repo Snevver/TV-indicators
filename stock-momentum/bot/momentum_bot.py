@@ -49,6 +49,75 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# ---------------------------------------------------------------- configuration
+#
+# THE SAME SETTINGS WHEREVER THE BOT IS STARTED FROM
+# The dashboard writes ~/.config/momentum/momentum.env; the setup instructions
+# put secrets in /etc/momentum-bot.env. systemd loads both for the web service,
+# in that order, so the browser wins. The bot's unit used to load only /etc,
+# which meant a key, a currency or -- worst of all -- MOMENTUM_TRACK set in the
+# browser reached the dashboard and never reached the bot that trades. The two
+# could disagree indefinitely, with the dashboard looking authoritative.
+#
+# Both files are now read here as well, so it no longer matters whether the bot
+# was started by systemd or typed at a shell. A real environment variable still
+# beats both files, so `T212_ENV=demo python3 momentum_bot.py ...` works for a
+# one-off.
+#
+# This must run BEFORE `import t212`, which reads its configuration at import.
+ETC_ENV = "/etc/momentum-bot.env"
+USER_ENV = os.path.join(
+    os.environ.get("MOMENTUM_CONFIG_DIR")
+    or os.path.join(os.path.expanduser("~"), ".config", "momentum"),
+    "momentum.env")
+
+
+def _parse_env_file(path: str):
+    """A copy of config.parse_env in the web app. Deliberately duplicated: the
+    bot must not import the dashboard, and fifteen lines cost less than that
+    coupling. Keep the two in step."""
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                v = v.strip()
+                if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                    v = v[1:-1]
+                out[k.strip()] = v
+    except (FileNotFoundError, OSError):
+        return None
+    return out
+
+
+# What the shell really passed in, captured once at import -- before any file has
+# been applied. Recomputing this inside the loader would make values it had just
+# set look like real exports on a second call.
+_PRESET_ENV = frozenset(os.environ)
+
+
+def _load_env_files() -> list:
+    """Apply the env files the way systemd does: in order, later file winning.
+    Anything already exported stays untouched. Returns the files actually read."""
+    preset = _PRESET_ENV               # what the shell really passed in
+    loaded = []
+    for path in (ETC_ENV, USER_ENV):
+        vals = _parse_env_file(path)
+        if vals is None:
+            continue
+        loaded.append(path)
+        for k, v in vals.items():
+            if k in preset:
+                continue               # an explicit export beats both files
+            os.environ[k] = v          # a later file beats an earlier one
+    return loaded
+
+
+ENV_FILES_LOADED = _load_env_files()
+
 # Optional broker link. A missing, broken or half-written t212.py must not stop
 # the bot running — the whole point of it is that it is not required.
 try:
@@ -709,6 +778,18 @@ def log_row(when, buys, sells, basket, total=0.0, cash=0.0,
     os.replace(tmp, LOG)
 
 
+def env_source_line() -> str:
+    """Where settings actually came from. Printed by --status and --t212-probe
+    because 'the dashboard says one thing and the bot does another' is otherwise
+    invisible."""
+    if not ENV_FILES_LOADED:
+        return (f"config    : no env file found ({ETC_ENV}, {USER_ENV}) — "
+                f"using defaults and whatever is exported")
+    names = ", ".join(ENV_FILES_LOADED)
+    return f"config    : {names}" + ("" if len(ENV_FILES_LOADED) > 1 else
+                                     "  (the other was not found)")
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--dry", action="store_true", help="decide and print, post nothing")
@@ -745,6 +826,7 @@ def main() -> int:
     if args.t212_probe:
         if t212 is None:
             raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        print(env_source_line())
         return t212.probe()
 
     if args.t212_check or args.t212_sync:
@@ -836,6 +918,7 @@ def main() -> int:
     if args.status or args.report:
         if not bk["positions"]:
             m = mark(bk, {})
+            print(env_source_line())
             print(f"track         : {name}")
             print(f"basket        : {', '.join(bk['basket']) or '(empty)'}")
             print(f"last rebalance: {bk.get('last_rebalance') or 'never'}")
@@ -847,6 +930,7 @@ def main() -> int:
             refresh(state)
             px = fetch()
             m = mark(bk, px.iloc[-1].to_dict())
+            print(env_source_line())
             print(f"ACCOUNT   {money(m['total'])}   "
                   f"{m['pnl']:+,.2f} = {m['pnl_pct']:+.1f}% "
                   f"on {money(m['deposited'])} paid in")
