@@ -28,7 +28,6 @@ SETUP (when you are ready — it is fine to leave this off)
          T212_API_KEY=...
          T212_API_SECRET=...      # the second value shown when you generated it
          T212_ENV=demo            # or: live
-         T212_PIE_ID=12345        # optional, strongly recommended — see below
   3. python momentum_bot.py --t212-probe     # prove the pair works
      python momentum_bot.py --t212-check     # broker vs the bot's book
      python momentum_bot.py --t212-sync      # adopt the broker's numbers
@@ -37,11 +36,20 @@ Both values are passwords. They belong in that file and nowhere else — not in
 the repo, not in a crontab, not pasted into a chat. If either leaks, revoke the
 pair in the app and generate another.
 
-WHY A SEPARATE PIE
-/equity/portfolio returns the whole account. If you hold anything else on
-Trading 212, the bot would read those positions as if the strategy had bought
-them. Setting T212_PIE_ID scopes it to one pie, so the rest of your investing
-stays invisible to it and its profit and loss measures only this strategy.
+WHY THERE IS NO PIE
+A pie looked like the way to fence the strategy off from the rest of an account.
+It is not, for two reasons found in the API rather than guessed at:
+
+  * Nothing can put money into a pie. The pie endpoints are create, read,
+    update, duplicate and delete, and update sets target weights only -- it does
+    not trade. So a bot cannot fund a pie, and Trading 212 does not let a pie
+    hold uninvested cash either.
+  * The pie API is deprecated. It still answers, but it is documented as no
+    longer supported and subject to change.
+
+So the strategy trades in the ordinary portfolio, and positions() scopes itself
+instead: non-pie quantity only, intersected with the frozen universe. See its
+docstring for what that can and cannot separate.
 """
 from __future__ import annotations
 
@@ -52,7 +60,6 @@ import time
 API_KEY = os.environ.get("T212_API_KEY", "").strip()
 API_SECRET = os.environ.get("T212_API_SECRET", "").strip()
 ENV = os.environ.get("T212_ENV", "demo").strip().lower()
-PIE_ID = os.environ.get("T212_PIE_ID", "").strip()
 TIMEOUT = float(os.environ.get("T212_TIMEOUT", "20") or 20)
 
 BASE = {"demo": "https://demo.trading212.com/api/v0",
@@ -172,33 +179,48 @@ def cash() -> dict:
             "raw": d}
 
 
-def positions() -> dict:
-    """{TICKER: {'shares', 'avg_price', 'value'}} for the pie, or the account."""
-    if PIE_ID:
-        d = _get(f"/equity/pies/{PIE_ID}")
-        items = _pick(d, "instruments", "positions", "holdings", default=[]) or []
-        if not items:
-            raise T212Error(f"pie {PIE_ID} came back with no instruments — check "
-                            f"T212_PIE_ID against --t212-probe")
+def positions(universe=None) -> dict:
+    """What the strategy holds, as {TICKER: {'shares', 'avg_price', 'value'}}.
+
+    SCOPING WITHOUT A PIE
+    A pie cannot be used to fence the strategy off, because Trading 212's API has
+    no way to put money into one -- the pie endpoints set target weights and
+    nothing else, and they are deprecated besides. So the strategy's holdings sit
+    in the ordinary portfolio alongside everything else, and are picked out two
+    ways at once:
+
+      1. Only the NON-PIE part of each holding counts. Every position reports
+         `pieQuantity`; whatever a pie owns is somebody else's. This is not
+         hypothetical -- an existing pie here holds NVDA, which is in the
+         strategy's universe, and without the subtraction the bot would think it
+         already owned it and never buy it.
+      2. Only names in the frozen universe count, which drops manual buys of
+         anything else.
+
+    What this cannot separate: a name in the universe bought by hand outside a
+    pie. There is no flag distinguishing it, so it will be read as the
+    strategy's. Keep discretionary buys inside a pie, or outside those forty
+    names.
+    """
+    raw_body = _get("/equity/portfolio")
+    if isinstance(raw_body, list):
+        items = raw_body
+    elif isinstance(raw_body, dict):
+        items = _pick(raw_body, "positions", "instruments", default=None)
+        if items is None:
+            # A dict we do not recognise is a mapping problem, not an empty
+            # portfolio. Saying "you hold nothing" here would wipe the book.
+            raise T212Error(
+                f"/equity/portfolio returned an object with none of the keys "
+                f"this code knows ({', '.join(sorted(raw_body))[:120]}). "
+                f"Run --t212-probe and the mapping can be corrected.")
     else:
-        raw_body = _get("/equity/portfolio")
-        if isinstance(raw_body, list):
-            items = raw_body
-        elif isinstance(raw_body, dict):
-            items = _pick(raw_body, "positions", "instruments", default=None)
-            if items is None:
-                # A dict we do not recognise is a mapping problem, not an empty
-                # portfolio. Saying "you hold nothing" here would wipe the book.
-                raise T212Error(
-                    f"/equity/portfolio returned an object with none of the keys "
-                    f"this code knows ({', '.join(sorted(raw_body))[:120]}). "
-                    f"Run --t212-probe and the mapping can be corrected.")
-        else:
-            raise T212Error(f"/equity/portfolio returned {type(raw_body).__name__}, "
-                            f"expected a list of positions")
+        raise T212Error(f"/equity/portfolio returned {type(raw_body).__name__}, "
+                        f"expected a list of positions")
 
     out = {}
     skipped = 0
+    parsed_any = False          # did any row yield a ticker and a quantity?
     for it in items:
         if not isinstance(it, dict):
             skipped += 1
@@ -208,21 +230,33 @@ def positions() -> dict:
         if raw is None or qty is None:
             skipped += 1
             continue
+        parsed_any = True
         avg = _pick(it, "averagePrice", "avgPrice", "averageEntryPrice", "price")
         cur = _pick(it, "currentPrice", "currentValue", "lastPrice")
         val = _pick(it, "value", "currentValue", "marketValue")
         qty = float(qty)
-        if qty <= 0:
+        # Subtract whatever a pie owns; only the loose part is the strategy's.
+        pie_qty = _pick(it, "pieQuantity", default=0.0) or 0.0
+        qty = qty - float(pie_qty)
+        if qty <= 1e-9:
+            continue
+        tk = symbol(raw)
+        if universe is not None and tk not in universe:
             continue
         avg = float(avg) if avg is not None else 0.0
-        if val is None:
-            val = qty * float(cur) if cur is not None else 0.0
-        out[symbol(raw)] = {"shares": qty, "avg_price": avg, "value": float(val),
-                            "cost": qty * avg, "raw_ticker": str(raw)}
+        # Recompute from the non-pie quantity: a reported value covers the whole
+        # holding, pie share included, which would overstate what is ours.
+        val = qty * float(cur) if cur is not None else (float(val or 0.0))
+        out[tk] = {"shares": qty, "avg_price": avg, "value": float(val),
+                   "cost": qty * avg, "raw_ticker": str(raw)}
 
-    if items and not out:
+    if items and not out and not parsed_any:
         # The broker sent rows and not one of them parsed. That is a mapping
         # failure. Reporting it as an empty portfolio would delete the book.
+        #
+        # `parsed_any` matters: an account that holds nothing from the universe
+        # is a legitimately empty result, not a mapping failure, and raising
+        # there would block the first rebalance from ever opening a position.
         raise T212Error(f"{len(items)} positions came back but none could be read "
                         f"— the field names differ from what this code expects. "
                         f"Run --t212-probe.")
@@ -317,14 +351,13 @@ def probe() -> int:
         print("secret   : NOT SET — sending the bare key, which Trading 212 will "
               "most likely reject with a 401")
         print("auth     : bare Authorization header (legacy single-key form)")
-    print(f"pie      : {PIE_ID or '(whole account — set T212_PIE_ID to scope it)'}")
+    print("scope    : non-pie holdings in the strategy universe "
+          "(a pie cannot be funded through the API, so one is not used)")
     print()
 
     checks = [("cash", "/equity/account/cash"),
               ("portfolio", "/equity/portfolio"),
               ("pies", "/equity/pies")]
-    if PIE_ID:
-        checks.append((f"pie {PIE_ID}", f"/equity/pies/{PIE_ID}"))
     checks.append(("transactions", "/history/transactions?limit=5"))
 
     ok, unauthorised = 0, False
@@ -353,8 +386,9 @@ def probe() -> int:
                 print(f"      id {pie.get('id')}   invested {inv:>10,.2f}   "
                       f"value {val:>10,.2f}   cash {pie.get('cash', 0) or 0:>6,.2f}"
                       f"{tag}")
-            print("\n    Set T212_PIE_ID to the one the bot should read, then run")
-            print("    this again -- it will show what that pie actually holds.\n")
+            print("\n    Listed for reference only. The bot does not read a pie:")
+            print("    anything a pie holds is subtracted from what it considers")
+            print("    its own, so these stay out of its way.\n")
             time.sleep(1.2)
             continue
         body = json.dumps(d, indent=1, default=str)
@@ -373,12 +407,67 @@ def probe() -> int:
     return 0 if ok else 1
 
 
-def snapshot() -> dict | None:
-    """Everything the bot needs, or None. Never raises."""
+def resolve_universe(universe) -> dict:
+    """Map each strategy ticker to the instrument code an order must name.
+
+    THIS IS THE PREREQUISITE FOR PLACING ANYTHING. symbol() goes the other way --
+    AAPL_US_EQ to AAPL -- and is lossy, so it cannot simply be run backwards. An
+    order names the broker's code, and inventing one is how a bot buys the wrong
+    company. So the codes come from the broker's own instrument list, and
+    anything ambiguous is reported rather than picked.
+
+    Returns {"map": {TICKER: code}, "missing": [...], "ambiguous": {TICKER: [codes]}}.
+    Read-only.
+    """
+    rows = _get("/equity/metadata/instruments")
+    if not isinstance(rows, list):
+        raise T212Error(f"/equity/metadata/instruments returned "
+                        f"{type(rows).__name__}, expected a list")
+
+    wanted = {t.upper() for t in universe}
+    found = {}
+    for it in rows:
+        if not isinstance(it, dict):
+            continue
+        code = _pick(it, "ticker", "instrumentCode", "code")
+        if code is None:
+            continue
+        # Only ordinary US equities; the same short name can also belong to a
+        # CFD or a foreign listing, and those are not what the backtest priced.
+        kind = str(_pick(it, "type", default="") or "").upper()
+        if kind and kind not in ("STOCK", "EQUITY", "ETF"):
+            continue
+        short = symbol(code)
+        if short in wanted:
+            found.setdefault(short, []).append(str(code))
+
+    mapping, ambiguous = {}, {}
+    for tk in sorted(wanted):
+        codes = found.get(tk, [])
+        if len(codes) == 1:
+            mapping[tk] = codes[0]
+        elif len(codes) > 1:
+            # Prefer the plain US equity code when one is unmistakable.
+            us = [c for c in codes if c.endswith("_US_EQ")]
+            if len(us) == 1:
+                mapping[tk] = us[0]
+            else:
+                ambiguous[tk] = codes
+    missing = sorted(wanted - set(mapping) - set(ambiguous))
+    return {"map": mapping, "missing": missing, "ambiguous": ambiguous,
+            "checked": len(rows)}
+
+
+def snapshot(universe=None) -> dict | None:
+    """Everything the bot needs, or None. Never raises.
+
+    `universe` is the strategy's ticker list; without it every non-pie holding
+    counts, which would read hand-bought positions as the strategy's.
+    """
     if not configured():
         return None
     try:
-        pos = positions()
+        pos = positions(universe=universe)
     except Exception as exc:
         print(f"  ! Trading 212: {exc}")
         print("    falling back to the bot's own book")
@@ -389,6 +478,6 @@ def snapshot() -> dict | None:
         print(f"  ! Trading 212: positions read, cash did not ({exc})")
         c = None
     invested = sum(p["value"] for p in pos.values())
-    free = (c or {}).get("free", 0.0) if not PIE_ID else 0.0
+    free = (c or {}).get("free", 0.0)
     return {"positions": pos, "cash": free, "invested": invested,
-            "total": invested + free, "account_cash": c, "scoped_to_pie": bool(PIE_ID)}
+            "total": invested + free, "account_cash": c}

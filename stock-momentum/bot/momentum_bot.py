@@ -467,7 +467,7 @@ def refresh(state) -> bool:
         return False
     diffs = reconcile(live, snap, adopt=True)
     save_state(state)
-    where = f"pie {t212.PIE_ID}" if snap["scoped_to_pie"] else "account"
+    where = "account"
     print(f"  [Trading 212 {t212.ENV}/{where}] {len(snap['positions'])} positions"
           + (f", {len(diffs)} corrected" if diffs else ", already matching"))
     return True
@@ -483,7 +483,7 @@ def broker() -> dict | None:
     try:
         if not t212.configured():
             return None
-        return t212.snapshot()
+        return t212.snapshot(universe=UNIVERSE)
     except Exception as exc:                          # belt and braces
         print(f"  ! Trading 212 link failed ({type(exc).__name__}: {exc}) — "
               f"using the bot's own book")
@@ -507,14 +507,13 @@ def reconcile(bk, snap, adopt: bool) -> list:
         # difference of a millionth of a share is noise, not a discrepancy.
         if abs(a - b) > max(1e-6, 1e-4 * max(a, b)):
             diffs.append((tk, a, b))
-    if abs(bk["cash"] - snap["cash"]) > 0.01 and not snap["scoped_to_pie"]:
+    if abs(bk["cash"] - snap["cash"]) > 0.01:
         diffs.append(("(cash)", bk["cash"], snap["cash"]))
 
     if adopt:
         bk["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
         bk["book"] = {tk: p["cost"] for tk, p in theirs.items()}
-        if not snap["scoped_to_pie"]:
-            bk["cash"] = snap["cash"]
+        bk["cash"] = snap["cash"]
         if not bk["deposited"]:
             # Nothing was ever declared, so the only honest starting point is
             # what is there now. Say so rather than quietly inventing a return.
@@ -769,7 +768,7 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
                    "reason": (t212.why_not() if t212 is not None else
                               _T212_IMPORT_ERROR),
                    "env": getattr(t212, "ENV", ""),
-                   "pie": getattr(t212, "PIE_ID", "")}
+                   }
     return out
 
 
@@ -857,6 +856,9 @@ def main() -> int:
                    help="record money taken out")
     p.add_argument("--fill", action="append", metavar="TICKER=SHARES@PRICE",
                    help="correct an assumed fill; repeatable")
+    p.add_argument("--t212-instruments", action="store_true",
+                   help="resolve the universe to Trading 212 instrument codes; "
+                        "read-only, and required before any order can be placed")
     p.add_argument("--t212-probe", action="store_true",
                    help="print what Trading 212 returns; read-only, changes nothing")
     p.add_argument("--t212-check", action="store_true",
@@ -871,6 +873,28 @@ def main() -> int:
     bk = book(state, name)
 
     # --- the optional broker link -------------------------------------------
+    if args.t212_instruments:
+        if t212 is None:
+            raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        print(env_source_line())
+        if not t212.configured():
+            raise SystemExit(t212.why_not())
+        r = t212.resolve_universe(UNIVERSE)
+        print(f"{r['checked']:,} instruments listed by the broker\n")
+        for tk in UNIVERSE:
+            code = r["map"].get(tk)
+            print(f"  {tk:<6} -> {code}" if code else f"  {tk:<6} -> ??")
+        if r["ambiguous"]:
+            print("\n  AMBIGUOUS — more than one plausible code, so none was chosen:")
+            for tk, codes in sorted(r["ambiguous"].items()):
+                print(f"    {tk}: {', '.join(codes)}")
+        if r["missing"]:
+            print(f"\n  NOT FOUND: {', '.join(r['missing'])}")
+        clean = not r["ambiguous"] and not r["missing"]
+        print(f"\n  {len(r['map'])}/{len(UNIVERSE)} resolved."
+              + ("" if clean else "  Orders cannot be placed until every name resolves."))
+        return 0 if clean else 1
+
     if args.t212_probe:
         if t212 is None:
             raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
@@ -890,10 +914,10 @@ def main() -> int:
         # These always act on the live book — it is the one that mirrors the
         # broker. Paper is a simulation and has nothing to reconcile against.
         live = book(state, "live")
-        scope = f"pie {t212.PIE_ID}" if snap["scoped_to_pie"] else "the whole account"
+        scope = "non-pie holdings in the universe"
         print(f"Trading 212 ({t212.ENV}) — {scope}")
         print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}"
-              + ("" if snap["scoped_to_pie"] else f", cash {money(snap['cash'])}"))
+              + f", cash {money(snap['cash'])}")
         if (args.t212_sync and live["positions"] and not snap["positions"]
                 and not args.force):
             raise SystemExit(

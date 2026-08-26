@@ -144,17 +144,43 @@ When you do switch it on, the bot reads your real positions and cash instead of
 assuming its own fills, so `--fill` becomes unnecessary and the figures stop
 being an estimate.
 
-### Make a pie first
+### Why there is no pie
 
-Do this before generating a key. `/equity/portfolio` returns the **whole
-account**, so anything else you hold on Trading 212 gets read as if the strategy
-had bought it. With an unrelated ETF sitting in the account, a test run reported
-$2,334 against the strategy's real $1,122.
+A pie looked like the way to fence the strategy off from the rest of an account,
+and the problem it was solving is real: `/equity/portfolio` returns the **whole
+account**, so anything else held on Trading 212 gets read as if the strategy had
+bought it. With an unrelated ETF in the account, a test run reported $2,334
+against the strategy's real $1,122.
 
-Put the eight names in their own pie, then set `T212_PIE_ID`. The bot sees that
-pie and nothing else, and its profit and loss measures this strategy alone.
+A pie cannot do it, for two reasons in the API rather than guessed at:
 
-Find the id with `--t212-probe` — it lists your pies with their ids.
+* **Nothing can put money into a pie.** The endpoints are create, read, update,
+  duplicate and delete; update sets target weights and does not trade. Trading
+  212 also refuses to let a pie hold uninvested cash, so there is no "add it now,
+  invest it later" either.
+* **The pie API is deprecated** — still answering, documented as no longer
+  supported and subject to change.
+
+So the strategy trades in the ordinary portfolio and `positions()` scopes itself
+instead, two filters at once:
+
+1. **Non-pie quantity only.** Every position reports `pieQuantity`; whatever a
+   pie owns belongs to something else. Not hypothetical — a pie holding NVDA,
+   which is in the universe, would otherwise make the bot think it already owned
+   it and never buy it.
+2. **Universe members only**, which drops hand-bought positions in anything else.
+
+What this cannot separate is a universe name bought by hand outside a pie —
+nothing distinguishes it, so it reads as the strategy's. Keep discretionary buys
+inside a pie, or outside the forty names.
+
+### Before any order can be placed
+
+`--t212-instruments` resolves every universe ticker to the instrument code an
+order has to name, from the broker's own list. It is read-only, and it refuses
+to choose when a name is ambiguous rather than guessing — inventing a code is
+how a bot buys the wrong company. Every name must resolve before execution is
+possible.
 
 ### Turning it on
 

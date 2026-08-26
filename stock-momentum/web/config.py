@@ -76,13 +76,6 @@ def _webhook(v):
     return v
 
 
-def _pie(v):
-    v = v.strip()
-    if v and not v.isdigit():
-        raise Invalid("a pie id is digits only — find it with the Probe action")
-    return v
-
-
 def _amount(v):
     v = v.strip()
     try:
@@ -109,10 +102,6 @@ FIELDS = {
                         "not saved."),
     "T212_ENV": (_choice("demo", "live"), "Which account",
                  "demo is the practice account, live is real money."),
-    "T212_PIE_ID": (_pie, "Pie id",
-                    "Scopes the bot to one pie. Without it the whole account is "
-                    "read, including investments that are nothing to do with "
-                    "this strategy."),
     "DISCORD_WEBHOOK": (_webhook, "Discord webhook",
                         "Where the monthly rebalance is posted."),
     "MOMENTUM_TRACK": (_choice("paper", "live"), "Which book to follow",
