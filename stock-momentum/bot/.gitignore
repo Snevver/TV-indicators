@@ -9,3 +9,7 @@ state.json.tmp
 *.bak
 # Broker metadata cache: ~16k rows, refetched on demand.
 instruments.json
+
+# The smoke test is a local experiment, not the repo's.
+smoke.json
+smoke.json.tmp

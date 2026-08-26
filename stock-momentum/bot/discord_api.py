@@ -37,7 +37,8 @@ CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "").strip()
 OWNER_ID = os.environ.get("DISCORD_OWNER_ID", "").strip()
 TIMEOUT = float(os.environ.get("DISCORD_TIMEOUT", "20") or 20)
 
-TICK = "✅"                      # the reaction that means yes
+TICK = "✅"                      # yes
+CROSS = "❌"                     # no, or undo
 TICK_URL = urllib.parse.quote(TICK)
 
 
@@ -130,16 +131,20 @@ def post(content: str = "", embeds=None) -> str:
     return str(mid)
 
 
-def offer_tick(message_id: str) -> None:
-    """Pre-add the checkmark so approving is one click rather than a search."""
+def offer_tick(message_id: str, emoji: str = TICK) -> None:
+    """Pre-add a reaction so answering is one click rather than a search."""
     _req("PUT", f"/channels/{CHANNEL_ID}/messages/{message_id}"
-                f"/reactions/{TICK_URL}/@me")
+                f"/reactions/{urllib.parse.quote(emoji)}/@me")
 
 
-def reactors(message_id: str) -> list:
-    """User ids that ticked the message. The bot's own tick is excluded."""
+def reactors(message_id: str, emoji: str = TICK) -> list:
+    """User ids that reacted with `emoji`. The bot's own reaction is excluded.
+
+    Discord answers per emoji: there is no combined list, so a message offering
+    two choices takes two calls.
+    """
     d = _req("GET", f"/channels/{CHANNEL_ID}/messages/{message_id}"
-                    f"/reactions/{TICK_URL}?limit=100")
+                    f"/reactions/{urllib.parse.quote(emoji)}?limit=100")
     if not isinstance(d, list):
         raise DiscordError(f"expected a list of users, got {type(d).__name__}")
     out = []
@@ -149,10 +154,30 @@ def reactors(message_id: str) -> list:
     return out
 
 
-def approved_by_owner(message_id: str) -> bool:
-    """True only if the configured owner ticked it. Never raises."""
+def approved_by_owner(message_id: str, emoji: str = TICK) -> bool:
+    """True only if the configured owner reacted with `emoji`. Never raises."""
     try:
-        return OWNER_ID in reactors(message_id)
+        return OWNER_ID in reactors(message_id, emoji)
     except Exception as exc:                          # noqa: BLE001
         print(f"  ! Discord: {exc}")
         return False
+
+
+def owner_choice(message_id: str):
+    """Which of the two the owner picked: 'yes', 'no', or None.
+
+    Read as a pair rather than two independent questions, so reacting to both --
+    by accident, or by changing your mind without removing the first -- is a
+    stalemate that does nothing, instead of whichever happened to be checked
+    first. Never raises.
+    """
+    try:
+        yes = OWNER_ID in reactors(message_id, TICK)
+        no = OWNER_ID in reactors(message_id, CROSS)
+    except Exception as exc:                          # noqa: BLE001
+        print(f"  ! Discord: {exc}")
+        return None
+    if yes and no:
+        print(f"  ! both {TICK} and {CROSS} are set — remove one; doing nothing.")
+        return None
+    return "yes" if yes else ("no" if no else None)

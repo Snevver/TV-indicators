@@ -792,6 +792,59 @@ def write_latest(payload: dict) -> None:
     os.replace(tmp, LATEST)
 
 
+# ------------------------------------------------------------- the smoke test
+#
+# One real order, for about a euro, to prove the chain end to end: dashboard ->
+# Discord -> your reaction -> Trading 212 -> a filled order -> and back out again.
+# Nothing else exercises all of that at once, and the parts that break in
+# practice are the joins between them.
+#
+# IT KEEPS ITS OWN FILE. state.json holds the strategy's book, and a test buying
+# something the strategy did not choose has no business writing to it. Worst
+# case, smoke.json is deleted and nothing of value is lost.
+#
+# The one thing it does share with the strategy is the account. AAPL is in the
+# universe, so while the test position is open the bot would count it as its
+# own -- which is exactly why the test closes it again, and why --smoke-status
+# exists to say whether anything is still open.
+SMOKE = os.path.join(HERE, "smoke.json")
+SMOKE_TICKER = "AAPL"
+SMOKE_MAX_USD = 5.0          # a hard ceiling, so a typo cannot buy a holiday
+
+
+def load_smoke() -> dict:
+    try:
+        with open(SMOKE, encoding="utf-8") as fh:
+            d = json.load(fh)
+        return d if isinstance(d, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_smoke(d: dict) -> None:
+    tmp = SMOKE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(d, fh, indent=1, default=str)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, SMOKE)
+
+
+def smoke_describe(s: dict) -> str:
+    if not s:
+        return "no test outstanding."
+    stage = s.get("stage", "?")
+    line = (f"stage    : {stage}\n"
+            f"message  : {s.get('message_id')}\n"
+            f"what     : {s.get('qty')} of {s.get('code')} "
+            f"(about ${s.get('notional', 0):.2f})")
+    if stage == "bought":
+        line += ("\n\n  A POSITION IS OPEN. Until it is sold, the bot counts it as "
+                 "its own\n  holding, because AAPL is one of the forty. React "
+                 f"{discord_api.CROSS if discord_api else 'X'} to close it.")
+    return line
+
+
 LOG_COLS = ("date", "buys", "sells", "basket", "account", "cash", "deposited", "pnl")
 
 
@@ -874,6 +927,14 @@ def main() -> int:
     p.add_argument("--discord-check", action="store_true",
                    help="verify the bot token, channel and owner id; posts one "
                         "test message you can approve, and changes nothing else")
+    p.add_argument("--smoke-offer", action="store_true",
+                   help="offer a real ~1 EUR test buy of AAPL in Discord. Posts "
+                        "the message and the two reactions; places nothing.")
+    p.add_argument("--smoke-poll", action="store_true",
+                   help="act on the reaction to a smoke test: tick buys, cross "
+                        "sells it back. THIS PLACES A REAL ORDER.")
+    p.add_argument("--smoke-status", action="store_true",
+                   help="say whether a test position is still open")
     p.add_argument("--t212-find", metavar="TEXT",
                    help="search the broker's instrument list by code or name; "
                         "read-only, for names --t212-instruments could not resolve")
@@ -938,6 +999,129 @@ def main() -> int:
         print(f"ticked by {', '.join(who)}, but none of them is DISCORD_OWNER_ID "
               f"({d.OWNER_ID}). Not approved — check the owner id is yours.")
         return 1
+
+    if args.smoke_status:
+        print(smoke_describe(load_smoke()))
+        return 0
+
+    if args.smoke_offer or args.smoke_poll:
+        if t212 is None:
+            raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        if discord_api is None:
+            raise SystemExit(f"discord_api.py did not load: {_DISCORD_IMPORT_ERROR}")
+        if not t212.configured():
+            raise SystemExit(t212.why_not())
+        if not discord_api.configured():
+            raise SystemExit(f"Discord approval is {discord_api.why_not()}")
+        d = discord_api
+        s = load_smoke()
+
+    if args.smoke_offer:
+        if s.get("stage") == "bought":
+            raise SystemExit("a test position is already open — close it first:\n"
+                             + smoke_describe(s))
+        code = t212.resolve_universe([SMOKE_TICKER])["map"].get(SMOKE_TICKER)
+        if not code:
+            raise SystemExit(f"{SMOKE_TICKER} did not resolve to an instrument code")
+        px = fetch()
+        last = float(px[SMOKE_TICKER].iloc[-1])
+        target = min(2.0, SMOKE_MAX_USD)      # ~1 EUR is under the broker minimum
+        qty = round(target / last, 6)
+        notional = qty * last
+        if notional > SMOKE_MAX_USD:
+            raise SystemExit(f"refusing: {notional:.2f} is over the {SMOKE_MAX_USD} cap")
+
+        body = (f"**Smoke test — this places a REAL order for about "
+                f"${notional:.2f}.**\n"
+                f"{d.TICK}  buy {qty} of `{code}` (~${notional:.2f} at the last "
+                f"close of ${last:,.2f})\n"
+                f"{d.CROSS}  sell it straight back\n\n"
+                f"Only a reaction from <@{d.OWNER_ID}> counts. Nothing happens "
+                f"until the next `--smoke-poll` runs.\n"
+                f"US market hours only — outside them the order will sit unfilled.")
+        mid = d.post(body)
+        d.offer_tick(mid, d.TICK)
+        d.offer_tick(mid, d.CROSS)
+        save_smoke({"stage": "offered", "message_id": mid, "code": code,
+                    "qty": qty, "last": last, "notional": notional,
+                    "offered_at": datetime.now(timezone.utc).isoformat()})
+        print(f"offered in Discord (message {mid}):\n  buy {qty} {code} "
+              f"~${notional:.2f}\n\nReact, then run:  --smoke-poll")
+        return 0
+
+    if args.smoke_poll:
+        if not s:
+            print("nothing offered. Run --smoke-offer first.")
+            return 0
+        stage, mid = s.get("stage"), s.get("message_id")
+        choice = d.owner_choice(mid)
+        if choice is None:
+            print(f"no decision yet on message {mid} (stage: {stage}).")
+            return 0
+
+        if stage == "offered" and choice == "no":
+            s["stage"] = "cancelled"
+            save_smoke(s)
+            d.post(f"{d.CROSS} Smoke test cancelled. Nothing was ordered.")
+            print("cancelled before anything was placed.")
+            return 0
+
+        if stage == "offered" and choice == "yes":
+            # Written BEFORE the order goes out. If this run dies between the
+            # request and the reply, the next one must not read "offered" and
+            # buy a second time -- it reads "buying" and asks for reconciliation.
+            s["stage"] = "buying"
+            save_smoke(s)
+            try:
+                resp = t212.place_market_order(s["code"], s["qty"])
+            except t212.T212Error as exc:
+                s["stage"] = "unknown"
+                s["error"] = str(exc)
+                save_smoke(s)
+                d.post(f"⚠️ Smoke test buy did not complete cleanly: {exc}")
+                raise SystemExit(f"{exc}")
+            s.update({"stage": "bought", "buy_response": resp,
+                      "bought_at": datetime.now(timezone.utc).isoformat()})
+            save_smoke(s)
+            d.post(f"{d.TICK} Bought {s['qty']} of `{s['code']}`.\n"
+                   f"Broker said: `{json.dumps(resp, default=str)[:400]}`\n\n"
+                   f"React {d.CROSS} on the original message to sell it back.")
+            print(f"BOUGHT {s['qty']} {s['code']}\n{json.dumps(resp, indent=1, default=str)}")
+            return 0
+
+        if stage == "bought" and choice == "no":
+            s["stage"] = "selling"
+            save_smoke(s)
+            try:
+                # Exactly what was bought, not "a euro's worth" again -- the price
+                # has moved since, and selling a recomputed size would leave a
+                # sliver behind or try to sell more than is held.
+                resp = t212.place_market_order(s["code"], -abs(float(s["qty"])))
+            except t212.T212Error as exc:
+                s["stage"] = "unknown"
+                s["error"] = str(exc)
+                save_smoke(s)
+                d.post(f"⚠️ Smoke test sell did not complete cleanly: {exc}")
+                raise SystemExit(f"{exc}")
+            s.update({"stage": "closed", "sell_response": resp,
+                      "closed_at": datetime.now(timezone.utc).isoformat()})
+            save_smoke(s)
+            d.post(f"{d.TICK} Sold it back. Round trip complete — the whole chain "
+                   f"works end to end.\nBroker said: "
+                   f"`{json.dumps(resp, default=str)[:400]}`")
+            print(f"SOLD {s['qty']} {s['code']}\n{json.dumps(resp, indent=1, default=str)}")
+            return 0
+
+        if stage in ("buying", "selling", "unknown"):
+            print(f"stage is {stage!r} — a previous run did not finish cleanly.\n"
+                  f"Check the Trading 212 app, then delete {SMOKE} once the "
+                  f"position matches what you expect.")
+            if s.get("error"):
+                print(f"last error: {s['error']}")
+            return 1
+
+        print(f"nothing to do (stage {stage!r}, you reacted {choice!r}).")
+        return 0
 
     if args.t212_find:
         if t212 is None:

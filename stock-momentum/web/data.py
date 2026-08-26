@@ -211,6 +211,11 @@ ACTIONS = {
     "probe": ["--t212-probe"],
     "check": ["--t212-check"],
     "sync": ["--t212-sync"],
+    # The smoke test. "offer" only posts to Discord; "poll" is the one that can
+    # place a real order, and only ever after your reaction has been read back.
+    "smoke_offer": ["--smoke-offer"],
+    "smoke_poll": ["--smoke-poll"],
+    "smoke_status": ["--smoke-status"],
 }
 
 
