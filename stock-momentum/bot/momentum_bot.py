@@ -185,9 +185,16 @@ MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
 #   paper : the strategy simulated on assumed fills. Always runs, never touched
 #           by the broker, so there is something to measure execution against.
 #   live  : what Trading 212 actually holds.
-# MOMENTUM_TRACK picks the one the bot trades and reports on. It matters for
-# more than display: once you are live, orders have to be planned from what you
-# really hold, or the bot will tell you to sell something you do not own.
+# MOMENTUM_TRACK picks which one the bot plans from and reports on. It does NOT
+# decide whether anything is traded -- nothing here ever trades. Every call to
+# the broker is a GET; the only POST in this file goes to Discord. Setting it to
+# 'live' cannot move money, fund a pie, or place an order, because no code to do
+# any of that exists.
+#
+# What it does change: which holdings the monthly instructions are worked out
+# from. Once you are following the live book, orders have to be planned from
+# what you really hold, or the bot will tell you to sell something you do not
+# own.
 TRACKS = ("paper", "live")
 TRACK = os.environ.get("MOMENTUM_TRACK", "paper").strip().lower()
 if TRACK not in TRACKS:

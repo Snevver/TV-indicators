@@ -115,9 +115,13 @@ FIELDS = {
                     "this strategy."),
     "DISCORD_WEBHOOK": (_webhook, "Discord webhook",
                         "Where the monthly rebalance is posted."),
-    "MOMENTUM_TRACK": (_choice("paper", "live"), "Trading",
-                       "Which book the bot acts on. Orders are planned from it, "
-                       "so switch to live only once Trading 212 is connected."),
+    "MOMENTUM_TRACK": (_choice("paper", "live"), "Which book to follow",
+                       "Not a trading switch — the bot never places an order or "
+                       "moves money on either setting. 'paper' keeps its own "
+                       "book from assumed fills; 'live' mirrors what Trading 212 "
+                       "actually holds, so the monthly instructions are worked "
+                       "out from your real positions. Only switch once the pie "
+                       "is funded and --t212-check matches."),
     "MOMENTUM_CURRENCY": (_choice("usd", "eur", "gbp"), "Currency",
                           "The label on every figure. It does not convert anything."),
     "MOMENTUM_MONTHLY": (_amount, "Monthly contribution",
