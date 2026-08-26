@@ -29,7 +29,7 @@ CONFIG_DIR = os.environ.get("MOMENTUM_CONFIG_DIR") or os.path.join(
 CONFIG = os.path.join(CONFIG_DIR, "momentum.env")
 ETC = "/etc/momentum-bot.env"
 
-SECRET = {"T212_API_KEY", "DISCORD_WEBHOOK"}
+SECRET = {"T212_API_KEY", "T212_API_SECRET", "DISCORD_WEBHOOK"}
 
 # MOMENTUM_MODE and MOMENTUM_FRACTIONAL used to live here. Both were settled by
 # measurement -- drift, fractional -- and hardcoded in the bot, so exposing them
@@ -93,8 +93,14 @@ def _amount(v):
 # name -> (validator, human label, help text)
 FIELDS = {
     "T212_API_KEY": (_api_key, "Trading 212 API key",
-                     "From the app: Settings, API, Generate. Practice and live "
-                     "are different keys."),
+                     "From the app: Settings, API, Generate. It hands you a key "
+                     "AND a secret — this is the first of the two. Practice and "
+                     "live have separate pairs."),
+    "T212_API_SECRET": (_api_key, "Trading 212 secret key",
+                        "The second value shown when the key was generated. Both "
+                        "halves are required: the key on its own is rejected. It "
+                        "is only shown once, so regenerate the pair if it was "
+                        "not saved."),
     "T212_ENV": (_choice("demo", "live"), "Which account",
                  "demo is the practice account, live is real money."),
     "T212_PIE_ID": (_pie, "Pie id",

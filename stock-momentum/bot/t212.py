@@ -17,18 +17,21 @@ this module never sends one in either environment. You place trades yourself.
 
 SETUP (when you are ready — it is fine to leave this off)
   1. Trading 212 app -> Settings -> API. Generate a key for the account you are
-     running. Practice and live are separate keys with separate URLs.
-  2. Put it in /etc/momentum-bot.env, which is mode 600:
+     running. You get TWO values: an API key and a secret key. Both are needed --
+     the key is the username half and the secret is the password half of an HTTP
+     Basic login. Practice and live are separate pairs with separate URLs.
+  2. Put them in /etc/momentum-bot.env, which is mode 600:
          T212_API_KEY=...
+         T212_API_SECRET=...      # the second value shown when you generated it
          T212_ENV=demo            # or: live
          T212_PIE_ID=12345        # optional, strongly recommended — see below
-  3. python momentum_bot.py --t212-probe     # prove the key works
+  3. python momentum_bot.py --t212-probe     # prove the pair works
      python momentum_bot.py --t212-check     # broker vs the bot's book
      python momentum_bot.py --t212-sync      # adopt the broker's numbers
 
-The key is a password. It belongs in that file and nowhere else — not in the
-repo, not in a crontab, not pasted into a chat. If it leaks, revoke it in the
-app and generate another.
+Both values are passwords. They belong in that file and nowhere else — not in
+the repo, not in a crontab, not pasted into a chat. If either leaks, revoke the
+pair in the app and generate another.
 
 WHY A SEPARATE PIE
 /equity/portfolio returns the whole account. If you hold anything else on
@@ -43,6 +46,7 @@ import os
 import time
 
 API_KEY = os.environ.get("T212_API_KEY", "").strip()
+API_SECRET = os.environ.get("T212_API_SECRET", "").strip()
 ENV = os.environ.get("T212_ENV", "demo").strip().lower()
 PIE_ID = os.environ.get("T212_PIE_ID", "").strip()
 TIMEOUT = float(os.environ.get("T212_TIMEOUT", "20") or 20)
@@ -75,14 +79,22 @@ def _get(path: str, tries: int = 3):
     """One GET. Raises T212Error on anything that is not a clean 200."""
     import requests
     url = f"{BASE}{path}"
-    # The docs describe both a bare key and Basic auth. Send the bare Authorization
-    # header, which is what the published clients use; --t212-probe will say plainly
-    # if the account wants the other form.
-    headers = {"Authorization": API_KEY, "Accept": "application/json"}
+    # Trading 212 authenticates with HTTP Basic: the API key is the username and
+    # the secret is the password. requests builds and encodes that header, which
+    # is safer than hand-rolling base64 -- a stray newline in the encoded pair is
+    # a 401 that looks exactly like a bad key.
+    #
+    # With no secret set, send the bare key the way this file used to. An older
+    # single-value credential still authenticates that way, and it costs nothing
+    # to keep working.
+    headers = {"Accept": "application/json"}
+    auth = (API_KEY, API_SECRET) if API_SECRET else None
+    if auth is None:
+        headers["Authorization"] = API_KEY
     last = ""
     for attempt in range(tries):
         try:
-            r = requests.get(url, headers=headers, timeout=TIMEOUT)
+            r = requests.get(url, headers=headers, auth=auth, timeout=TIMEOUT)
         except Exception as exc:                       # network, DNS, TLS, timeout
             last = f"{type(exc).__name__}: {exc}"
             time.sleep(1.5 * (attempt + 1))
@@ -93,8 +105,13 @@ def _get(path: str, tries: int = 3):
             except ValueError:
                 raise T212Error(f"{path}: 200 but the body was not JSON: {r.text[:200]}")
         if r.status_code == 401:
-            raise T212Error(f"{path}: 401 — the key was rejected. Wrong key, or a "
-                            f"live key against T212_ENV=demo (or the reverse).")
+            missing = ("" if API_SECRET else
+                       " T212_API_SECRET is not set, and Trading 212 issues a key "
+                       "AND a secret — the key alone is rejected. That is the most "
+                       "likely cause.")
+            raise T212Error(f"{path}: 401 — the credentials were rejected.{missing} "
+                            f"Otherwise: a mistyped pair, or a live key against "
+                            f"T212_ENV=demo (or the reverse).")
         if r.status_code == 403:
             raise T212Error(f"{path}: 403 — the key is valid but lacks this "
                             f"permission. Re-generate it with portfolio and "
@@ -229,13 +246,22 @@ def probe() -> int:
     finished against reality instead of guessed at. Read-only."""
     if not configured():
         print(why_not() or "not configured")
-        print("\nSet T212_API_KEY and T212_ENV in /etc/momentum-bot.env, then:")
+        print("\nSet T212_API_KEY, T212_API_SECRET and T212_ENV in "
+              "/etc/momentum-bot.env, then:")
         print("  set -a; . /etc/momentum-bot.env; set +a")
         return 1
 
     print(f"env      : {ENV}")
     print(f"base     : {BASE}")
     print(f"key      : {API_KEY[:4]}…{API_KEY[-3:]} ({len(API_KEY)} chars)")
+    if API_SECRET:
+        print(f"secret   : {API_SECRET[:4]}…{API_SECRET[-3:]} "
+              f"({len(API_SECRET)} chars)")
+        print("auth     : HTTP Basic (key as username, secret as password)")
+    else:
+        print("secret   : NOT SET — sending the bare key, which Trading 212 will "
+              "most likely reject with a 401")
+        print("auth     : bare Authorization header (legacy single-key form)")
     print(f"pie      : {PIE_ID or '(whole account — set T212_PIE_ID to scope it)'}")
     print()
 
