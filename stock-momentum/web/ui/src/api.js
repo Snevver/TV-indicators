@@ -33,3 +33,7 @@ export const runAction = (action) =>
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ action, csrf: csrf() }),
   });
+
+export const simBounds = () => req("/api/simulate/bounds");
+export const simulate = (p) =>
+  req("/api/simulate?" + new URLSearchParams(p).toString());

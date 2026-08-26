@@ -176,6 +176,14 @@ const health = computed(() => [
 .tick { display: inline-flex; align-items: center; gap: 8px }
 .seg.small button { padding: 5px 12px; font-size: .68rem }
 .two { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)) }
+/* Wide screens: holdings and the equity curve sit side by side instead of
+   stacking, and the secondary charts go three across. */
+@media (min-width: 1500px) {
+  .page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 20px; align-items: start }
+  .topbar, .hero, .rail, .note, .block { grid-column: 1 / -1 }
+  .two { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)) }
+}
 .block { display: flex; flex-direction: column; gap: 10px }
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
 .key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px;

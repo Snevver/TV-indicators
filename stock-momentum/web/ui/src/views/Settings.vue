@@ -85,7 +85,7 @@ async function save() {
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 18px; max-width: 620px }
+.page { display: flex; flex-direction: column; gap: 18px; max-width: 620px ; margin: 0 auto }
 .form { padding: 22px 24px; display: flex; flex-direction: column; gap: 20px;
   align-items: flex-start }
 .field { display: flex; flex-direction: column; gap: 5px; width: 100% }

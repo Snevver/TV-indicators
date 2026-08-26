@@ -109,6 +109,23 @@ pages.
 Changes apply to the next bot run. Nothing needs restarting — the dashboard runs
 the bot as a fresh process every time, so it picks up whatever the files say.
 
+## Simulate
+
+`/simulate` runs the same rules over any past window and charts it against
+holding all forty and against the index. Pick a start, an end and a budget, or
+use a preset.
+
+The engine in `simulate.py` copies its constants and its ranking from
+`research/timelines.py` rather than re-deriving them — a re-derivation that
+drifted by a day would quietly make the page lie. Checked against the published
+figures: 2026 year to date returns +40.86% with a 12.68% worst fall, and the
+full history returns $36,074 from $1,000 with a 59.7% drawdown, both matching
+the report.
+
+It reads `_data-export/data/`, which ships in the repo. A cold parse of that
+45MB export takes about twelve seconds, so it is warmed in a background thread
+at startup and every simulation after that takes about a second.
+
 ## The two books
 
 A switch at the top of the dashboard flips everything between them.
@@ -167,6 +184,7 @@ sparse.
 |---|---|
 | `app.py` | Routes, login, config writes, the action runner |
 | `data.py` | Reads the bot's files. Tolerates every one of them being missing |
+| `simulate.py` | The backtest behind `/simulate`, reading the repo's price export |
 | `config.py` | Allowlist, validation, the atomic 600 write |
 | `ui/` | Vue source. Only needed to change the interface |
 | `static/dist/` | The built bundle, committed so no Node is needed to deploy |

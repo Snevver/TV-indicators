@@ -26,6 +26,7 @@ import json
 import os
 import secrets
 import stat
+import threading
 import time
 
 from flask import (Flask, abort, jsonify, redirect, render_template, request,
@@ -33,6 +34,7 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request,
 
 import config
 import data
+import simulate
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 AUTH = os.path.join(HERE, "auth.json")
@@ -198,6 +200,7 @@ SPA = os.path.join(HERE, "static", "dist", "index.html")
 @app.route("/")
 @app.route("/strategy")
 @app.route("/settings")
+@app.route("/simulate")
 @login_required
 def spa():
     """Every page is the same bundle; the client owns the routing."""
@@ -259,6 +262,44 @@ def api_config():
                     "paths": {"config": config.CONFIG, "etc": config.ETC}})
 
 
+@app.route("/api/simulate/bounds")
+@login_required
+def api_sim_bounds():
+    try:
+        return jsonify(simulate.bounds())
+    except simulate.NoData as exc:
+        return jsonify({"error": str(exc)}), 503
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify({"error": f"{type(exc).__name__}: {exc}"}), 500
+
+
+@app.route("/api/simulate")
+@login_required
+def api_simulate():
+    q = request.args
+    try:
+        budget = float(q.get("budget", "1000") or 1000)
+    except ValueError:
+        return jsonify({"error": "budget must be a number"}), 400
+    if not 1 <= budget <= 100_000_000:
+        return jsonify({"error": "budget must be between 1 and 100,000,000"}), 400
+
+    mode = (q.get("mode") or "rebalance").lower()
+    if mode not in ("rebalance", "drift"):
+        return jsonify({"error": "mode must be rebalance or drift"}), 400
+
+    try:
+        return jsonify(simulate.run(
+            q.get("start", ""), q.get("end", ""), budget, mode,
+            fractional=(q.get("fractional", "1") != "0")))
+    except simulate.NoData as exc:
+        return jsonify({"error": str(exc)}), 503
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:                                   # noqa: BLE001
+        return jsonify({"error": f"{type(exc).__name__}: {exc}"}), 500
+
+
 @app.route("/api/action", methods=["POST"])
 @login_required
 def api_action():
@@ -268,6 +309,18 @@ def api_action():
     if action not in data.ACTIONS:
         return jsonify({"error": "unknown action"}), 400
     return jsonify(data.run_bot(action))
+
+
+def _warm_prices() -> None:
+    """Parse the price export once, in the background, at startup.
+
+    A cold parse of the 45MB export takes about twelve seconds. Doing it here
+    means the first simulation someone runs is instant instead of looking hung.
+    """
+    try:
+        simulate.bounds()
+    except Exception:                                          # noqa: BLE001
+        pass          # the simulate page reports this properly when asked
 
 
 def main() -> int:
@@ -282,6 +335,7 @@ def main() -> int:
         return set_password()
     if not _load_auth().get("hash"):
         print("No password set yet. Run:  python app.py --set-password")
+    threading.Thread(target=_warm_prices, daemon=True).start()
     app.run(host=args.host, port=args.port, threaded=True)
     return 0
 

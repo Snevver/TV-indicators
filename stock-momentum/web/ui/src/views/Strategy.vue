@@ -61,7 +61,7 @@ const h = computed(() => store.state?.health || {});
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 18px; max-width: 760px }
+.page { display: flex; flex-direction: column; gap: 18px; max-width: 760px ; margin: 0 auto }
 .body { padding: 26px 30px; display: flex; flex-direction: column; gap: 14px }
 .body p { max-width: 66ch; color: var(--body) }
 .lede.big { font-size: 1.05rem; color: var(--ink) }
