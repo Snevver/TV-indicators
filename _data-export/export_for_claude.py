@@ -85,6 +85,40 @@ def sp500():
     return sorted(t.replace(".", "-") for t in ever)
 
 
+def retry_singly(missing, label, pause=1.5):
+    """Try the failures one at a time, slowly.
+
+    A batch failure is ambiguous. "no timezone found" is what Yahoo says both for
+    a company that no longer exists and for a request it declined because too
+    many arrived at once -- and the second kind comes back if you ask politely,
+    one at a time. Separating them matters: it decides whether a name is a real
+    hole in the data or just an impatient download.
+    """
+    import time
+    frames, still = [], []
+    for i, t in enumerate(missing, 1):
+        if i % 25 == 0:
+            print(f"  {label} retry: {i} of {len(missing)}")
+        try:
+            raw = yf.download(t, start=START, progress=False, threads=False,
+                              auto_adjust=False)
+        except Exception:                                  # noqa: BLE001
+            raw = None
+        if raw is None or raw.empty:
+            still.append(t)
+            time.sleep(pause)
+            continue
+        df = raw.reset_index()
+        df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+        df = df.rename(columns={"Date": "time", "Open": "open", "High": "high",
+                                "Low": "low", "Close": "close", "Volume": "volume"})
+        df.insert(1, "ticker", t)
+        frames.append(df[["time", "ticker", "open", "high", "low", "close", "volume"]])
+        time.sleep(pause)
+    print(f"  {label} retry: recovered {len(frames)}, still missing {len(still)}")
+    return (pd.concat(frames, ignore_index=True) if frames else None), still
+
+
 def grab(tickers, label):
     """Download in batches, return one long-format frame."""
     frames = []
@@ -126,6 +160,12 @@ def main() -> int:
             got = set(stk.ticker.unique())
             want = set(syms)
             gone = sorted(want - got)
+            if gone:
+                print(f"  {len(gone)} failed in batches; retrying one at a time")
+                extra, gone = retry_singly(gone, "S&P 500")
+                if extra is not None:
+                    stk = pd.concat([stk, extra], ignore_index=True)
+                    got = set(stk.ticker.unique())
             print(f"  coverage: {len(got)}/{len(want)} tickers returned data; "
                   f"{len(gone)} had none (delisted, or renamed)")
             if gone:
