@@ -11,9 +11,13 @@ returns None, and the caller falls back to the local book with a warning. A
 broker that is slow, rate-limiting, rejecting the key or returning a shape we
 did not expect must not stop a rebalance message going out.
 
-WHAT IT CANNOT DO
-Place orders. Trading 212's public API only accepts orders in practice mode, and
-this module never sends one in either environment. You place trades yourself.
+WHAT IT DOES NOT DO
+Place orders. Not because it cannot -- Trading 212's API does accept live market
+orders now, and a key with the "Orders - Execute" permission could send them --
+but because it deliberately does not. Reading the account correctly has to be
+proven before anything writes to it, and the field mapping below is still
+unverified against a real account. Every request in this file is a GET. You
+place trades yourself.
 
 SETUP (when you are ready — it is fine to leave this off)
   1. Trading 212 app -> Settings -> API. Generate a key for the account you are
