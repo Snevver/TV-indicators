@@ -39,6 +39,16 @@ Open **http://192.168.2.37:6767**.
 
 To try it without systemd first: `../bot/.venv/bin/python app.py`.
 
+## After a git pull
+
+```bash
+sudo systemctl restart momentum-web
+```
+
+Templates and Python are loaded once at startup — outside debug mode Flask does
+not watch them — so a pull without a restart leaves the old page being served.
+The bot needs no restart: it is a fresh process on every timer run.
+
 ## Read this before you expose it
 
 **This is plain HTTP.** The password, your holdings and everything else cross
@@ -123,6 +133,11 @@ sparse.
   `cd ../bot && python3 -m venv .venv && .venv/bin/pip install yfinance pandas requests flask`.
 - **`ProtectSystem=strict` errors in the journal** — you cloned somewhere other
   than `~/tv-indicators`. Fix the `ReadWritePaths` lines in the installed unit.
+- **The page looks unchanged after a pull** — restart the service; see above.
+- **Fonts look generic** — the page asks the *browser* for Instrument Sans and
+  IBM Plex Mono, so it needs internet on the device you are viewing from, not on
+  the mini PC. Without it everything falls back to the system stack and the
+  layout is unaffected.
 
 ## Files
 
@@ -132,5 +147,6 @@ sparse.
 | `data.py` | Reads the bot's files. Tolerates every one of them being missing |
 | `config.py` | Allowlist, validation, the atomic 600 write |
 | `charts.py` | Server-rendered SVG. No chart library, no CDN |
+| `static/app.css` | One stylesheet, both themes, contrast checked against WCAG AA |
 | `templates/`, `static/` | The page itself |
 | `auth.json` | Password hash and session secret, mode 600, gitignored |

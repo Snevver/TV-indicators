@@ -28,8 +28,8 @@ import secrets
 import stat
 import time
 
-from flask import (Flask, abort, jsonify, redirect, render_template, request,
-                   session, url_for)
+from flask import (Flask, abort, g, jsonify, redirect, render_template,
+                   request, session, url_for)
 
 import charts
 import config
@@ -130,20 +130,35 @@ def csrf_ok() -> bool:
                                str(session.get("csrf", "")))
 
 
+@app.before_request
+def make_nonce():
+    # A fresh nonce per request lets the holdings bars ship their widths as a
+    # real <style> block. Inline style attributes would need 'unsafe-inline',
+    # which is a much bigger hole than one server-generated rule set.
+    g.nonce = secrets.token_urlsafe(16)
+
+
 @app.after_request
 def headers(resp):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["Referrer-Policy"] = "no-referrer"
+    nonce = getattr(g, "nonce", "")
+    # Fonts are fetched by the viewer's browser, not by this machine, so they
+    # work even when the mini PC itself is offline. Everything has a system
+    # fallback if the browser cannot reach them either.
     resp.headers["Content-Security-Policy"] = (
-        "default-src 'self'; img-src 'self' data:; style-src 'self'; "
+        "default-src 'self'; img-src 'self' data:; "
+        f"style-src 'self' 'nonce-{nonce}' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
         "script-src 'self'; form-action 'self'; frame-ancestors 'none'")
     return resp
 
 
 @app.context_processor
 def inject():
-    return {"csrf": session.get("csrf", ""), "TRACK_LABEL": data.TRACK_LABEL}
+    return {"csrf": session.get("csrf", ""), "TRACK_LABEL": data.TRACK_LABEL,
+            "nonce": getattr(g, "nonce", "")}
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -202,10 +217,12 @@ def dashboard():
     return render_template(
         "dashboard.html", track=track, s=s, c=c, h=h, sym=sym, other=other,
         held=held, rebalances=data.rebalances()[:14],
+        spark=charts.sparkline(c["total"]),
+        weight_css=charts.weight_rules(s.get("positions") or {}),
         chart_equity=charts.equity(c["dates"], c["total"], c["deposited"], sym),
         chart_dd=charts.drawdown(c["dates"], c["drawdown"]),
         chart_monthly=charts.monthly(c["monthly"]),
-        chart_weights=charts.weights(s.get("positions") or {}))
+        chart_alloc=charts.allocation(s.get("positions") or {}))
 
 
 @app.route("/strategy")
