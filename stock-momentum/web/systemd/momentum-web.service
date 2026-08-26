@@ -35,7 +35,9 @@ ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/home/CHANGEME/tv-indicators/stock-momentum/bot
 ReadWritePaths=/home/CHANGEME/tv-indicators/stock-momentum/web
-ReadWritePaths=/home/CHANGEME/.config/momentum
+# Leading dash: this directory does not exist until Settings is first saved,
+# and systemd refuses to start a unit whose ReadWritePaths is missing.
+ReadWritePaths=-/home/CHANGEME/.config/momentum
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true

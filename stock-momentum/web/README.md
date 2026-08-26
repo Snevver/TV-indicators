@@ -22,12 +22,18 @@ cd ../web
 Then run it under systemd so it comes back after a reboot:
 
 ```bash
+mkdir -p ~/.config/momentum && chmod 700 ~/.config/momentum
 sudo cp systemd/momentum-web.service /etc/systemd/system/
 sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-web.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now momentum-web
 systemctl status momentum-web --no-pager
 ```
+
+The `mkdir` matters: the service declares that directory writable, and systemd
+refuses to start a unit whose `ReadWritePaths` does not exist. The unit marks it
+optional so a missing one is survivable, but creating it up front avoids the
+whole question.
 
 Open **http://192.168.2.37:6767**.
 
