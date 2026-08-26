@@ -41,6 +41,12 @@ def main() -> int:
     mem = pd.read_csv(MEMBERS)
     mem["date"] = pd.to_datetime(mem["date"])
 
+    # Membership starts in 2004 and prices in 2005, so the first year would
+    # otherwise report 0% coverage and be crowned the worst -- an artefact of
+    # where the files begin, not a hole in the data.
+    first = px.time.min().year
+    mem = mem[mem.date.dt.year >= first]
+
     print("How much of the real index we can price, by year\n")
     print(f"{'year':<6} {'priced':>7} {'in index':>9} {'coverage':>9}")
     worst = (None, 101.0)
