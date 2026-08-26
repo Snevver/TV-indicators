@@ -5,7 +5,10 @@
 Description=Check for a reaction to the smoke test
 
 [Timer]
-OnCalendar=*:*:0/60
+# 'minutely' is *-*-* *:*:00. Written as *:*:0/60 this silently fails to
+# parse -- the seconds field is 0-59, so a step of 60 is out of range and
+# systemd refuses the whole unit.
+OnCalendar=minutely
 AccuracySec=5s
 Persistent=false
 
