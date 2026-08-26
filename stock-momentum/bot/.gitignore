@@ -1,3 +1,6 @@
 # Local run state — yours, not the repo's.
 state.json
 rebalances.csv
+history.csv
+latest.json
+state.json.tmp

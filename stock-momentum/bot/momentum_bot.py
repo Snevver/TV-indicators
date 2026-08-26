@@ -60,6 +60,8 @@ else:
     _T212_IMPORT_ERROR = ""
 STATE = os.path.join(HERE, "state.json")
 LOG = os.path.join(HERE, "rebalances.csv")
+HISTORY = os.path.join(HERE, "history.csv")     # one row per day per track
+LATEST = os.path.join(HERE, "latest.json")      # the dashboard's render cache
 
 # Frozen at validation time. Changing this changes the strategy — if you edit it,
 # the measured results no longer describe what you are running.
@@ -97,33 +99,81 @@ MODE = os.environ.get("MOMENTUM_MODE", "rebalance").lower()
 if MODE not in ("rebalance", "drift"):
     raise SystemExit(f"MOMENTUM_MODE must be 'rebalance' or 'drift', not {MODE!r}")
 
+# Two books are kept side by side.
+#   paper : the strategy simulated on assumed fills. Always runs, never touched
+#           by the broker, so there is something to measure execution against.
+#   live  : what Trading 212 actually holds.
+# MOMENTUM_TRACK picks the one the bot trades and reports on. It matters for
+# more than display: once you are live, orders have to be planned from what you
+# really hold, or the bot will tell you to sell something you do not own.
+TRACKS = ("paper", "live")
+TRACK = os.environ.get("MOMENTUM_TRACK", "paper").strip().lower()
+if TRACK not in TRACKS:
+    raise SystemExit(f"MOMENTUM_TRACK must be 'paper' or 'live', not {TRACK!r}")
+
 GREEN = 0x3BA55D    # something changed
 BLURPLE = 0x5865F2  # ranked, nothing to do
 AMBER = 0xF0A020    # a test: real numbers, nothing saved, do not trade it
 
 
-EMPTY = {"basket": [], "last_rebalance": None,
-         "positions": {},    # ticker -> shares held
-         "book": {},         # ticker -> what those shares cost
-         "cash": 0.0,        # funded but not currently in a stock
-         "deposited": 0.0,   # money you put in, so growth can exclude it
-         "realised": 0.0,    # profit and loss already banked by selling
-         "equity": []}       # [date, account value] at each rebalance
+# One track's book. Every money function below takes one of these, not the whole
+# state file.
+EMPTY_BOOK = {"basket": [], "last_rebalance": None, "last_rebalance_month": None,
+              "positions": {},    # ticker -> shares held
+              "book": {},         # ticker -> what those shares cost
+              "cash": 0.0,        # funded but not currently in a stock
+              "deposited": 0.0,   # money you put in, so growth can exclude it
+              "realised": 0.0,    # profit and loss already banked by selling
+              "equity": []}       # [date, account value] at each rebalance
+
+EMPTY = {"schema": 2, "tracks": {}}
+
+
+def _blank() -> dict:
+    return json.loads(json.dumps(EMPTY_BOOK))
 
 
 def load_state() -> dict:
+    """The whole state file, both tracks, migrated forward if needed."""
     if os.path.exists(STATE):
         with open(STATE) as fh:
             s = json.load(fh)
-        for k, v in EMPTY.items():          # a state.json from an older version
-            s.setdefault(k, json.loads(json.dumps(v)))
-        return s
-    return json.loads(json.dumps(EMPTY))
+    else:
+        s = json.loads(json.dumps(EMPTY))
+
+    if "tracks" not in s:
+        # A schema-1 file: one flat book, which was the paper one by definition —
+        # nothing had a broker link when it was written.
+        s = {"schema": 2,
+             "tracks": {"paper": {k: s.get(k, _blank()[k]) for k in EMPTY_BOOK},
+                        "live": _blank()}}
+
+    for name in TRACKS:
+        bk = s["tracks"].setdefault(name, _blank())
+        for k, v in EMPTY_BOOK.items():
+            bk.setdefault(k, json.loads(json.dumps(v)))
+    s["schema"] = 2
+    return s
+
+
+def book(state: dict, name: str = "") -> dict:
+    """One track's book. Defaults to the track this run is trading."""
+    return state["tracks"][name or TRACK]
 
 
 def save_state(s: dict) -> None:
-    with open(STATE, "w") as fh:
+    """Write via a temp file in the same directory, then rename.
+
+    The dashboard reads state.json while the bot may be writing it. A plain
+    truncate-and-write hands the reader a half-finished file; os.replace is
+    atomic, so a reader sees either the old file or the new one.
+    """
+    tmp = STATE + ".tmp"
+    with open(tmp, "w") as fh:
         json.dump(s, fh, indent=1)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, STATE)
 
 
 def fetch(days: int = 400):
@@ -156,7 +206,7 @@ def rank(px):
     return ((recent / past - 1.0)[ok]).sort_values(ascending=False)
 
 
-def due(px, state) -> bool:
+def due(px, bk) -> bool:
     """True on the first trading day of a month we have not rebalanced in.
 
     Keyed off the newest BAR, not the wall clock, so holidays and weekends need
@@ -164,7 +214,23 @@ def due(px, state) -> bool:
     """
     last_bar = px.index[-1]
     tag = f"{last_bar.year}-{last_bar.month:02d}"
-    return state.get("last_rebalance_month") != tag
+    if bk.get("last_rebalance_month") == tag:
+        return False
+
+    if bk.get("last_rebalance_month"):
+        # Warm start. Any day in a month we have not traded yet is fair game:
+        # if the machine was off for the first three days of the month we still
+        # want to catch up rather than skip the month entirely.
+        return True
+
+    # Cold start — an empty book, which is what a fresh --deposit leaves behind.
+    # Here "a month we have not rebalanced in" is every month, so the check above
+    # is not enough on its own: without this, funding the account on the 25th
+    # opens a position on the 25th. Require the newest bar to genuinely be the
+    # first trading day of its month.
+    seen = sum(1 for d in px.index
+               if (d.year, d.month) == (last_bar.year, last_bar.month))
+    return seen <= 1
 
 
 # ---------------------------------------------------------------- the book --
@@ -177,35 +243,35 @@ def money(x: float) -> str:
     return f"{SYM}{x:,.2f}"
 
 
-def mark(state, prices) -> dict:
+def mark(bk, prices) -> dict:
     """Value the book at the latest prices."""
     rows = {}
-    for tk, sh in state["positions"].items():
+    for tk, sh in bk["positions"].items():
         if sh <= 0 or tk not in prices:
             continue
         value = sh * prices[tk]
-        cost = state["book"].get(tk, 0.0)
+        cost = bk["book"].get(tk, 0.0)
         rows[tk] = {"shares": sh, "price": prices[tk], "value": value, "cost": cost,
                     "pnl": value - cost,
                     "pnl_pct": (value / cost - 1) * 100 if cost else 0.0}
     invested = sum(r["value"] for r in rows.values())
-    total = invested + state["cash"]
-    dep = state["deposited"]
-    return {"rows": rows, "invested": invested, "cash": state["cash"], "total": total,
+    total = invested + bk["cash"]
+    dep = bk["deposited"]
+    return {"rows": rows, "invested": invested, "cash": bk["cash"], "total": total,
             "deposited": dep,
             "pnl": total - dep,
             "pnl_pct": (total / dep - 1) * 100 if dep else 0.0,
-            "realised": state["realised"],
+            "realised": bk["realised"],
             "unrealised": sum(r["pnl"] for r in rows.values())}
 
 
-def plan(state, prices, basket, total) -> list:
+def plan(bk, prices, basket, total) -> list:
     """The orders that move the current book to the new basket.
 
     Returns (ticker, delta_shares, cash_delta) with sells first, so the cash to
     pay for the buys exists before they are applied.
     """
-    orders, pos = [], state["positions"]
+    orders, pos = [], bk["positions"]
     for tk, sh in sorted(pos.items()):
         if sh > 0 and tk not in basket:
             orders.append((tk, -sh, sh * prices.get(tk, 0.0)))
@@ -215,7 +281,7 @@ def plan(state, prices, basket, total) -> list:
         # plus any idle cash, is split over the names that are new this month.
         arriving = [t for t in basket if pos.get(t, 0.0) <= 0]
         if arriving:
-            pot = state["cash"] + sum(o[2] for o in orders)
+            pot = bk["cash"] + sum(o[2] for o in orders)
             each = pot / len(arriving)
             for tk in arriving:
                 sh = each / prices[tk]
@@ -236,7 +302,7 @@ def plan(state, prices, basket, total) -> list:
         # of the account permanently in cash. Spend what is left on whole shares,
         # always topping up whichever name sits furthest below its target, so the
         # remainder lands where it does the least damage to the equal weighting.
-        free = state["cash"] + sum(o[2] for o in orders) - sum(
+        free = bk["cash"] + sum(o[2] for o in orders) - sum(
             (want[t] - pos.get(t, 0.0)) * prices[t] for t in basket)
         while True:
             gaps = [(slice_ - want[t] * prices[t], t) for t in basket
@@ -254,26 +320,26 @@ def plan(state, prices, basket, total) -> list:
     return orders
 
 
-def apply_orders(state, orders, prices) -> None:
+def apply_orders(bk, orders, prices) -> None:
     """Record the orders as filled at `prices`. Cost basis moves proportionally
     on a sell, so realised and unrealised P&L never double-count."""
     for tk, dsh, dcash in orders:
-        held = state["positions"].get(tk, 0.0)
-        cost = state["book"].get(tk, 0.0)
+        held = bk["positions"].get(tk, 0.0)
+        cost = bk["book"].get(tk, 0.0)
         if dsh < 0:                                   # selling
             sold = min(-dsh, held)
             share = sold / held if held else 0.0
-            state["realised"] += sold * prices[tk] - cost * share
-            state["book"][tk] = cost * (1 - share)
-            state["positions"][tk] = held - sold
+            bk["realised"] += sold * prices[tk] - cost * share
+            bk["book"][tk] = cost * (1 - share)
+            bk["positions"][tk] = held - sold
         else:                                         # buying
-            state["book"][tk] = cost + dsh * prices[tk]
-            state["positions"][tk] = held + dsh
-        state["cash"] += dcash
-        if state["positions"].get(tk, 0.0) <= 1e-9:
-            state["positions"].pop(tk, None)
-            state["book"].pop(tk, None)
-    state["cash"] = max(round(state["cash"], 6), 0.0)
+            bk["book"][tk] = cost + dsh * prices[tk]
+            bk["positions"][tk] = held + dsh
+        bk["cash"] += dcash
+        if bk["positions"].get(tk, 0.0) <= 1e-9:
+            bk["positions"].pop(tk, None)
+            bk["book"].pop(tk, None)
+    bk["cash"] = max(round(bk["cash"], 6), 0.0)
 
 
 def parse_fill(spec: str):
@@ -295,25 +361,29 @@ def unbuyable(basket, prices, total) -> list:
 
 
 def refresh(state) -> bool:
-    """Before showing or deciding anything, adopt the broker's positions if the
-    link is set up and answering. Returns True if it did.
+    """Mirror the broker into the LIVE track. Returns True if anything was read.
+
+    This never touches the paper track. Paper is the strategy simulated on
+    assumed fills; keeping it independent is the only way to tell later whether
+    a bad month was the strategy or your own execution.
 
     Silent when there is no key — that is the normal case and not a problem.
     """
     snap = broker()
     if snap is None:
         return False
-    # A broker that reports nothing while the book holds positions is far more
-    # likely to be a mapping or permissions problem than a portfolio you emptied
-    # by hand. Never let the automatic path act on it — --t212-sync --force is
-    # how you say you really did sell everything.
-    if state["positions"] and not snap["positions"]:
-        print("  ! Trading 212 reports no positions, but the book holds "
-              f"{len(state['positions'])}. Not adopting that — it would erase "
+    live = book(state, "live")
+    # A broker that reports nothing while the live book holds positions is far
+    # more likely to be a mapping or permissions problem than a portfolio you
+    # emptied by hand. Never let the automatic path act on it — --t212-sync
+    # --force is how you say you really did sell everything.
+    if live["positions"] and not snap["positions"]:
+        print("  ! Trading 212 reports no positions, but the live book holds "
+              f"{len(live['positions'])}. Not adopting that — it would erase "
               f"the book. Check --t212-probe, or --t212-sync --force if you "
               f"really did sell everything.")
         return False
-    diffs = reconcile(state, snap, adopt=True)
+    diffs = reconcile(live, snap, adopt=True)
     save_state(state)
     where = f"pie {t212.PIE_ID}" if snap["scoped_to_pie"] else "account"
     print(f"  [Trading 212 {t212.ENV}/{where}] {len(snap['positions'])} positions"
@@ -338,7 +408,7 @@ def broker() -> dict | None:
         return None
 
 
-def reconcile(state, snap, adopt: bool) -> list:
+def reconcile(bk, snap, adopt: bool) -> list:
     """Compare the bot's book with the broker's. Returns the differences.
 
     With adopt=False nothing changes — this is the report --t212-check prints.
@@ -347,7 +417,7 @@ def reconcile(state, snap, adopt: bool) -> list:
     funded versus what you earned, and overwriting it would turn a deposit into
     a profit.
     """
-    diffs, mine = [], state["positions"]
+    diffs, mine = [], bk["positions"]
     theirs = snap["positions"]
     for tk in sorted(set(mine) | set(theirs)):
         a, b = mine.get(tk, 0.0), theirs.get(tk, {}).get("shares", 0.0)
@@ -355,18 +425,18 @@ def reconcile(state, snap, adopt: bool) -> list:
         # difference of a millionth of a share is noise, not a discrepancy.
         if abs(a - b) > max(1e-6, 1e-4 * max(a, b)):
             diffs.append((tk, a, b))
-    if abs(state["cash"] - snap["cash"]) > 0.01 and not snap["scoped_to_pie"]:
-        diffs.append(("(cash)", state["cash"], snap["cash"]))
+    if abs(bk["cash"] - snap["cash"]) > 0.01 and not snap["scoped_to_pie"]:
+        diffs.append(("(cash)", bk["cash"], snap["cash"]))
 
     if adopt:
-        state["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
-        state["book"] = {tk: p["cost"] for tk, p in theirs.items()}
+        bk["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
+        bk["book"] = {tk: p["cost"] for tk, p in theirs.items()}
         if not snap["scoped_to_pie"]:
-            state["cash"] = snap["cash"]
-        if not state["deposited"]:
+            bk["cash"] = snap["cash"]
+        if not bk["deposited"]:
             # Nothing was ever declared, so the only honest starting point is
             # what is there now. Say so rather than quietly inventing a return.
-            state["deposited"] = snap["total"]
+            bk["deposited"] = snap["total"]
             print(f"  note: nothing was paid in on record, so {money(snap['total'])} "
                   f"is being treated as the starting balance. Use --deposit if "
                   f"that is wrong.")
@@ -518,7 +588,7 @@ def render_embed(bar, buys, sells, basket, scores, first: bool,
     }]}
 
 
-def render_snapshot(bar, m, state) -> dict:
+def render_snapshot(bar, m, bk) -> dict:
     """A between-rebalances portfolio update. No decisions in it — just where
     the account stands right now."""
     rows = render_book(m) or ["  (nothing held)"]
@@ -538,10 +608,102 @@ def render_snapshot(bar, m, state) -> dict:
         "description": f"**{bar.strftime('%-d %B %Y')}** · marked at the latest close",
         "color": GREEN if m["pnl"] >= 0 else 0xC0392B,
         "fields": fields,
-        "footer": {"text": f"Held since {state.get('last_rebalance') or '—'} · "
+        "footer": {"text": f"Held since {bk.get('last_rebalance') or '—'} · "
                            f"next rebalance {next_month_label(bar)}"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }]}
+
+
+HISTORY_COLS = ("date", "track", "total", "invested", "cash", "deposited",
+                "pnl", "realised", "unrealised", "positions")
+
+
+def record_day(when, track_name, m) -> None:
+    """Append one day's mark to history.csv, replacing any row already there for
+    the same day and track.
+
+    The bot wakes every weeknight and usually has nothing to do; that no-op run
+    has already computed mark(), so recording it costs nothing and is what gives
+    the charts daily resolution instead of one point a month.
+    """
+    import csv
+    if not m["rows"] and not m["deposited"] and not m["cash"]:
+        return          # a track that was never funded is not worth a daily row
+    key = (str(when), track_name)
+    rows, seen = [], False
+    if os.path.exists(HISTORY):
+        try:
+            with open(HISTORY, newline="", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    if (r.get("date"), r.get("track")) == key:
+                        seen = True
+                        continue
+                    rows.append(r)
+        except (OSError, csv.Error):
+            rows, seen = [], False      # unreadable history is not worth dying for
+    rows.append({"date": str(when), "track": track_name,
+                 "total": f'{m["total"]:.2f}', "invested": f'{m["invested"]:.2f}',
+                 "cash": f'{m["cash"]:.2f}', "deposited": f'{m["deposited"]:.2f}',
+                 "pnl": f'{m["pnl"]:.2f}', "realised": f'{m["realised"]:.2f}',
+                 "unrealised": f'{m["unrealised"]:.2f}',
+                 "positions": str(len(m["rows"]))})
+    rows.sort(key=lambda r: (r["date"], r["track"]))
+    tmp = HISTORY + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(HISTORY_COLS), extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    os.replace(tmp, HISTORY)
+    if seen:
+        return
+
+
+def snapshot_payload(state, prices, scores, bar) -> dict:
+    """Everything the dashboard renders from, both tracks, no network needed."""
+    out = {"generated": datetime.now(timezone.utc).isoformat(),
+           "bar": str(bar.date()) if hasattr(bar, "date") else str(bar),
+           "currency": CURRENCY, "symbol": SYM, "mode": MODE, "track": TRACK,
+           "fractional": FRACTIONAL, "hold": HOLD,
+           "next_rebalance": next_month_label(bar),
+           "ranking": [{"ticker": tk, "momentum_pct": round(float(v) * 100, 2),
+                        "held": i < HOLD}
+                       for i, (tk, v) in enumerate(scores.items())][:20],
+           "tracks": {}}
+    for name in TRACKS:
+        bk = book(state, name)
+        m = mark(bk, prices)
+        out["tracks"][name] = {
+            "total": round(m["total"], 2), "invested": round(m["invested"], 2),
+            "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
+            "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
+            "realised": round(m["realised"], 2),
+            "unrealised": round(m["unrealised"], 2),
+            "basket": bk["basket"], "last_rebalance": bk["last_rebalance"],
+            "equity": bk["equity"],
+            "positions": {tk: {"shares": r["shares"], "price": round(r["price"], 2),
+                               "value": round(r["value"], 2),
+                               "cost": round(r["cost"], 2),
+                               "pnl": round(r["pnl"], 2),
+                               "pnl_pct": round(r["pnl_pct"], 2),
+                               "weight_pct": round(r["value"] / m["total"] * 100, 2)
+                               if m["total"] else 0.0}
+                          for tk, r in m["rows"].items()},
+            "unbuyable": unbuyable(list(scores.index[:HOLD]), prices, m["total"]),
+        }
+    out["t212"] = {"available": t212 is not None,
+                   "configured": bool(t212 is not None and t212.configured()),
+                   "reason": (t212.why_not() if t212 is not None else
+                              _T212_IMPORT_ERROR),
+                   "env": getattr(t212, "ENV", ""),
+                   "pie": getattr(t212, "PIE_ID", "")}
+    return out
+
+
+def write_latest(payload: dict) -> None:
+    tmp = LATEST + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, indent=1, default=str)
+    os.replace(tmp, LATEST)
 
 
 def log_row(when, buys, sells, basket, total=0.0, cash=0.0,
@@ -559,10 +721,14 @@ def main() -> int:
     p.add_argument("--dry", action="store_true", help="decide and print, post nothing")
     p.add_argument("--force", action="store_true", help="rebalance regardless of date")
     p.add_argument("--status", action="store_true", help="show the account and exit")
+    p.add_argument("--json", action="store_true",
+                   help="machine-readable status for the dashboard; posts nothing")
     p.add_argument("--report", action="store_true",
                    help="post the account to Discord without rebalancing")
     p.add_argument("--test", action="store_true",
                    help="post a real message to Discord, save nothing")
+    p.add_argument("--track", choices=TRACKS, default=None,
+                   help=f"which book to act on (default {TRACK}, $MOMENTUM_TRACK)")
     p.add_argument("--deposit", type=float, metavar="AMOUNT",
                    help="record money paid into the account")
     p.add_argument("--withdraw", type=float, metavar="AMOUNT",
@@ -572,13 +738,15 @@ def main() -> int:
     p.add_argument("--t212-probe", action="store_true",
                    help="print what Trading 212 returns; read-only, changes nothing")
     p.add_argument("--t212-check", action="store_true",
-                   help="compare the bot's book with the broker; changes nothing")
+                   help="compare the live book with the broker; changes nothing")
     p.add_argument("--t212-sync", action="store_true",
                    help="adopt the broker's positions and cash as the truth")
     p.add_argument("--webhook", default=os.environ.get("DISCORD_WEBHOOK", ""))
     args = p.parse_args()
 
     state = load_state()
+    name = args.track or TRACK
+    bk = book(state, name)
 
     # --- the optional broker link -------------------------------------------
     if args.t212_probe:
@@ -591,34 +759,37 @@ def main() -> int:
             raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
         if not t212.configured():
             raise SystemExit(t212.why_not() + "\n"
-                             "Set T212_API_KEY and T212_ENV in /etc/momentum-bot.env, "
-                             "then: set -a; . /etc/momentum-bot.env; set +a")
+                             "Set T212_API_KEY and T212_ENV in the config, then: "
+                             "set -a; . /etc/momentum-bot.env; set +a")
         snap = broker()
         if snap is None:
             return 1
+        # These always act on the live book — it is the one that mirrors the
+        # broker. Paper is a simulation and has nothing to reconcile against.
+        live = book(state, "live")
         scope = f"pie {t212.PIE_ID}" if snap["scoped_to_pie"] else "the whole account"
         print(f"Trading 212 ({t212.ENV}) — {scope}")
         print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}"
               + ("" if snap["scoped_to_pie"] else f", cash {money(snap['cash'])}"))
-        if (args.t212_sync and state["positions"] and not snap["positions"]
+        if (args.t212_sync and live["positions"] and not snap["positions"]
                 and not args.force):
             raise SystemExit(
-                f"  the broker reports no positions but the book holds "
-                f"{len(state['positions'])}.\n"
+                f"  the broker reports no positions but the live book holds "
+                f"{len(live['positions'])}.\n"
                 f"  Refusing to erase it. If you really did sell everything, "
                 f"repeat with --force.")
-        diffs = reconcile(state, snap, adopt=args.t212_sync)
+        diffs = reconcile(live, snap, adopt=args.t212_sync)
         if not diffs:
-            print("  the bot's book already matches. Nothing to do.")
+            print("  the live book already matches. Nothing to do.")
         else:
             print(f"\n  {'':<8} {'bot thinks':>14} {'broker says':>14}")
             for tk, a, b in diffs:
                 print(f"  {tk:<8} {a:>14,.4f} {b:>14,.4f}")
             if args.t212_sync:
                 save_state(state)
-                m = mark(state, {tk: p["value"] / p["shares"]
-                                 for tk, p in snap["positions"].items() if p["shares"]})
-                print(f"\n  adopted. account {money(m['total'])}, "
+                m = mark(live, {tk: q["value"] / q["shares"]
+                                for tk, q in snap["positions"].items() if q["shares"]})
+                print(f"\n  adopted into the live book. account {money(m['total'])}, "
                       f"{money(m['deposited'])} paid in")
             else:
                 print("\n  nothing changed. --t212-sync adopts the broker's numbers.")
@@ -630,36 +801,51 @@ def main() -> int:
         if amount is None:
             continue
         if amount <= 0:
-            raise SystemExit(f"--{verb[:-2] if sign > 0 else 'withdraw'} wants a "
+            raise SystemExit(f"--{'deposit' if sign > 0 else 'withdraw'} wants a "
                              f"positive amount")
-        if sign < 0 and amount > state["cash"] + 1e-9:
-            raise SystemExit(f"only {money(state['cash'])} in cash — sell something "
-                             f"first, or withdraw less")
-        state["cash"] += sign * amount
-        state["deposited"] += sign * amount
+        if sign < 0 and amount > bk["cash"] + 1e-9:
+            raise SystemExit(f"only {money(bk['cash'])} in cash on the {name} book — "
+                             f"sell something first, or withdraw less")
+        bk["cash"] += sign * amount
+        bk["deposited"] += sign * amount
         save_state(state)
-        print(f"{verb} {money(amount)} — cash now {money(state['cash'])}, "
-              f"{money(state['deposited'])} paid in overall")
+        print(f"{verb} {money(amount)} to the {name} book — cash now "
+              f"{money(bk['cash'])}, {money(bk['deposited'])} paid in overall")
 
     # --- corrections to what the bot assumed --------------------------------
     if args.fill:
         for spec in args.fill:
             tk, sh, pr = parse_fill(spec)
-            apply_orders(state, [(tk, sh, -sh * pr)], {tk: pr})
+            apply_orders(bk, [(tk, sh, -sh * pr)], {tk: pr})
             print(f"recorded {'buy' if sh > 0 else 'sell'} of {abs(sh)} {tk} "
-                  f"@ {money(pr)} — cash now {money(state['cash'])}")
+                  f"@ {money(pr)} on the {name} book — cash now {money(bk['cash'])}")
         save_state(state)
 
     if args.deposit is not None or args.withdraw is not None or args.fill:
-        if not (args.status or args.report):
+        if not (args.status or args.report or args.json):
             return 0
+
+    # --- machine-readable, for the dashboard --------------------------------
+    if args.json:
+        refresh(state)
+        px = fetch()
+        prices = px.iloc[-1].to_dict()
+        scores = rank(px)
+        payload = snapshot_payload(state, prices, scores, px.index[-1])
+        payload["due"] = due(px, book(state, name))
+        write_latest(payload)
+        for t in TRACKS:
+            record_day(px.index[-1].date(), t, mark(book(state, t), prices))
+        print(json.dumps(payload, indent=1, default=str))
+        return 0
 
     # --- the account, marked to the latest close ----------------------------
     if args.status or args.report:
-        if not state["positions"]:
-            m = mark(state, {})
-            print(f"basket        : {', '.join(state['basket']) or '(empty)'}")
-            print(f"last rebalance: {state.get('last_rebalance') or 'never'}")
+        if not bk["positions"]:
+            m = mark(bk, {})
+            print(f"track         : {name}")
+            print(f"basket        : {', '.join(bk['basket']) or '(empty)'}")
+            print(f"last rebalance: {bk.get('last_rebalance') or 'never'}")
             print(f"cash          : {money(m['cash'])}")
             print(f"paid in       : {money(m['deposited'])}")
             if not args.report:
@@ -667,21 +853,21 @@ def main() -> int:
         else:
             refresh(state)
             px = fetch()
-            m = mark(state, px.iloc[-1].to_dict())
+            m = mark(bk, px.iloc[-1].to_dict())
             print(f"ACCOUNT   {money(m['total'])}   "
                   f"{m['pnl']:+,.2f} = {m['pnl_pct']:+.1f}% "
                   f"on {money(m['deposited'])} paid in")
             print(f"  invested  {money(m['invested'])}   "
-                  f"cash {money(m['cash'])}   [{MODE}]")
+                  f"cash {money(m['cash'])}   [{name} · {MODE}]")
             print(f"  open      {m['unrealised']:+,.2f}   "
                   f"banked {m['realised']:+,.2f}")
-            print(f"  since     {state.get('last_rebalance') or 'never'}\n")
+            print(f"  since     {bk.get('last_rebalance') or 'never'}\n")
             print("\n".join(render_book(m)))
         if args.report:
             if not args.webhook:
                 raise SystemExit("no webhook set ($DISCORD_WEBHOOK)")
-            bar = px.index[-1] if state["positions"] else datetime.now(timezone.utc)
-            post(args.webhook, render_snapshot(bar, m, state))
+            bar = px.index[-1] if bk["positions"] else datetime.now(timezone.utc)
+            post(args.webhook, render_snapshot(bar, m, bk))
             print("\nposted to Discord")
         return 0
 
@@ -690,23 +876,32 @@ def main() -> int:
     prices = px.iloc[-1].to_dict()
     scores = rank(px)
     basket = list(scores.index[:HOLD])
-    held = state.get("basket", [])
+    held = bk.get("basket", [])
+    bar = px.index[-1]
 
-    if not (args.force or args.test or due(px, state)):
-        m = mark(state, prices)
-        print(f"{px.index[-1].date()}: already rebalanced this month "
-              f"({state.get('last_rebalance')}). Nothing to do.")
+    if not (args.force or args.test or due(px, bk)):
+        m = mark(bk, prices)
+        if bk.get("last_rebalance"):
+            print(f"{bar.date()}: already rebalanced this month "
+                  f"({bk.get('last_rebalance')}). Nothing to do.")
+        else:
+            print(f"{bar.date()}: funded but not started — the opening position "
+                  f"waits for the first trading day of {next_month_label(bar)}.")
         if m["deposited"]:
             print(f"  account {money(m['total'])}  {m['pnl_pct']:+.1f}%")
+        # Nothing to trade, but this is still a day worth recording — it is what
+        # gives the dashboard a daily line rather than a monthly staircase.
+        for t in TRACKS:
+            record_day(bar.date(), t, mark(book(state, t), prices))
+        write_latest(snapshot_payload(state, prices, scores, bar))
         return 0
 
     buys = [t for t in basket if t not in held]
     sells = [t for t in held if t not in basket]
     first = not held
-    bar = px.index[-1]
 
-    m = mark(state, prices)
-    orders = plan(state, prices, basket, m["total"]) if m["total"] > 0 else []
+    m = mark(bk, prices)
+    orders = plan(bk, prices, basket, m["total"]) if m["total"] > 0 else []
     cannot = unbuyable(basket, prices, m["total"]) if m["total"] > 0 else []
 
     print(render_plain(bar, buys, sells, basket, scores, m, orders, prices))
@@ -744,15 +939,18 @@ def main() -> int:
         print("\nno webhook set ($DISCORD_WEBHOOK) — printed only")
 
     # Assume the orders filled at today's close. --fill corrects any that did not.
-    apply_orders(state, orders, prices)
-    after = mark(state, prices)
-    state["equity"].append([str(bar.date()), round(after["total"], 2)])
-    state.update({"basket": basket,
-                  "last_rebalance": str(bar.date()),
-                  "last_rebalance_month": f"{bar.year}-{bar.month:02d}"})
+    apply_orders(bk, orders, prices)
+    after = mark(bk, prices)
+    bk["equity"].append([str(bar.date()), round(after["total"], 2)])
+    bk.update({"basket": basket,
+               "last_rebalance": str(bar.date()),
+               "last_rebalance_month": f"{bar.year}-{bar.month:02d}"})
     save_state(state)
     log_row(bar.date(), buys, sells, basket, after["total"], after["cash"],
             after["deposited"], after["pnl"])
+    for t in TRACKS:
+        record_day(bar.date(), t, mark(book(state, t), prices))
+    write_latest(snapshot_payload(state, prices, scores, bar))
     if orders:
         print(f"recorded {len(orders)} fills at the {bar.date()} close · "
               f"account {money(after['total'])} · cash {money(after['cash'])}")
