@@ -148,8 +148,15 @@ HOLD = 8            # positions
 CURRENCY = os.environ.get("MOMENTUM_CURRENCY", "EUR")
 SYM = {"USD": "$", "EUR": "\u20ac", "GBP": "\u00a3"}.get(CURRENCY, CURRENCY + " ")
 
-# Don't generate an order for loose change.
-MIN_ORDER = float(os.environ.get("MOMENTUM_MIN_ORDER", "1") or 1)
+# MOMENTUM_MIN_ORDER used to sit here, defaulting to 1, and plan() skipped any
+# buy worth less than it. Removed on request: it was one more knob for a case
+# that barely arises, since a contribution split eight ways is rarely small.
+#
+# WHAT IT USED TO ABSORB: Trading 212 will not fill a fractional order below
+# about one unit of currency. Nothing now stops the bot printing a line for less
+# than that, so if a rebalance ever asks for EUR 0.40 of something the broker
+# will refuse it. Skip the line -- the cash stays on the book and goes into next
+# month -- or put the floor back here if it starts happening often.
 
 # What a standing order pays in each month. Credited to the PAPER book on
 # rebalance day and spread over all eight holdings -- sell proceeds keep funding
@@ -397,7 +404,7 @@ def plan(bk, prices, basket, total, contribution: float = 0.0) -> list:
     orders = list(sells)
     for tk in basket:                      # basket order, so the message reads well
         sh = buys.get(tk, 0.0)
-        if sh > 0 and sh * prices[tk] >= MIN_ORDER:
+        if sh > 0:
             orders.append((tk, sh, -sh * prices[tk]))
     return orders
 

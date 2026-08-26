@@ -129,9 +129,6 @@ FIELDS = {
                          "to the paper book on rebalance day and spread over "
                          "all eight holdings. 0 turns it off. The live track "
                          "takes its cash from Trading 212 instead."),
-    "MOMENTUM_MIN_ORDER": (_amount, "Smallest order",
-                           "Skip orders below this, so a rebalance does not ask "
-                           "you to trade forty cents of something."),
 }
 
 UPPER = {"MOMENTUM_CURRENCY"}          # stored uppercase, chosen lowercase

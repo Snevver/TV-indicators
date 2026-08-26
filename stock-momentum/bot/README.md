@@ -45,9 +45,6 @@ EOF
 
 `MOMENTUM_CURRENCY` is the label on every figure. It does not convert anything.
 
-`MOMENTUM_MIN_ORDER` (default `1`) is optional: don't generate an order below
-this, so a rebalance doesn't ask you to trade forty cents of something.
-
 `MOMENTUM_TRACK` (default `paper`) picks which book the bot trades. See
 **The two books** in `../web/README.md`.
 
