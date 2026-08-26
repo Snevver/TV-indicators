@@ -561,6 +561,74 @@ def find_instruments(text: str, limit: int = 40) -> list:
     return out
 
 
+def _post(path: str, body: dict, tries: int = 2):
+    """POST, with the retry rules an order needs rather than the ones a read has.
+
+    A read that times out can be repeated freely. An order cannot: the request
+    may have arrived and been filled with the reply lost on the way back, and a
+    blind retry would double the position. So a network failure is reported as
+    UNKNOWN and never retried -- the caller reconciles against the broker instead
+    of guessing. Only an explicit 429, which means the order was definitely not
+    accepted, is safe to send again.
+    """
+    import requests
+    url = f"{BASE}{path}"
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    auth = (API_KEY, API_SECRET) if API_SECRET else None
+    if auth is None:
+        headers["Authorization"] = API_KEY
+    for attempt in range(tries):
+        try:
+            r = requests.post(url, headers=headers, auth=auth, json=body,
+                              timeout=TIMEOUT)
+        except Exception as exc:                       # noqa: BLE001
+            raise T212Error(
+                f"UNKNOWN: {path} did not answer ({type(exc).__name__}: {exc}). "
+                f"The order may or may not have been placed. Deliberately not "
+                f"retried -- check the app, then run --t212-sync.")
+        if r.status_code == 429:
+            wait = 5.0
+            try:
+                wait = float(r.headers.get("Retry-After", wait))
+            except (TypeError, ValueError):
+                pass
+            if attempt + 1 < tries:
+                time.sleep(min(wait + 0.5, 30))
+                continue
+            raise T212Error(f"{path}: rate limited; not sent")
+        if r.status_code in (200, 201):
+            try:
+                return r.json()
+            except ValueError:
+                return {"raw_text": r.text[:400]}
+        if r.status_code == 401:
+            raise T212Error(f"{path}: 401 — credentials rejected")
+        if r.status_code == 403:
+            raise T212Error(f"{path}: 403 — this key lacks Orders-Execute, or the "
+                            f"account may not trade this instrument")
+        raise T212Error(f"{path}: HTTP {r.status_code} — {r.text[:300]}")
+    raise T212Error(f"{path}: gave up")
+
+
+def place_market_order(code: str, quantity: float) -> dict:
+    """Buy or sell at the market. A NEGATIVE quantity sells.
+
+    THE ONLY FUNCTION IN THIS FILE THAT SPENDS MONEY. Everything else is a GET.
+
+    `code` must come from resolve_universe() -- the broker's own instrument list
+    -- never from string-building. The response shape has not been seen against a
+    real account, so it is returned whole for the caller to record rather than
+    parsed into a shape that might be wrong.
+    """
+    if not isinstance(code, str) or not code.strip():
+        raise T212Error(f"refusing to order without an instrument code ({code!r})")
+    q = float(quantity)
+    if q != q or q == 0:                               # NaN, or nothing to do
+        raise T212Error(f"refusing to order a quantity of {quantity!r}")
+    d = _post("/equity/orders/market", {"ticker": code, "quantity": q})
+    return d if isinstance(d, dict) else {"raw": d}
+
+
 def snapshot(universe=None) -> dict | None:
     """Everything the bot needs, or None. Never raises.
 
