@@ -1,38 +1,49 @@
-# TV-Indicators
+# Stock momentum
 
-TradingView indicators, one folder each. Every folder is self-contained: the Pine
-scripts, the research that produced them, and the numbers they actually achieved.
+One strategy, traded live, with the code that measured it and the machine that
+runs it.
 
-| Folder | What it is | Status |
-|---|---|---|
-| [`zerostar-mean-reversion/`](zerostar-mean-reversion/) | Intraday and daily mean-reversion signal indicators, v2 → v5 | **v4 is the one to use** |
-| [`stock-momentum/`](stock-momentum/) | Monthly momentum across 40 mega-caps, hold top 8 | **Best in the repo** — beat SPY on return and Sharpe in all three eras |
-| [`momentum-rotation/`](momentum-rotation/) | Monthly ETF rotation on 6-month relative strength | Ranking tool. Beats a random ETF pick by ~3%/yr but does **not** beat buying SPY |
-| [`wickless-retest/`](wickless-retest/) | Wickless-candle levels and retest alerts | Marking tool — the rules did not pass a backtest |
+Monthly cross-sectional momentum across 40 US mega-caps: rank by six-month return
+ending a month ago, hold the top eight, re-rank on the first trading day of each
+month.
+
+| Folder | What it is |
+|---|---|
+| [`stock-momentum/bot/`](stock-momentum/bot/) | The live bot. Runs daily on a mini PC, posts each rebalance to Discord, keeps its own book, optionally reads Trading 212 |
+| [`stock-momentum/web/`](stock-momentum/web/) | A local dashboard on that machine — holdings, curves, settings |
+| [`stock-momentum/research/`](stock-momentum/research/) | The backtests behind every number quoted anywhere here |
+| [`stock-momentum/indicators/`](stock-momentum/indicators/) | The TradingView Pine version. The bot does not depend on it |
+| [`_data-export/`](_data-export/) | Daily OHLCV export the research scripts read |
+
+Start with [`stock-momentum/README.md`](stock-momentum/README.md) for what it does
+and what it measured, or [`HOW-TO-TRADE.md`](stock-momentum/HOW-TO-TRADE.md) for
+the monthly routine.
 
 ## House rules
 
-**Every indicator ships with its measured results, or it does not ship.** A Pine
-script that has never been backtested against costs is a hypothesis, not an
-indicator. Each folder carries the backtest that produced its numbers so any claim
-can be re-run.
+**Measured results, or it does not ship.** A rule that has never been backtested
+against costs is a hypothesis. `research/` carries the code that produced every
+figure, so any claim here can be re-run rather than taken on trust.
 
-**Results quoted are out-of-sample.** Anything can be made to look good on the data
-it was tuned on. The numbers in these READMEs come from slices held back from the
-search — see each folder's `research/FINDINGS.md` for the method.
+**Results quoted are out-of-sample**, from slices held back from the search.
+Anything can be made to look good on the data it was tuned on.
 
-**No price data in git.** Daily CSVs are small enough to keep; intraday bars run to
-hundreds of megabytes and are rebuildable from the fetch scripts. `.gitignore`
-enforces this.
+**Every number is flattered by one thing that cannot be fixed.** The forty-name
+universe was chosen in 2026, so the whole history knows which companies survived.
+The index is the only honest benchmark on the page.
 
-## Adding a new indicator
+**No secrets in git.** The Discord webhook, the Trading 212 key and the dashboard
+password live in mode-600 files on the machine that runs the bot, never here.
+`state.json`, `history.csv` and the rest of the local run state are gitignored for
+the same reason: they are that machine's, not the repo's.
 
-```
-your-indicator-name/
-├── README.md            what it does, and what it measured
-├── indicators/          the .pine files (indicator + strategy twin)
-└── research/            backtest code, data, findings
-```
+**No large price data in git.** Daily CSVs are kept because the research needs
+them; intraday bars run to hundreds of megabytes and are rebuildable from
+`_data-export/export_for_claude.py`.
 
-Copying `zerostar-mean-reversion/research/` is a reasonable starting point — the
-backtester there is dependency-free and reads any OHLCV CSV.
+## History
+
+This repo used to hold four indicators. The other three — an ETF rotation, a
+wickless-candle retest, and a mean-reversion family — were removed once this one
+was the only one being traded. They are still in the git history if they are ever
+wanted back.

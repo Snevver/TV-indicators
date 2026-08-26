@@ -112,16 +112,17 @@ universe contained both.
 the invalid-symbol error a wrong exchange guess produces.
 
 **Not compiled by TradingView.** The Pine is written and reasoned about, not
-parser-verified. The sibling `momentum-rotation` indicator, which shares this
-structure, was verified correct against its backtest on a live chart.
+parser-verified. It is also not what you are trading — the bot computes the
+ranking itself, from the same logic the backtest used, so the two cannot drift
+apart. Delete the indicator and nothing about the live signal changes.
 
-## What this beat
+## Why this one
 
-Six approaches were tested and discarded before this one: intraday mean
-reversion, a wickless-candle retest, overnight holding, dip-buying 500 stocks,
-long/short momentum, and searched trend-following on both ETFs and stocks. Each
-was invented by a parameter search, and each failed the multiple-testing bar it
-therefore had to clear. Details in [`../momentum-rotation/`](../momentum-rotation/)
-and [`../zerostar-mean-reversion/`](../zerostar-mean-reversion/).
+Cross-sectional momentum is among the most replicated findings in asset pricing.
+It was not invented here, and that is exactly why it survived testing that killed
+every rule that was — each of those was found by a parameter search, and each
+failed the multiple-testing bar it therefore had to clear.
 
-This one was not invented here. That is why it survived.
+The measured edge, five to ten points a year over random, is what the published
+literature reports. That agreement is the point. Fifty points would have been a
+bug.
