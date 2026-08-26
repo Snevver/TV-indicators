@@ -7,3 +7,5 @@ state.json.tmp
 
 # Hand-made backups from a cleanup — yours, not the repo's.
 *.bak
+# Broker metadata cache: ~16k rows, refetched on demand.
+instruments.json

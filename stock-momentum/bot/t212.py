@@ -128,8 +128,11 @@ def _get(path: str, tries: int = 3):
                             f"permission. Re-generate it with portfolio and "
                             f"history access ticked.")
         if r.status_code == 429:                       # rate limited: back off
+            # /equity/metadata/instruments is limited far harder than the rest --
+            # roughly one call a minute -- so the steps have to clear that, not
+            # just pause politely.
             last = "429 rate limited"
-            time.sleep(5 * (attempt + 1))
+            time.sleep(20 * (attempt + 1))
             continue
         raise T212Error(f"{path}: HTTP {r.status_code} — {r.text[:200]}")
     raise T212Error(f"{path}: gave up after {tries} attempts ({last})")
@@ -407,6 +410,47 @@ def probe() -> int:
     return 0 if ok else 1
 
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+INSTRUMENTS_CACHE = os.path.join(HERE, "instruments.json")
+INSTRUMENTS_MAX_AGE = 24 * 3600          # the broker's list barely moves
+
+
+def instruments(max_age: float = INSTRUMENTS_MAX_AGE, refresh: bool = False) -> list:
+    """The broker's instrument list, cached on disk.
+
+    Nearly sixteen thousand rows, and Trading 212 rate-limits this endpoint far
+    harder than the rest -- two lookups in a row is enough to earn a 429. It is
+    also close to static: the codes for forty large caps do not change between
+    one command and the next. So it is fetched once and kept.
+
+    Delete instruments.json to force a refresh, or pass refresh=True.
+    """
+    if not refresh:
+        try:
+            age = time.time() - os.path.getmtime(INSTRUMENTS_CACHE)
+            if age < max_age:
+                with open(INSTRUMENTS_CACHE, encoding="utf-8") as fh:
+                    rows = json.load(fh)
+                if isinstance(rows, list) and rows:
+                    return rows
+        except (OSError, ValueError):
+            pass
+
+    rows = _get("/equity/metadata/instruments", tries=4)
+    if not isinstance(rows, list):
+        raise T212Error(f"/equity/metadata/instruments returned "
+                        f"{type(rows).__name__}, expected a list")
+    try:
+        tmp = INSTRUMENTS_CACHE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(rows, fh)
+        os.replace(tmp, INSTRUMENTS_CACHE)
+    except OSError as exc:
+        print(f"  ! could not cache the instrument list ({exc}) — it will be "
+              f"fetched again next time, which the broker may rate-limit")
+    return rows
+
+
 def resolve_universe(universe) -> dict:
     """Map each strategy ticker to the instrument code an order must name.
 
@@ -419,11 +463,7 @@ def resolve_universe(universe) -> dict:
     Returns {"map": {TICKER: code}, "missing": [...], "ambiguous": {TICKER: [codes]}}.
     Read-only.
     """
-    rows = _get("/equity/metadata/instruments")
-    if not isinstance(rows, list):
-        raise T212Error(f"/equity/metadata/instruments returned "
-                        f"{type(rows).__name__}, expected a list")
-
+    rows = instruments()
     wanted = {t.upper() for t in universe}
     found = {}
     for it in rows:
@@ -465,10 +505,7 @@ def find_instruments(text: str, limit: int = 40) -> list:
     a name it could not resolve. Guessing a code buys the wrong company, so the
     answer comes from the broker's own list.
     """
-    rows = _get("/equity/metadata/instruments")
-    if not isinstance(rows, list):
-        raise T212Error(f"/equity/metadata/instruments returned "
-                        f"{type(rows).__name__}, expected a list")
+    rows = instruments()
     needle, out = text.strip().upper(), []
     for it in rows:
         if not isinstance(it, dict):
