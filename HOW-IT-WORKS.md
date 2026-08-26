@@ -2,9 +2,15 @@
 
 Plain order of events. What the bot does, what you do, and when.
 
-**The bot never places an order and never moves money.** It reads your account
-and tells you what to trade. Every trade is placed by you, in the Trading 212
-app. That is true no matter what any setting says.
+**Today, the bot never places an order.** It reads your account and tells you
+what to trade; you place every trade in the Trading 212 app.
+
+That is a statement about what is built, not about what is possible. Approving
+orders with a Discord reaction is half finished: the bot can post the orders, add
+the checkmark, and confirm that **you specifically** ticked it. What does not
+exist yet is the code that turns an approved tick into an order at Trading 212.
+Until that is written and tested, the answer to "did anything trade on its own?"
+is no.
 
 ---
 
@@ -142,13 +148,19 @@ in is a real decision.
 
 ---
 
-## Later: approving orders from Discord
+## Automatic trading: what is and is not built
 
-Approval by reaction already works — the bot posts, you tick, it reads the tick,
-and it checks the tick came from **your** user id specifically.
+**Built and proven:** the bot posts a message, adds a ✅, reads back who ticked
+it, and accepts it only from your user id. A tick from anyone else is ignored.
 
-What does not exist yet is the part that submits orders to Trading 212. Until
-that is written and tested, every trade is placed by hand.
+**Not built:** the step that submits the orders. There is no code path from an
+approved tick to a trade.
+
+So a reaction today does nothing except get read back. Once the submitting half
+exists, the sequence becomes: bot posts the orders and the ✅ at 21:00, you tick
+it, the bot checks the tick is yours, submits the orders, and reports what
+filled. An unapproved batch expires at the market close rather than firing the
+next morning at a price nobody looked at.
 
 Before that gets switched on: one full month done manually, so we know the
 instructions are actually executable, and a first automated run watched live.
