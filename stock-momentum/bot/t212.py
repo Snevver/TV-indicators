@@ -451,51 +451,84 @@ def instruments(max_age: float = INSTRUMENTS_MAX_AGE, refresh: bool = False) -> 
     return rows
 
 
+# Names Trading 212 still lists under a code the company no longer uses. Each
+# one is a documented corporate action, verified by ISIN, not a guess -- a wrong
+# entry here buys a different company with real money.
+#
+#   BKNG  The Priceline Group renamed itself Booking Holdings on 2018-02-21 and
+#         the ticker moved PCLN -> BKNG on 2018-02-27 (SEC 8-K). Trading 212 kept
+#         the old code. Same security: ISIN US09857L1089, which its EUR listing
+#         PCE1d_EQ also carries. The USD line is the one the backtest priced.
+RENAMES = {"BKNG": "PCLN_US_EQ"}
+
+
 def resolve_universe(universe) -> dict:
     """Map each strategy ticker to the instrument code an order must name.
 
     THIS IS THE PREREQUISITE FOR PLACING ANYTHING. symbol() goes the other way --
     AAPL_US_EQ to AAPL -- and is lossy, so it cannot simply be run backwards. An
     order names the broker's code, and inventing one is how a bot buys the wrong
-    company. So the codes come from the broker's own instrument list, and
-    anything ambiguous is reported rather than picked.
+    company. So the codes come from the broker's own list, and anything ambiguous
+    is reported rather than picked.
 
-    Returns {"map": {TICKER: code}, "missing": [...], "ambiguous": {TICKER: [codes]}}.
+    Matching uses the fields the rows actually carry: `shortName` first, which is
+    the plain ticker, falling back to reducing the code. Candidates are then held
+    to type STOCK in USD, which is what the backtest priced -- that alone drops
+    the European listings, which trade the same ISIN in another currency at
+    another price.
+
+    Returns {"map", "renamed", "missing", "ambiguous", "checked"}.
     Read-only.
     """
     rows = instruments()
     wanted = {t.upper() for t in universe}
-    found = {}
+
+    known = {}
+    cand = {}
     for it in rows:
         if not isinstance(it, dict):
             continue
-        code = _pick(it, "ticker", "instrumentCode", "code")
-        if code is None:
+        code = str(_pick(it, "ticker", "instrumentCode", "code", default="") or "")
+        if not code:
             continue
-        # Only ordinary US equities; the same short name can also belong to a
-        # CFD or a foreign listing, and those are not what the backtest priced.
         kind = str(_pick(it, "type", default="") or "").upper()
-        if kind and kind not in ("STOCK", "EQUITY", "ETF"):
+        cur = str(_pick(it, "currencyCode", "currency", default="") or "").upper()
+        short = str(_pick(it, "shortName", default="") or "").upper()
+        known[code] = {"type": kind, "cur": cur, "short": short,
+                       "isin": _pick(it, "isin", default=""),
+                       "name": _pick(it, "name", default="")}
+        if kind not in ("STOCK", "EQUITY"):
             continue
-        short = symbol(code)
-        if short in wanted:
-            found.setdefault(short, []).append(str(code))
+        if cur and cur != "USD":
+            continue                       # a European line is a different price
+        tk = short or symbol(code)
+        if tk in wanted:
+            cand.setdefault(tk, []).append(code)
 
-    mapping, ambiguous = {}, {}
+    mapping, ambiguous, renamed = {}, {}, {}
     for tk in sorted(wanted):
-        codes = found.get(tk, [])
+        codes = cand.get(tk, [])
+        if len(codes) > 1:
+            us = [c for c in codes if c.endswith("_US_EQ")]
+            codes = us if len(us) == 1 else codes
         if len(codes) == 1:
             mapping[tk] = codes[0]
         elif len(codes) > 1:
-            # Prefer the plain US equity code when one is unmistakable.
-            us = [c for c in codes if c.endswith("_US_EQ")]
-            if len(us) == 1:
-                mapping[tk] = us[0]
+            ambiguous[tk] = codes
+        elif tk in RENAMES:
+            code = RENAMES[tk]
+            if code in known:
+                mapping[tk] = code
+                renamed[tk] = {"code": code, "isin": known[code]["isin"],
+                               "name": known[code]["name"]}
             else:
-                ambiguous[tk] = codes
+                # The override names something the broker no longer lists. Say so
+                # rather than quietly falling through to "missing".
+                ambiguous[tk] = [f"{code} (from RENAMES, not in the broker's list)"]
+
     missing = sorted(wanted - set(mapping) - set(ambiguous))
-    return {"map": mapping, "missing": missing, "ambiguous": ambiguous,
-            "checked": len(rows)}
+    return {"map": mapping, "renamed": renamed, "missing": missing,
+            "ambiguous": ambiguous, "checked": len(rows)}
 
 
 def find_instruments(text: str, limit: int = 40) -> list:

@@ -182,6 +182,25 @@ to choose when a name is ambiguous rather than guessing — inventing a code is
 how a bot buys the wrong company. Every name must resolve before execution is
 possible.
 
+Matching uses `shortName` and holds candidates to type STOCK priced in USD,
+which is what the backtest priced. That drops European listings: they carry the
+same ISIN but trade in another currency at another price, so buying one would
+quietly track a different series.
+
+**One name needs an override.** Trading 212 lists Booking Holdings under
+`PCLN_US_EQ` — The Priceline Group renamed itself in February 2018 and the
+ticker moved PCLN → BKNG, but the broker kept the old code. Same security, ISIN
+`US09857L1089`. That sits in `RENAMES` in `t212.py`, and `--t212-instruments`
+prints it with its ISIN rather than applying it silently. An override naming
+something the broker does not list is reported as ambiguous instead of used.
+
+This one matters: BKNG is in the top eight in 98 of the 252 backtested months,
+and dropping it costs about 21% over the full history.
+
+`--t212-find TEXT` searches the same list by code or name when something does not
+resolve. The instrument list is ~16k rows and rate-limited hard, so it is cached
+for a day in `instruments.json`; delete that file to refresh it.
+
 ### Turning it on
 
 Trading 212 app → Settings → API → Generate API key, with portfolio and history

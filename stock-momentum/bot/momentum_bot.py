@@ -974,7 +974,11 @@ def main() -> int:
         print(f"{r['checked']:,} instruments listed by the broker\n")
         for tk in UNIVERSE:
             code = r["map"].get(tk)
-            print(f"  {tk:<6} -> {code}" if code else f"  {tk:<6} -> ??")
+            note = ""
+            if tk in r.get("renamed", {}):
+                info = r["renamed"][tk]
+                note = f"   <- renamed; {info['name']}, ISIN {info['isin']}"
+            print(f"  {tk:<6} -> {code}{note}" if code else f"  {tk:<6} -> ??")
         if r["ambiguous"]:
             print("\n  AMBIGUOUS — more than one plausible code, so none was chosen:")
             for tk, codes in sorted(r["ambiguous"].items()):
