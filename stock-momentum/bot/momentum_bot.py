@@ -1014,16 +1014,34 @@ def main() -> int:
     # A standing order lands before the rebalance, so the new money is part of
     # what gets allocated today. --dry and --test return before the save below,
     # so nothing is persisted by a preview.
+    #
+    # Both tracks record the money as paid in; only the paper track also invents
+    # the cash and the orders to spend it.
+    #
+    #   paper : nothing else knows about the money, so the book adds it and
+    #           spreads it over the basket itself.
+    #   live  : Trading 212 already holds whatever the standing order bought, so
+    #           adding cash here would count it twice -- but `deposited` is the
+    #           bot's alone. The broker cannot tell what you funded from what you
+    #           earned, and reconcile() deliberately never overwrites it. If it
+    #           did not go up here, every euro paid in would be reported as
+    #           profit: pay in 100 a month for a year and the book would claim
+    #           1,200 of gains it never made.
     paid_in_today = 0.0
-    if MONTHLY > 0 and name == "paper":
-        bk["cash"] += MONTHLY
+    if MONTHLY > 0:
         bk["deposited"] += MONTHLY
-        paid_in_today = MONTHLY
+        if name == "paper":
+            bk["cash"] += MONTHLY
+            paid_in_today = MONTHLY
 
     m = mark(bk, prices)
     orders = (plan(bk, prices, basket, m["total"], contribution=paid_in_today)
               if m["total"] > 0 else [])
     print(render_plain(bar, buys, sells, basket, scores, m, orders, prices))
+    if MONTHLY > 0 and not paid_in_today:
+        print(f"\n  + {money(MONTHLY)} recorded as paid in this month. On the "
+              f"live track Trading 212 already holds whatever it bought, so only "
+              f"the paid-in total moves here.")
     if paid_in_today:
         print(f"\n  + {money(paid_in_today)} paid in this month, spread over all "
               f"{len(basket)} holdings.")
