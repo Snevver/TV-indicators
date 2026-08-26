@@ -102,7 +102,7 @@ def retry_singly(missing, label, pause=1.5):
             print(f"  {label} retry: {i} of {len(missing)}")
         try:
             raw = yf.download(t, start=START, progress=False, threads=False,
-                              auto_adjust=False)
+                              auto_adjust=True)
         except Exception:                                  # noqa: BLE001
             raw = None
         if raw is None or raw.empty:
@@ -138,8 +138,19 @@ def grab(tickers, label):
     for k in range(0, len(tickers), BATCH):
         chunk = tickers[k:k + BATCH]
         print(f"  {label}: {k + 1}-{k + len(chunk)} of {len(tickers)}")
+        # auto_adjust=True gives TOTAL RETURN: split and dividend adjusted.
+        #
+        # It used to be False, which is split-adjusted price only -- so a
+        # dividend-paying company looked worse than it was, by its whole yield.
+        # For a strategy ranking companies against each other that is a real
+        # tilt, and it is also the wrong number: an investor receives the
+        # dividends.
+        #
+        # It also has to match kaggle_delisted_2005_2017.csv.gz, which is total
+        # return. Mixing the two conventions across tickers would hand the
+        # adjusted ones a free couple of percent a year in the ranking.
         raw = yf.download(chunk, start=START, group_by="ticker", progress=False,
-                          threads=True, auto_adjust=False)
+                          threads=True, auto_adjust=True)
         for t in chunk:
             try:
                 sub = raw[t] if isinstance(raw.columns, pd.MultiIndex) else raw

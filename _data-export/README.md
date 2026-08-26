@@ -50,6 +50,21 @@ It tries three times before giving up on a name:
 2. **Yahoo again, one at a time, slowly.** "no timezone found" is what Yahoo says
    both for a dead company and for a request it declined because a hundred
    arrived at once. Asking politely separates the two.
+`data/kaggle_delisted_2005_2017.csv.gz` fills 126 of the gaps from the [Huge
+Stock Market Dataset](https://www.kaggle.com/datasets/borismarjanovic/price-volume-data-for-all-us-stocks-etfs)
+(CC0). It was scraped in November 2017, so it holds companies that died *after*
+then — not before. **None of the 2008 casualties are in it**: no Lehman, no
+Washington Mutual, no Bear Stearns, Merrill, Countrywide or Kodak. Those need a
+paid feed or they stay missing.
+
+**Prices are total return everywhere.** The exporter uses `auto_adjust=True`, so
+Yahoo's series are split *and* dividend adjusted, matching the Kaggle file. This
+changed: it used to be `auto_adjust=False`, which is price-only and quietly
+docked every dividend payer its yield. Two reasons it matters — an investor does
+receive the dividends, and mixing the conventions across tickers would hand the
+adjusted ones a couple of free percent a year in a ranking that compares
+companies against each other.
+
 Stooq was tried as a third source and removed. Every request, for live and dead
 tickers alike, returns a JavaScript proof-of-work challenge — a deliberate block
 on automated access, not a gap in their data. Solving it to take the data anyway
