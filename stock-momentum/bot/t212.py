@@ -142,7 +142,14 @@ def _pick(d: dict, *names, default=None):
 
 
 def symbol(raw: str) -> str:
-    """'AAPL_US_EQ' -> 'AAPL'. Overridable via T212_TICKER_MAP."""
+    """'AAPL_US_EQ' -> 'AAPL', 'BRK_B_US_EQ' -> 'BRK.B'.
+
+    The remaining underscore is a share class, not padding: taking the first
+    token instead turned BRK_B into BRK, quietly relabelling a class B holding
+    as class A. Nothing in the current universe has a class suffix, so this has
+    never mattered -- but a mapping that answers with the wrong company is worth
+    fixing before it does. Overridable via T212_TICKER_MAP.
+    """
     if raw in OVERRIDES:
         return OVERRIDES[raw]
     s = str(raw)
@@ -150,7 +157,7 @@ def symbol(raw: str) -> str:
         if s.endswith(suffix):
             s = s[: -len(suffix)]
             break
-    return s.split("_")[0].upper()
+    return s.replace("_", ".").upper()
 
 
 def cash() -> dict:
@@ -334,6 +341,22 @@ def probe() -> int:
             print(f"    FAILED: {type(exc).__name__}: {exc}\n")
             continue
         ok += 1
+        if path == "/equity/pies" and isinstance(d, list):
+            print(f"    {len(d)} pies on this account:")
+            for pie in d:
+                if not isinstance(pie, dict):
+                    continue
+                res = pie.get("result") or {}
+                inv = res.get("priceAvgInvestedValue", 0) or 0
+                val = res.get("priceAvgValue", 0) or 0
+                tag = "  <- empty, likely the one you just made" if not inv else ""
+                print(f"      id {pie.get('id')}   invested {inv:>10,.2f}   "
+                      f"value {val:>10,.2f}   cash {pie.get('cash', 0) or 0:>6,.2f}"
+                      f"{tag}")
+            print("\n    Set T212_PIE_ID to the one the bot should read, then run")
+            print("    this again -- it will show what that pie actually holds.\n")
+            time.sleep(1.2)
+            continue
         body = json.dumps(d, indent=1, default=str)
         print("    " + "\n    ".join(body.splitlines()[:40]))
         if len(body.splitlines()) > 40:
