@@ -458,6 +458,33 @@ def resolve_universe(universe) -> dict:
             "checked": len(rows)}
 
 
+def find_instruments(text: str, limit: int = 40) -> list:
+    """Every instrument whose code or name contains `text`. Read-only.
+
+    For the case resolve_universe() is built to produce rather than paper over:
+    a name it could not resolve. Guessing a code buys the wrong company, so the
+    answer comes from the broker's own list.
+    """
+    rows = _get("/equity/metadata/instruments")
+    if not isinstance(rows, list):
+        raise T212Error(f"/equity/metadata/instruments returned "
+                        f"{type(rows).__name__}, expected a list")
+    needle, out = text.strip().upper(), []
+    for it in rows:
+        if not isinstance(it, dict):
+            continue
+        code = str(_pick(it, "ticker", "instrumentCode", "code", default="") or "")
+        name = str(_pick(it, "name", "shortName", "prettyName", default="") or "")
+        if needle in code.upper() or needle in name.upper():
+            out.append({"code": code, "name": name,
+                        "type": _pick(it, "type", default=""),
+                        "currency": _pick(it, "currencyCode", "currency", default=""),
+                        "isin": _pick(it, "isin", default="")})
+        if len(out) >= limit:
+            break
+    return out
+
+
 def snapshot(universe=None) -> dict | None:
     """Everything the bot needs, or None. Never raises.
 

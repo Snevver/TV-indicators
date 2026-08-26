@@ -856,6 +856,9 @@ def main() -> int:
                    help="record money taken out")
     p.add_argument("--fill", action="append", metavar="TICKER=SHARES@PRICE",
                    help="correct an assumed fill; repeatable")
+    p.add_argument("--t212-find", metavar="TEXT",
+                   help="search the broker's instrument list by code or name; "
+                        "read-only, for names --t212-instruments could not resolve")
     p.add_argument("--t212-instruments", action="store_true",
                    help="resolve the universe to Trading 212 instrument codes; "
                         "read-only, and required before any order can be placed")
@@ -873,6 +876,21 @@ def main() -> int:
     bk = book(state, name)
 
     # --- the optional broker link -------------------------------------------
+    if args.t212_find:
+        if t212 is None:
+            raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        if not t212.configured():
+            raise SystemExit(t212.why_not())
+        hits = t212.find_instruments(args.t212_find)
+        if not hits:
+            print(f"nothing matching {args.t212_find!r}")
+            return 1
+        print(f"{len(hits)} match(es) for {args.t212_find!r}:\n")
+        for h in hits:
+            print(f"  {h['code']:<18} {str(h['type'])[:8]:<8} "
+                  f"{str(h['currency'])[:4]:<4} {h['isin'] or '':<14} {h['name'][:40]}")
+        return 0
+
     if args.t212_instruments:
         if t212 is None:
             raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
