@@ -78,7 +78,7 @@ def _amount(v):
 
 # name -> (validator, human label, help text)
 #
-# THREE KNOBS, DELIBERATELY. Credentials, channel/user ids and the Trading 212
+# A SHORT LIST, DELIBERATELY. Credentials, channel/user ids and the Trading 212
 # key pairs are set once over SSH in /etc/momentum-bot.env and shown read-only by
 # credentials() below -- they do not belong in a browser form that can drift from
 # the file the bot actually reads. MOMENTUM_TRACK folded into autotrade (the bot
@@ -90,10 +90,23 @@ FIELDS = {
                  "live is real money. Each uses its own key pair from the env "
                  "file (T212_API_KEY_DEMO / _LIVE), so switching here needs no "
                  "re-paste."),
+    "MOMENTUM_START_BUDGET": (_amount, "Starting amount",
+                              "How much of your Trading 212 free funds the "
+                              "strategy begins with. The first rebalance sizes "
+                              "the opening eight positions to this and draws it "
+                              "from free funds when you approve. Applied once — "
+                              "after the strategy has started, growth and the "
+                              "monthly contribution carry it and changing this "
+                              "does nothing. Use the bot's --deposit for a later "
+                              "top-up."),
     "MOMENTUM_MONTHLY": (_amount, "Monthly contribution",
-                         "What you pay in each month by standing order, so a "
-                         "deposit is not counted as profit. Keep it matched to "
-                         "your real standing order. 0 turns it off."),
+                         "Added to what the strategy invests on every rebalance "
+                         "after the first, drawn from your Trading 212 free funds "
+                         "(a bank standing order, or just the balance you already "
+                         "hold) and spread over the new basket. 0 turns it off. "
+                         "Do not also run a bank standing order into the account "
+                         "on top of this — the bot only deploys this amount, and "
+                         "anything extra piles up untouched."),
     "MOMENTUM_AUTOTRADE": (_choice("off", "on"), "Automatic trading",
                            "Off: the bot works out the month's orders, posts "
                            "them, and you place them yourself. On: it places "

@@ -228,14 +228,21 @@ def to_live(prices: dict) -> dict:
 # will refuse it. Skip the line -- the cash stays on the book and goes into next
 # month -- or put the floor back here if it starts happening often.
 
-# What a standing order pays in each month. Credited to the PAPER book on
-# rebalance day and spread over all eight holdings -- sell proceeds keep funding
-# the arriving names on their own, which is how it was measured. 0 turns it off.
+# What the strategy starts with, and what it adds each month. Both are drawn
+# from Trading 212 free funds when you approve the buys -- the bot moves no money
+# itself, it just sizes the orders to include them and the broker debits free
+# funds for the purchases.
 #
-# Paper only, deliberately. The live book takes its cash from Trading 212, so
-# crediting it here would count the same euros twice. And the paper book is a
-# model: if the transfer bounces, this number is a claim about money that never
-# arrived, which is why every message that uses it says so.
+#   START_BUDGET : seeds an empty live book on the very first rebalance only,
+#                  then inert (deposited is set, the guard below stops it).
+#   MONTHLY      : added on every rebalance after the first, credited to the
+#                  book's cash on the assumption it is sitting in free funds and
+#                  spread over the whole new basket by plan().
+#
+# deposited rises by the same amount so the money is never read as profit. If a
+# standing order bounces, the book briefly holds shares it did not pay for and
+# the tail order trims itself to what was really there; correct with --fill.
+START_BUDGET = float(os.environ.get("MOMENTUM_START_BUDGET", "0") or 0)
 MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
 
 # TWO THINGS THAT USED TO BE SETTINGS, AND WHY THEY ARE NOT ANY MORE
@@ -1116,12 +1123,13 @@ def resume_point(orders: list):
 
 
 def propose_batch(name, bar, basket, orders, prices, paid_in, m,
-                  monthly: float = 0.0) -> int:
+                  monthly: float = 0.0, start: float = 0.0) -> int:
     """Post the month's orders for approval and save them. Places nothing.
 
-    `monthly` is what settle_batch will add to `deposited` once the orders are
-    sent -- 0 on the opening rebalance (you funded that month by hand), the
-    configured contribution after.
+    `start` (opening rebalance only) and `monthly` (every one after) are what
+    settle_batch will add to the book's cash and `deposited` once the orders are
+    actually sent -- the rebalance run does not save the book, so this is where
+    the money becomes real.
 
     Returns a process exit code. Anything that would make execution unsafe is
     caught HERE, before you are asked, rather than halfway through the batch --
@@ -1166,8 +1174,10 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m,
                  f"{money(spend)}.",
              f"Sizes were worked out from the {bar.date()} close — the market "
              f"moves, so what fills will not match to the cent.", ""]
-    if paid_in:
-        body.append(f"Includes {money(paid_in)} paid in this month.")
+    if start:
+        body.append(f"Starting amount: {money(start)}, from your free funds.")
+    elif paid_in:
+        body.append(f"Includes {money(paid_in)} added this month, from free funds.")
     body += [f"React {d.TICK} to place them, {d.CROSS} to skip this month.",
              f"Only <@{d.OWNER_ID}> counts. Expires in {PENDING_EXPIRY_H} hours; "
              f"ignore it and nothing happens.",
@@ -1181,9 +1191,9 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m,
                   "message_id": mid, "basket": basket, "paid_in": paid_in,
                   # Carried in the batch because the rebalance run deliberately
                   # does not save the book -- nothing is true yet. settle_batch
-                  # records it, so a month that is cancelled never books a
-                  # contribution the strategy did not receive.
-                  "monthly": monthly,
+                  # records them, so a month that is cancelled never books money
+                  # the strategy did not actually put to work.
+                  "monthly": monthly, "start": start,
                   "offered_at": datetime.now(timezone.utc).isoformat(),
                   "orders": recs})
     print(f"\nproposed in Discord (message {mid}). NOTHING has been ordered and "
@@ -1213,10 +1223,13 @@ def settle_batch(state, p, why: str) -> None:
               f"— not doing it again.")
         return
     bk = book(state, p["track"])
-    # The rebalance run added this in memory and then threw the book away
-    # unsaved, so this is the first moment it is real. Without it every euro
-    # paid in would be reported as profit.
-    bk["deposited"] += float(p.get("monthly") or 0.0)
+    # The rebalance run credited these in memory and then threw the book away
+    # unsaved, so this is the first moment they are real: the starting amount on
+    # the opening batch, or the monthly contribution after. Cash so apply_orders
+    # below can spend them, deposited so they are not read as profit.
+    added = float(p.get("start") or 0.0) + float(p.get("monthly") or 0.0)
+    bk["cash"] += added
+    bk["deposited"] += added
     done = [o for o in p["orders"] if o.get("state") == "sent"]
     orders = [(o["ticker"], o["shares"], o["cash"]) for o in done]
     prices = {o["ticker"]: o["price"] for o in p["orders"]}
@@ -1716,13 +1729,13 @@ def pending_poll(state, once: bool) -> int:
         p["stage"] = "cancelled"
         p["cancelled_at"] = datetime.now(timezone.utc).isoformat()
         save_pending(p)
+        skipped_in = float(p.get("start") or 0.0) or float(p.get("monthly") or 0.0)
         d.post(f"{d.CROSS} Skipping {p['month']}. Nothing was ordered and the "
                f"book has not moved — it still holds last month's basket.\n"
                f"To change your mind, run the rebalance again with `--force`."
-               + (f"\n\nThis month's {money(float(p.get('monthly') or 0))} was "
-                  f"not recorded as paid in, because no rebalance happened. If "
-                  f"the standing order still ran, `--deposit` it." 
-                  if p.get("monthly") else ""))
+               + (f"\n\n{money(skipped_in)} was NOT drawn from free funds or "
+                  f"recorded as paid in — no rebalance happened. It will go in "
+                  f"with the next one." if skipped_in else ""))
         print("cancelled; nothing ordered.")
         return 0
 
@@ -2239,58 +2252,49 @@ def main() -> int:
     sells = [t for t in held if t not in basket]
     first = not held
 
-    # A standing order lands before the rebalance, so the new money is part of
-    # what gets allocated today. --dry and --test return before the save below,
-    # so nothing is persisted by a preview.
+    # Money going in this rebalance, both drawn from Trading 212 free funds when
+    # you approve the buys. --dry and --test return before the save below, and
+    # the autotrade path returns before it too -- settle_batch applies the exact
+    # same credit once the orders are actually sent.
     #
-    # NOT ON THE OPENING REBALANCE. That is the month you funded the account by
-    # hand; the standing order has not run yet, so counting it would report money
-    # that is not there -- deposited 5,100 against a 5,000 balance, a -100 P&L
-    # from day one. It starts from the second rebalance.
+    #   opening : the Starting amount, on the very first rebalance of an empty
+    #             live book. The `not bk["deposited"]` guard makes it inert after.
+    #   monthly : the contribution, every rebalance after the first. Not on the
+    #             opening one -- that is the amount you are seeding by hand.
     #
-    # Both tracks then record the money as paid in; only the paper track also
-    # invents the cash and the orders to spend it.
-    #
-    #   paper : nothing else knows about the money, so the book adds it and
-    #           spreads it over the basket itself.
-    #   live  : Trading 212 already holds whatever the standing order bought, so
-    #           adding cash here would count it twice -- but `deposited` is the
-    #           bot's alone. The broker cannot tell what you funded from what you
-    #           earned, and reconcile() deliberately never overwrites it. If it
-    #           did not go up here, every euro paid in would be reported as
-    #           profit: pay in 100 a month for a year and the book would claim
-    #           1,200 of gains it never made.
+    # Both credit cash (so plan() can spend them) and deposited (so they are not
+    # read as profit), on the assumption the euros are in free funds.
+    opening = 0.0
+    if first and name == "live" and START_BUDGET > 0 and not bk["deposited"]:
+        opening = START_BUDGET
+        bk["cash"] += opening
+        bk["deposited"] += opening
+
     paid_in_today = 0.0
     if MONTHLY > 0 and not first:
+        paid_in_today = MONTHLY
+        bk["cash"] += MONTHLY
         bk["deposited"] += MONTHLY
-        if name == "paper":
-            bk["cash"] += MONTHLY
-            paid_in_today = MONTHLY
 
     m = mark(bk, book_prices)
     orders = (plan(bk, book_prices, basket, m["total"], contribution=paid_in_today,
                    reserve=CASH_BUFFER if name == "live" else 0.0)
               if m["total"] > 0 else [])
     print(render_plain(bar, buys, sells, basket, scores, m, orders, book_prices))
-    if MONTHLY > 0 and first:
-        print(f"\n  + {money(MONTHLY)} monthly contribution NOT counted this month "
-              f"— the opening rebalance is the one you funded by hand. It starts "
-              f"next month.")
-    elif MONTHLY > 0 and not paid_in_today:
-        print(f"\n  + {money(MONTHLY)} recorded as paid in this month. On the "
-              f"live track Trading 212 already holds whatever it bought, so only "
-              f"the paid-in total moves here.")
+    if opening:
+        print(f"\n  + {money(opening)} starting amount, drawn from your Trading "
+              f"212 free funds and split over the {len(basket)} opening positions.")
     if paid_in_today:
-        print(f"\n  + {money(paid_in_today)} paid in this month, spread over all "
-              f"{len(basket)} holdings.")
-        print(f"    The paper book assumes it landed. If the transfer bounced, "
-              f"the book now holds shares it did not pay for: correct them with "
-              f"--fill TICKER=-SHARES@PRICE and set Monthly to 0 until the "
-              f"standing order is reliable. --withdraw only helps while the "
-              f"cash is still uninvested, which after this run it is not.")
+        print(f"\n  + {money(paid_in_today)} contribution this month, drawn from "
+              f"free funds and spread over all {len(basket)} holdings. If a "
+              f"standing order bounced, correct it with --fill and set Monthly "
+              f"to 0 until it is reliable.")
+    if MONTHLY > 0 and first:
+        print(f"\n  ({money(MONTHLY)} monthly contribution starts next month — "
+              f"this is the opening rebalance.)")
     if m["total"] <= 0:
-        print("\n  ! no money on the book — run --deposit AMOUNT so the sizing "
-              "and the profit and loss mean something.")
+        print("\n  ! nothing to size against — set a Starting amount on the "
+              "Settings page, or run --deposit AMOUNT.")
 
     if args.dry:
         print("\n[--dry] nothing posted, state unchanged")
@@ -2349,7 +2353,8 @@ def main() -> int:
             raise SystemExit(f"MOMENTUM_AUTOTRADE is on but {why}")
         return propose_batch(name, bar, basket, orders, book_prices,
                              paid_in_today, m,
-                             monthly=0.0 if first else MONTHLY)
+                             monthly=0.0 if first else MONTHLY,
+                             start=opening)
 
     # Assume the orders filled at today's close. --fill corrects any that did not.
     apply_orders(bk, orders, book_prices)

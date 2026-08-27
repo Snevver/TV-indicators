@@ -31,18 +31,23 @@ Do these once, in this order.
 **1. Money in the account**
 Your euros sit in Trading 212 **free funds**. Not in a pie. A pie cannot be
 funded through the API and cannot hold uninvested cash, so the strategy trades in
-your ordinary portfolio instead.
+your ordinary portfolio instead. You do **not** ring-fence anything — the bot
+only ever draws the *Starting amount* plus each *Monthly contribution* from your
+free funds; the rest is invisible to it.
 
-**2. A standing order, if you want to add monthly**
-Set it to land **a few days before the 1st**, so the money is there when the bot
-sizes the orders. Then put the same number in Settings → *Monthly contribution*.
-Both are needed: the bank moves the money, the setting tells the bot to expect it.
+**2. Decide the two amounts**
+*Starting amount* is what the strategy opens with (e.g. `1000`). *Monthly
+contribution* is what it adds on every rebalance after the first (e.g. `100`),
+drawn from free funds. The €100 can come from a bank standing order landing a few
+days before the 1st, or straight from the balance you already hold — but not
+both, or the extra just accumulates untouched.
 
 **3. Check the settings page**
 
 | Setting | Value |
 |---|---|
 | Account | `demo` for the trial month, then `live` |
+| Starting amount | `1000` (or whatever you want to begin with) |
 | Monthly contribution | `100`, or `0` for none |
 | Automatic trading | `off` until the trial has run |
 

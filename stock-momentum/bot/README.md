@@ -46,35 +46,34 @@ DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 EOF
 ```
 
-Everything the dashboard does not own lives in that file. The dashboard's
-Settings page holds only three things: `T212_ENV` (demo/live), `MOMENTUM_MONTHLY`
-and `MOMENTUM_AUTOTRADE`. There is no `MOMENTUM_TRACK` setting any more — autotrade
-on means "plan from and trade the live account", off means "plan from the paper
-book and only post". Every figure is in dollars (the book values US stocks at
-their dollar prices); there is no currency label to set.
+Everything the dashboard does not own lives in that file. The Settings page holds
+four things: `T212_ENV` (demo/live), `MOMENTUM_START_BUDGET`, `MOMENTUM_MONTHLY`
+and `MOMENTUM_AUTOTRADE`. There is no `MOMENTUM_TRACK` — autotrade on means "plan
+from and trade the live account", off means "plan from the paper book and only
+post". The live book is valued in the account's own currency (it reads that from
+Trading 212 and converts the dollar price feed once); the paper book stays in
+dollars.
 
-`MOMENTUM_MONTHLY` (default `0`, off) is what you pay in by standing order each
-month. On rebalance day it is credited to the **paper** book and spread over all
-eight holdings; sell proceeds keep funding the arriving names on their own,
-which is how it was measured — that beat putting the new money into the arrivals
-in seven of eight windows and over the full history, by about 1.3%. A narrow
-win, but it is also what a Trading 212 pie does with a standing order.
+`MOMENTUM_START_BUDGET` (default `0`) is how much of your Trading 212 free funds
+the strategy begins with. The **first** live rebalance sizes the opening eight
+positions to it and draws it from free funds when you approve the buys — the bot
+moves no money, it just sizes the orders and the broker debits free funds for
+the purchases. It is applied once: after `deposited` is set, changing it does
+nothing. Use `--deposit` for a later top-up.
 
-It is paper-only on purpose. The live book takes its cash from Trading 212, so
-crediting it here would count the same euros twice. And the paper book is a
-model: if the transfer bounces, this is a claim about money that never arrived.
-The rebalance message says so.
+`MOMENTUM_MONTHLY` (default `0`, off) is added to what the strategy invests on
+**every rebalance after the first**, drawn from free funds the same way and
+spread over the whole new basket — sell proceeds keep funding the arriving names
+on their own, which is how it was measured (that beat putting the new money into
+the arrivals in seven of eight windows). The euros can come from a bank standing
+order or just the balance you already hold; **do not run both** — the bot
+deploys this amount once and anything extra piles up untouched. If a standing
+order bounces, the tail order trims itself to what was really there; correct the
+rest with `--fill TICKER=-SHARES@PRICE` and set Monthly to `0` until it is
+reliable.
 
-Undoing one is fiddly on purpose, because by then the money is already in
-shares: `--deposit` refuses a negative amount and `--withdraw` only works while
-the cash is still uninvested. After a rebalance has spent it, correct the eight
-positions with `--fill TICKER=-SHARES@PRICE` and set the contribution to 0 until
-the standing order is reliable.
-
-Because contributions make `final ÷ first − 1` count your own deposits as
-profit, anything that reports a percentage once this is on uses a money-weighted
-return instead. The bot's own figure was always `total ÷ deposited − 1`, so it
-was already correct.
+`deposited` rises by the starting amount and each contribution, so growth is
+measured as `total ÷ deposited − 1` and your own money is never read as profit.
 
 ### Where settings are read from
 
