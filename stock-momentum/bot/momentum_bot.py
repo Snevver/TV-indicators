@@ -2650,7 +2650,12 @@ def main() -> int:
             propose_batch(name, bar, basket, orders, book_prices,
                           paid_in_today, m, monthly=0.0 if first else MONTHLY,
                           start=opening, require_approval=False)
-            return execute_batch(state, load_pending())
+            # Reload the state. This run's in-memory book was already credited
+            # the starting amount / contribution above, and settle_batch credits
+            # them again -- the live path dodges that by exiting here and letting
+            # a fresh --poll process settle. The demo path settles in-process, so
+            # it has to start from a clean book the same way that process would.
+            return execute_batch(load_state(), load_pending())
         return propose_batch(name, bar, basket, orders, book_prices,
                              paid_in_today, m,
                              monthly=0.0 if first else MONTHLY,
