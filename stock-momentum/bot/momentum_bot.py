@@ -157,12 +157,66 @@ HOLD = 8            # positions
 # Sizing and bookkeeping. None of this touches the ranking — the strategy is the
 # same whatever these say.
 #
-# The book values US stocks at their dollar prices, so every figure is dollars.
-# MOMENTUM_CURRENCY used to let you relabel that; it converted nothing and only
-# invited the reading that a euro account's numbers were euros. Fixed to what the
-# maths actually is.
-CURRENCY = "USD"
-SYM = "$"
+# Prices come from yfinance in US dollars. The PAPER book is a dollar model and
+# stays that way. The LIVE book is a real Trading 212 account in its own currency
+# (EUR here), so its prices are converted once -- see live_fx() -- and every live
+# figure is then real money rather than a dollar shadow of a euro account.
+CURRENCY = "USD"        # paper / default
+SYM = "$"               # reassigned to the live account's symbol for a live run
+
+
+_FX = {}               # cached {rate, ccy, sym, err} for the account currency
+
+
+def live_fx() -> dict:
+    """Rate to turn a USD price into the live account's currency, once, cached.
+
+    Returns {"rate": account-ccy per USD, "ccy": "EUR", "sym": "€", "err": ""}.
+    {"rate": 1.0, "ccy": "USD", "sym": "$", "err": ""} when there is no broker or
+    the account is already USD. On a real failure to price a non-USD account,
+    rate falls back to 1.0 and "err" explains why -- callers that place orders
+    refuse in that case rather than size a rebalance wrong.
+    """
+    if _FX:
+        return _FX
+    _FX.update(rate=1.0, ccy="USD", sym="$", err="")
+    if t212 is None or not t212.configured():
+        return _FX
+    try:
+        acc = (t212.account_currency() or "").upper()
+    except Exception as exc:                              # noqa: BLE001
+        _FX["err"] = f"could not read the account currency ({exc})"
+        return _FX
+    if not acc or acc == "USD":
+        _FX["ccy"] = acc or "USD"
+        return _FX
+    try:
+        import numpy as np
+        import yfinance as yf
+        raw = yf.download(f"{acc}USD=X", period="5d", progress=False,
+                          auto_adjust=False)
+        # yfinance hands back a DataFrame or a Series depending on version;
+        # flatten to the last finite Close either way.
+        arr = np.asarray(raw["Close"], dtype=float).ravel()
+        arr = arr[np.isfinite(arr)]
+        if not len(arr):
+            raise ValueError(f"no {acc}USD=X data came back")
+        usd_per_unit = float(arr[-1])
+        if not (0.01 < usd_per_unit < 100):
+            raise ValueError(f"implausible {acc}USD rate {usd_per_unit}")
+    except Exception as exc:                              # noqa: BLE001
+        _FX.update(ccy=acc, sym="$",
+                   err=f"could not get the {acc}/USD rate ({exc})")
+        return _FX
+    _FX.update(rate=1.0 / usd_per_unit, ccy=acc,
+               sym={"EUR": "€", "GBP": "£"}.get(acc, acc + " "), err="")
+    return _FX
+
+
+def to_live(prices: dict) -> dict:
+    """USD price dict -> the live account's currency."""
+    r = live_fx()["rate"]
+    return prices if r == 1.0 else {tk: p * r for tk, p in prices.items()}
 
 # MOMENTUM_MIN_ORDER used to sit here, defaulting to 1, and plan() skipped any
 # buy worth less than it. Removed on request: it was one more knob for a case
@@ -532,8 +586,11 @@ def reconcile(bk, snap, adopt: bool) -> list:
     # Cash is deliberately NOT compared, and never adopted. See below.
 
     if adopt:
+        fx = live_fx()["rate"]                     # 1.0 unless the account is non-USD
         bk["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
-        bk["book"] = {tk: p["cost"] for tk, p in theirs.items()}
+        # Trading 212's averagePrice is in the instrument's currency (USD); the
+        # live book is in the account's, so the adopted cost is converted too.
+        bk["book"] = {tk: p["cost"] * fx for tk, p in theirs.items()}
         # THE BROKER OWNS THE POSITIONS. THE BOT OWNS THE CASH.
         #
         # Trading 212 reports one pool of free funds for the whole account, and
@@ -773,9 +830,10 @@ def record_day(when, track_name, m) -> None:
 
 def snapshot_payload(state, prices, scores, bar) -> dict:
     """Everything the dashboard renders from, both tracks, no network needed."""
+    fx = live_fx()
     out = {"generated": datetime.now(timezone.utc).isoformat(),
            "bar": str(bar.date()) if hasattr(bar, "date") else str(bar),
-           "currency": CURRENCY, "symbol": SYM, "track": TRACK, "hold": HOLD,
+           "currency": fx["ccy"], "symbol": fx["sym"], "track": TRACK, "hold": HOLD,
            # The opening rebalance credits this before it sizes anything, so a
            # preview that leaves it out promises the wrong slice.
            "monthly": MONTHLY,
@@ -790,8 +848,11 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
            "tracks": {}}
     for name in TRACKS:
         bk = book(state, name)
-        m = mark(bk, prices)
+        # Paper is a dollar model; live is the real account in its own currency.
+        m = mark(bk, to_live(prices) if name == "live" else prices)
         out["tracks"][name] = {
+            "symbol": fx["sym"] if name == "live" else "$",
+            "currency": fx["ccy"] if name == "live" else "USD",
             "total": round(m["total"], 2), "invested": round(m["invested"], 2),
             "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
             "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
@@ -1157,11 +1218,12 @@ def settle_batch(state, p, why: str) -> None:
     # caught: the book above is already saved.
     try:
         px = fetch()
-        live_prices = px.iloc[-1].to_dict()
+        usd = px.iloc[-1].to_dict()
         scores = rank(px)
         for t in TRACKS:
-            record_day(px.index[-1].date(), t, mark(book(state, t), live_prices))
-        write_latest(snapshot_payload(state, live_prices, scores, px.index[-1]))
+            record_day(px.index[-1].date(), t,
+                       mark(book(state, t), to_live(usd) if t == "live" else usd))
+        write_latest(snapshot_payload(state, usd, scores, px.index[-1]))
     except (Exception, SystemExit) as exc:                 # noqa: BLE001
         # SystemExit is in there on purpose: fetch() raises it when the price
         # download comes back unusable. Letting that through would abort the run
@@ -1534,6 +1596,11 @@ def approval_ready() -> str:
         return t212.why_not()
     if not discord_api.configured():
         return f"Discord approval is {discord_api.why_not()}"
+    fx = live_fx()
+    if fx["err"]:
+        # Sizing a live rebalance without the rate would deploy the wrong amount,
+        # exactly the bug this whole conversion exists to fix. Skip the month.
+        return fx["err"] + " — not sizing a live rebalance without it"
     return ""
 
 
@@ -1694,6 +1761,15 @@ def main() -> int:
     state = load_state()
     name = args.track or TRACK
     bk = book(state, name)
+
+    # money() prints in the currency of the book this run is acting on: the live
+    # account's own (via live_fx, resolved on first use), or dollars for paper.
+    if name == "live":
+        global SYM
+        _fx = live_fx()
+        SYM = _fx["sym"]
+        if _fx["err"]:
+            print(f"  ! {_fx['err']} — live figures shown in USD for now")
 
     # --- this month's orders, and the timer that carries them out -----------
     if args.pending_status:
@@ -1949,8 +2025,11 @@ def main() -> int:
                 print(f"  {tk:<8} {a:>14,.4f} {b:>14,.4f}")
             if args.t212_sync:
                 save_state(state)
-                m = mark(live, {tk: q["value"] / q["shares"]
-                                for tk, q in snap["positions"].items() if q["shares"]})
+                # Trading 212's per-share price is USD; the live book is in the
+                # account currency, so convert before marking.
+                m = mark(live, to_live({tk: q["value"] / q["shares"]
+                                        for tk, q in snap["positions"].items()
+                                        if q["shares"]}))
                 print(f"\n  adopted into the live book. account {money(m['total'])}, "
                       f"{money(m['deposited'])} paid in")
             else:
@@ -1997,7 +2076,8 @@ def main() -> int:
         payload["due"] = due(px, book(state, name))
         write_latest(payload)
         for t in TRACKS:
-            record_day(px.index[-1].date(), t, mark(book(state, t), prices))
+            record_day(px.index[-1].date(), t,
+                       mark(book(state, t), to_live(prices) if t == "live" else prices))
         print(json.dumps(payload, indent=1, default=str))
         return 0
 
@@ -2016,7 +2096,8 @@ def main() -> int:
         else:
             refresh(state)
             px = fetch()
-            m = mark(bk, px.iloc[-1].to_dict())
+            usd = px.iloc[-1].to_dict()
+            m = mark(bk, to_live(usd) if name == "live" else usd)
             print(env_source_line())
             print(f"ACCOUNT   {money(m['total'])}   "
                   f"{m['pnl']:+,.2f} = {m['pnl_pct']:+.1f}% "
@@ -2037,14 +2118,17 @@ def main() -> int:
 
     refresh(state)
     px = fetch()
-    prices = px.iloc[-1].to_dict()
+    prices = px.iloc[-1].to_dict()                     # USD, straight from yfinance
+    # The book this run acts on: the live one is a real account in its own
+    # currency, so its prices are converted; paper stays in dollars.
+    book_prices = to_live(prices) if name == "live" else prices
     scores = rank(px)
     basket = list(scores.index[:HOLD])
     held = bk.get("basket", [])
     bar = px.index[-1]
 
     if not (args.force or args.test or due(px, bk)):
-        m = mark(bk, prices)
+        m = mark(bk, book_prices)
         if bk.get("last_rebalance"):
             print(f"{bar.date()}: already rebalanced this month "
                   f"({bk.get('last_rebalance')}). Nothing to do.")
@@ -2056,7 +2140,8 @@ def main() -> int:
         # Nothing to trade, but this is still a day worth recording — it is what
         # gives the dashboard a daily line rather than a monthly staircase.
         for t in TRACKS:
-            record_day(bar.date(), t, mark(book(state, t), prices))
+            record_day(bar.date(), t,
+                       mark(book(state, t), to_live(prices) if t == "live" else prices))
         write_latest(snapshot_payload(state, prices, scores, bar))
         return 0
 
@@ -2106,10 +2191,10 @@ def main() -> int:
             bk["cash"] += MONTHLY
             paid_in_today = MONTHLY
 
-    m = mark(bk, prices)
-    orders = (plan(bk, prices, basket, m["total"], contribution=paid_in_today)
+    m = mark(bk, book_prices)
+    orders = (plan(bk, book_prices, basket, m["total"], contribution=paid_in_today)
               if m["total"] > 0 else [])
-    print(render_plain(bar, buys, sells, basket, scores, m, orders, prices))
+    print(render_plain(bar, buys, sells, basket, scores, m, orders, book_prices))
     if MONTHLY > 0 and not paid_in_today:
         print(f"\n  + {money(MONTHLY)} recorded as paid in this month. On the "
               f"live track Trading 212 already holds whatever it bought, so only "
@@ -2135,7 +2220,7 @@ def main() -> int:
             raise SystemExit("no webhook set ($DISCORD_WEBHOOK) — nothing to test")
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         test=True, m=m, orders=orders,
-                                        prices=prices))
+                                        prices=book_prices))
         print("\n[--test] posted to Discord. state.json and rebalances.csv "
               "untouched — this was not a rebalance, and the book did not move.")
         return 0
@@ -2152,7 +2237,7 @@ def main() -> int:
         print("\n(skipping the webhook card — the approval message below covers it)")
     elif args.webhook:
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
-                                        m=m, orders=orders, prices=prices))
+                                        m=m, orders=orders, prices=book_prices))
         print("\nposted to Discord")
     else:
         print("\nno webhook set ($DISCORD_WEBHOOK) — printed only")
@@ -2181,12 +2266,12 @@ def main() -> int:
         why = approval_ready()
         if why:
             raise SystemExit(f"MOMENTUM_AUTOTRADE is on but {why}")
-        return propose_batch(name, bar, basket, orders, prices,
+        return propose_batch(name, bar, basket, orders, book_prices,
                              paid_in_today, m)
 
     # Assume the orders filled at today's close. --fill corrects any that did not.
-    apply_orders(bk, orders, prices)
-    after = mark(bk, prices)
+    apply_orders(bk, orders, book_prices)
+    after = mark(bk, book_prices)
     bk["equity"].append([str(bar.date()), round(after["total"], 2)])
     bk.update({"basket": basket,
                "last_rebalance": str(bar.date()),
@@ -2195,7 +2280,8 @@ def main() -> int:
     log_row(bar.date(), buys, sells, basket, after["total"], after["cash"],
             after["deposited"], after["pnl"])
     for t in TRACKS:
-        record_day(bar.date(), t, mark(book(state, t), prices))
+        record_day(bar.date(), t,
+                   mark(book(state, t), to_live(prices) if t == "live" else prices))
     write_latest(snapshot_payload(state, prices, scores, bar))
     if orders:
         print(f"recorded {len(orders)} fills at the {bar.date()} close · "

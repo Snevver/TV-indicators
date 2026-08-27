@@ -193,6 +193,39 @@ def cash() -> dict:
             "raw": d}
 
 
+_ACCOUNT_CCY = None
+
+
+def account_currency() -> str:
+    """The account's base currency code, e.g. 'EUR'. '' if it cannot be read.
+
+    Cached for the process -- it never changes for a given account. Prices come
+    from yfinance in USD; the caller converts them into this currency so the live
+    book is real money rather than a dollar model of a euro account.
+    """
+    global _ACCOUNT_CCY
+    if _ACCOUNT_CCY is not None:
+        return _ACCOUNT_CCY
+    _ACCOUNT_CCY = ""
+    try:
+        d = _get("/equity/account/info", tries=2)
+        if isinstance(d, dict):
+            _ACCOUNT_CCY = str(_pick(d, "currencyCode", "currency", default="") or "").upper()
+    except Exception:                                  # noqa: BLE001
+        pass
+    if not _ACCOUNT_CCY:
+        # Fallback: every transaction row carries the account currency.
+        try:
+            d = _get("/history/transactions?limit=1", tries=2)
+            items = d if isinstance(d, list) else (
+                _pick(d, "items", "transactions", default=[]) or [])
+            if items and isinstance(items[0], dict):
+                _ACCOUNT_CCY = str(items[0].get("currency", "") or "").upper()
+        except Exception:                             # noqa: BLE001
+            pass
+    return _ACCOUNT_CCY
+
+
 def positions(universe=None) -> dict:
     """What the strategy holds, as {TICKER: {'shares', 'avg_price', 'value'}}.
 

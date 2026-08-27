@@ -227,7 +227,9 @@ def api_state():
     h.pop("state_age", None)
     h["hold"] = data.latest().get("hold", 8)
     return jsonify({"track": track, "summary": s, "health": h,
-                    "symbol": data.latest().get("symbol") or "$",
+                    # Per track: the live book is in the account's currency, paper
+                    # is a dollar model.
+                    "symbol": s.get("symbol") or data.latest().get("symbol") or "$",
                     "other": data.summary("live" if track == "paper" else "paper")})
 
 

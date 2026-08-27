@@ -170,6 +170,7 @@ def summary(track: str) -> dict:
             "pnl": 0.0, "pnl_pct": 0.0, "realised": _f(bk.get("realised")),
             "unrealised": 0.0, "positions": {}, "basket": bk.get("basket") or [],
             "last_rebalance": bk.get("last_rebalance"),
+            "symbol": "$", "currency": "USD",
             "equity": bk.get("equity") or [], "stale": True, "bar": "",
             "generated": ""}
 
