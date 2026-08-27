@@ -2140,8 +2140,16 @@ def main() -> int:
               "untouched — this was not a rebalance, and the book did not move.")
         return 0
 
+    # When autotrade is armed and there is a batch to place, propose_batch() posts
+    # its own message with the full order list and the ✅/❌. The webhook embed
+    # would just be a second copy of the same eight lines, so it is skipped —
+    # one message, the one you act on.
+    will_propose = AUTOTRADE and name == "live" and bool(orders)
+
     if not buys and not sells and not first and not orders:
         print("\nbasket unchanged and nothing to trim — not posting")
+    elif will_propose:
+        print("\n(skipping the webhook card — the approval message below covers it)")
     elif args.webhook:
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         m=m, orders=orders, prices=prices))
