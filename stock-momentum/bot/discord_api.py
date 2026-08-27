@@ -37,7 +37,15 @@ CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "").strip()
 # Where the permanent records go -- "rebalance placed", "skipped", "expired".
 # The ✅/❌ approval prompts stay in CHANNEL_ID and delete themselves once
 # answered. Unset means both in the one channel, which is the old behaviour.
-CONFIRM_CHANNEL_ID = os.environ.get("DISCORD_CONFIRM_CHANNEL_ID", "").strip() or CHANNEL_ID
+#
+# A per-account override wins if set: a demo run (T212_ENV=demo, applied by
+# momentum_bot before this import) posts its records to
+# DISCORD_CONFIRM_CHANNEL_ID_DEMO, keeping the demo book's activity out of the
+# live channels.
+_ENV_SFX = os.environ.get("T212_ENV", "").strip().upper()
+CONFIRM_CHANNEL_ID = (os.environ.get(f"DISCORD_CONFIRM_CHANNEL_ID_{_ENV_SFX}", "").strip()
+                      or os.environ.get("DISCORD_CONFIRM_CHANNEL_ID", "").strip()
+                      or CHANNEL_ID)
 OWNER_ID = os.environ.get("DISCORD_OWNER_ID", "").strip()
 TIMEOUT = float(os.environ.get("DISCORD_TIMEOUT", "20") or 20)
 

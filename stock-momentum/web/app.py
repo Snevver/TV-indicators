@@ -188,9 +188,7 @@ def logout():
 
 
 def _track() -> str:
-    # The dashboard shows one book: the live one, which mirrors the connected
-    # Trading 212 account. `?track=` is still honoured for anyone hitting the
-    # API directly.
+    # demo or live; the dashboard toggles between the two real accounts.
     t = request.args.get("track", "")
     return t if t in data.TRACKS else "live"
 
@@ -241,6 +239,13 @@ def api_history():
 @login_required
 def api_rebalances():
     return jsonify({"rows": data.rebalances()[:40]})
+
+
+@app.route("/api/hourly")
+@login_required
+def api_hourly():
+    s = _track()
+    return jsonify({"series": s, "rows": data.hourly(s)})
 
 
 @app.route("/api/config", methods=["GET", "POST"])

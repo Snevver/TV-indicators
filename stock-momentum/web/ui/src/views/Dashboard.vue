@@ -1,11 +1,12 @@
 <script setup>
 import { computed, ref } from "vue";
-import { store } from "../store.js";
+import { store, setTrack } from "../store.js";
 import { money, pct, hoursAgo, ago } from "../format.js";
 import Hero from "../components/Hero.vue";
 import MetricRail from "../components/MetricRail.vue";
 import Holdings from "../components/Holdings.vue";
 import TimeChart from "../components/TimeChart.vue";
+import MoneyChart from "../components/MoneyChart.vue";
 import RankingPanel from "../components/RankingPanel.vue";
 import HealthStrip from "../components/HealthStrip.vue";
 import LaunchPreview from "../components/LaunchPreview.vue";
@@ -19,11 +20,12 @@ const empty = computed(() => !Object.keys(s.value.positions || {}).length);
 // the book. Show one honest line instead until there is something to plot.
 const hasCurve = computed(() => (hist.value.dates || []).length > 1);
 const t212off = computed(() => !h.value?.t212?.configured);
-// "Demo" / "Live", from whichever Trading 212 environment the bot is on.
-const acct = computed(() => {
-  const e = h.value?.t212?.env || "";
-  return e ? e[0].toUpperCase() + e.slice(1) : "Trading 212";
-});
+// "Demo" / "Live" for the account the panels are showing.
+const acct = computed(() =>
+  store.track === "demo" ? "Demo" : "Live");
+const hourly = computed(() => store.hourly?.[store.track] || []);
+const otherHourly = computed(() =>
+  store.hourly?.[store.track === "demo" ? "live" : "demo"] || []);
 
 const equity = ref(null);
 const RANGES = [{ l: "1M", m: 1 }, { l: "3M", m: 3 }, { l: "ALL", m: 0 }];
@@ -45,7 +47,7 @@ const metrics = computed(() => [
 const health = computed(() => [
   { label: "Bot", value: hoursAgo(h.value.latest_hours),
     state: h.value.latest_hours != null && h.value.latest_hours < 36 ? "on" : "warn" },
-  { label: "Trading 212", value: h.value.t212?.configured ? (h.value.t212.env || "on").toUpperCase() : "off",
+  { label: "Trading 212", value: h.value.t212?.configured ? "on" : "off",
     state: h.value.t212?.configured ? "on" : "off" },
   { label: "Automatic", value: h.value.autotrade ? "on" : "off",
     state: h.value.autotrade ? "on" : "" },
@@ -56,7 +58,12 @@ const health = computed(() => [
 <template>
   <div class="page">
     <div class="topbar">
-      <span class="tag acct">{{ acct }} account</span>
+      <div class="seg">
+        <button :class="{ on: store.track === 'demo' }"
+                @click="setTrack('demo')">Demo</button>
+        <button :class="{ on: store.track === 'live' }"
+                @click="setTrack('live')">Live</button>
+      </div>
       <span class="tick tag">
         <i class="led on"></i>updated {{ ago(store.fetchedAt) }}
       </span>
@@ -77,6 +84,22 @@ const health = computed(() => [
       <MetricRail :items="metrics" />
 
       <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
+
+      <div v-if="hourly.length" class="hud">
+        <div class="hud-head">
+          <h2>Money over time</h2>
+          <span class="tag">{{ acct }} account, hourly</span>
+        </div>
+        <div class="hud-body">
+          <MoneyChart :rows="hourly" :faint="otherHourly" :sym="sym" :height="300" />
+          <div class="key">
+            <span><i class="sw cy"></i>{{ acct }} account</span>
+            <span><i class="sw am"></i>Same money in the S&amp;P 500 ETF</span>
+            <span v-if="otherHourly.length"><i class="sw gy"></i>
+              {{ store.track === "demo" ? "Live" : "Demo" }} account</span>
+          </div>
+        </div>
+      </div>
 
       <div v-if="!empty" class="hud">
         <div class="hud-head"><h2>Holdings</h2>
@@ -176,5 +199,6 @@ const health = computed(() => [
   vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 .key .am { background: var(--amber) }
+.key .gy { background: var(--faint) }
 .waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
 </style>

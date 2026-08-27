@@ -24,10 +24,11 @@ STATE = os.path.join(BOT, "state.json")
 LATEST = os.path.join(BOT, "latest.json")
 HISTORY = os.path.join(BOT, "history.csv")
 REBALANCES = os.path.join(BOT, "rebalances.csv")
+HOURLY = os.path.join(BOT, "hourly.csv")
 PYTHON = os.environ.get("MOMENTUM_PYTHON") or os.path.join(BOT, ".venv", "bin", "python")
 
-TRACKS = ("paper", "live")
-TRACK_LABEL = {"paper": "Paper", "live": "Trading 212"}
+TRACKS = ("demo", "live")
+TRACK_LABEL = {"demo": "Demo", "live": "Live"}
 
 
 def _json(path, default):
@@ -46,7 +47,8 @@ def _json(path, default):
 def state() -> dict:
     s = _json(STATE, {})
     if "tracks" not in s:                       # schema 1, or nothing yet
-        s = {"tracks": {"paper": s, "live": {}}} if s else {"tracks": {}}
+        s = {"tracks": {"live": s, "demo": {}}} if s else {"tracks": {}}
+    s.get("tracks", {}).pop("paper", None)      # retired; demo took its place
     for t in TRACKS:
         s["tracks"].setdefault(t, {})
     return s
@@ -83,6 +85,24 @@ def history(track: str) -> list:
                         "realised", "unrealised")},
                     "positions": int(_f(r.get("positions")))})
     out.sort(key=lambda r: r["date"])
+    return out
+
+
+def hourly(series: str) -> list:
+    """[{time, total, bench}] oldest first, for one account (demo or live).
+
+    Written hourly by tracker.py: the real account value and what the same
+    deposits would be worth in the benchmark ETF. `bench` is None on rows the
+    tracker could not price. Missing file -> empty list.
+    """
+    out = []
+    for r in _rows(HOURLY):
+        if r.get("series") != series:
+            continue
+        out.append({"time": r.get("time", ""),
+                    "total": _maybe(r.get("total")),
+                    "bench": _maybe(r.get("bench"))})
+    out.sort(key=lambda r: r["time"])
     return out
 
 

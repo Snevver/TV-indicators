@@ -1,0 +1,16 @@
+# Once an hour, on the hour. The chart it feeds is drift between monthly
+# rebalances, so hourly is plenty; the market being closed just means two
+# identical points, which the dashboard smooths over.
+
+[Unit]
+Description=Take an hourly account value snapshot
+
+[Timer]
+OnCalendar=*:00
+# If the machine was asleep at the top of the hour, run at the next opportunity.
+Persistent=true
+# Do not hammer Trading 212 and Yahoo at exactly :00 alongside everyone else.
+RandomizedDelaySec=90
+
+[Install]
+WantedBy=timers.target

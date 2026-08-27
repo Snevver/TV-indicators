@@ -31,7 +31,8 @@ ETC = "/etc/momentum-bot.env"
 SECRET = ("T212_API_KEY_DEMO", "T212_API_SECRET_DEMO", "T212_API_KEY_LIVE",
           "T212_API_SECRET_LIVE", "T212_API_KEY", "T212_API_SECRET",
           "DISCORD_WEBHOOK", "DISCORD_BOT_TOKEN", "DISCORD_CHANNEL_ID",
-          "DISCORD_OWNER_ID")
+          "DISCORD_OWNER_ID", "DISCORD_CONFIRM_CHANNEL_ID",
+          "DISCORD_CONFIRM_CHANNEL_ID_DEMO")
 
 # MOMENTUM_MODE and MOMENTUM_FRACTIONAL used to live here. Both were settled by
 # measurement -- drift, fractional -- and hardcoded in the bot, so exposing them
@@ -194,8 +195,12 @@ def credentials() -> list:
          "note": "DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID + DISCORD_OWNER_ID"},
         {"label": "Discord confirmations channel (optional)",
          "set": has("DISCORD_CONFIRM_CHANNEL_ID"),
-         "note": "DISCORD_CONFIRM_CHANNEL_ID; records go here, unset = the "
+         "note": "DISCORD_CONFIRM_CHANNEL_ID; live records go here, unset = the "
                  "approvals channel"},
+        {"label": "Discord demo records channel (optional)",
+         "set": has("DISCORD_CONFIRM_CHANNEL_ID_DEMO"),
+         "note": "DISCORD_CONFIRM_CHANNEL_ID_DEMO; the demo account's rebalance "
+                 "records go here, unset = the live confirmations channel"},
     ]
 
 

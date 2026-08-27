@@ -18,3 +18,11 @@ smoke.json.tmp
 # and what came back. Never the repo's business, and it holds order ids.
 pending.json
 pending.json.tmp
+pending-demo.json
+pending-demo.json.tmp
+
+# Dated cash-in events and the hourly value snapshots the tracker writes.
+deposits.csv
+deposits.csv.tmp
+hourly.csv
+hourly.csv.tmp

@@ -45,6 +45,7 @@ import argparse
 import calendar
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -119,6 +120,23 @@ def _load_env_files() -> list:
 
 ENV_FILES_LOADED = _load_env_files()
 
+# `--env demo|live` picks which Trading 212 account this run acts on. It has to
+# be applied here, before `import t212` below reads T212_ENV at import, and it
+# also decides which book (TRACK) the run writes. The systemd nightly unit runs
+# the bot once per account this way (demo, then live).
+#
+# Precedence: --env  >  an explicit T212_ENV  >  live. Defaulting to live rather
+# than to t212.py's own "demo" keeps --poll and a bare run acting on the real
+# account, so a live approval is never left unexecuted because the poller was
+# looking at the demo batch file.
+if "--env" in sys.argv:
+    _ei = sys.argv.index("--env")
+    if _ei + 1 < len(sys.argv) and sys.argv[_ei + 1] in ("demo", "live"):
+        os.environ["T212_ENV"] = sys.argv[_ei + 1]
+os.environ.setdefault("T212_ENV", "live")
+if os.environ["T212_ENV"].strip().lower() not in ("demo", "live"):
+    os.environ["T212_ENV"] = "live"
+
 # Optional broker link. A missing, broken or half-written t212.py must not stop
 # the bot running — the whole point of it is that it is not required.
 try:
@@ -142,6 +160,8 @@ STATE = os.path.join(HERE, "state.json")
 LOG = os.path.join(HERE, "rebalances.csv")
 HISTORY = os.path.join(HERE, "history.csv")     # one row per day per track
 LATEST = os.path.join(HERE, "latest.json")      # the dashboard's render cache
+DEPOSITS = os.path.join(HERE, "deposits.csv")   # dated cash-in events, for the
+#                                                 ETF benchmark (see tracker.py)
 
 # Frozen at validation time. Changing this changes the strategy — if you edit it,
 # the measured results no longer describe what you are running.
@@ -157,12 +177,12 @@ HOLD = 8            # positions
 # Sizing and bookkeeping. None of this touches the ranking — the strategy is the
 # same whatever these say.
 #
-# Prices come from yfinance in US dollars. The PAPER book is a dollar model and
-# stays that way. The LIVE book is a real Trading 212 account in its own currency
-# (EUR here), so its prices are converted once -- see live_fx() -- and every live
-# figure is then real money rather than a dollar shadow of a euro account.
-CURRENCY = "USD"        # paper / default
-SYM = "$"               # reassigned to the live account's symbol for a live run
+# Prices come from yfinance in US dollars. Both books are real Trading 212
+# accounts in the account currency (EUR here), so prices are converted once --
+# see live_fx() -- and every figure is then real money rather than a dollar
+# shadow of a euro account.
+CURRENCY = "USD"        # default until live_fx() resolves the account currency
+SYM = "$"               # reassigned to the account's symbol once resolved
 
 
 _FX = {}               # cached {rate, ccy, sym, err} for the account currency
@@ -282,21 +302,19 @@ AUTOTRADE = os.environ.get("MOMENTUM_AUTOTRADE", "").strip().lower() in (
 KILL = os.environ.get("MOMENTUM_KILL", "").strip().lower() in (
     "1", "on", "yes", "true")
 
-# Two books are kept side by side.
-#   paper : the strategy simulated on assumed fills. Always runs, never touched
-#           by the broker, so there is something to measure execution against.
-#   live  : what Trading 212 actually holds.
-# TRACK is which one the monthly orders are worked out from. It is no longer a
-# setting of its own: autotrade acts on the live account, so it plans from live
-# holdings; without it there is nothing to plan against but the paper book. That
-# removes the combination -- autotrade on, track paper -- where the bot posted
-# orders and placed nothing. A bare MOMENTUM_TRACK export still wins, for the
-# "watch the live numbers a while before arming" case.
-TRACKS = ("paper", "live")
-TRACK = (os.environ.get("MOMENTUM_TRACK", "").strip().lower()
-         or ("live" if AUTOTRADE else "paper"))
+# Two books are kept side by side, one per real Trading 212 account:
+#   demo : the practice account. Traded automatically every month (fake money,
+#          no approval), so it is a real-execution preview of what live will do.
+#   live : the real account. Traded only after a Discord reaction.
+# A single run acts on one of them. TRACK follows t212.ENV, which follows
+# T212_ENV / --env (applied above, before t212 was imported), so the book this
+# run writes always matches the account it talked to. The systemd unit runs the
+# bot once per account.
+TRACKS = ("demo", "live")
+TRACK = (getattr(t212, "ENV", None)
+         or os.environ.get("T212_ENV", "").strip().lower() or "live")
 if TRACK not in TRACKS:
-    raise SystemExit(f"MOMENTUM_TRACK must be 'paper' or 'live', not {TRACK!r}")
+    raise SystemExit(f"T212_ENV must be 'demo' or 'live', not {TRACK!r}")
 
 GREEN = 0x3BA55D    # something changed
 BLURPLE = 0x5865F2  # ranked, nothing to do
@@ -329,11 +347,15 @@ def load_state() -> dict:
         s = json.loads(json.dumps(EMPTY))
 
     if "tracks" not in s:
-        # A schema-1 file: one flat book, which was the paper one by definition —
-        # nothing had a broker link when it was written.
+        # A schema-1 file: one flat book. It predates the broker link, so the
+        # safest home for it is the live track; demo starts fresh.
         s = {"schema": 2,
-             "tracks": {"paper": {k: s.get(k, _blank()[k]) for k in EMPTY_BOOK},
-                        "live": _blank()}}
+             "tracks": {"live": {k: s.get(k, _blank()[k]) for k in EMPTY_BOOK},
+                        "demo": _blank()}}
+
+    # The simulated 'paper' book was retired when the demo account took its
+    # place. Drop it so nothing downstream renders a stale third track.
+    s.get("tracks", {}).pop("paper", None)
 
     for name in TRACKS:
         bk = s["tracks"].setdefault(name, _blank())
@@ -555,27 +577,26 @@ def parse_fill(spec: str):
 
 
 def refresh(state) -> bool:
-    """Mirror the broker into the LIVE track. Returns True if anything was read.
+    """Mirror the broker into this run's book (demo or live). Returns True if
+    anything was read.
 
-    This never touches the paper track. Paper is the strategy simulated on
-    assumed fills; keeping it independent is the only way to tell later whether
-    a bad month was the strategy or your own execution.
-
-    Silent when there is no key — that is the normal case and not a problem.
+    Each run talks to one Trading 212 account (t212.ENV / --env) and mirrors it
+    into the matching book. Silent when there is no key — that is the normal
+    case and not a problem.
     """
     snap = broker()
     if snap is None:
         return False
-    live = book(state, "live")
-    # A broker that reports nothing while the live book holds positions is far
-    # more likely to be a mapping or permissions problem than a portfolio you
-    # emptied by hand. Never let the automatic path act on it — --t212-sync
-    # --force is how you say you really did sell everything.
+    live = book(state, TRACK)
+    # A broker that reports nothing while the book holds positions is far more
+    # likely to be a mapping or permissions problem than a portfolio you emptied
+    # by hand. Never let the automatic path act on it — --t212-sync --force is
+    # how you say you really did sell everything.
     if live["positions"] and not snap["positions"]:
-        print("  ! Trading 212 reports no positions, but the live book holds "
-              f"{len(live['positions'])}. Not adopting that - it would erase "
-              f"the book. Check --t212-probe, or --t212-sync --force if you "
-              f"really did sell everything.")
+        print(f"  ! Trading 212 ({t212.ENV}) reports no positions, but the "
+              f"{TRACK} book holds {len(live['positions'])}. Not adopting that - "
+              f"it would erase the book. Check --t212-probe, or --t212-sync "
+              f"--force if you really did sell everything.")
         return False
     diffs = reconcile(live, snap, adopt=True)
     save_state(state)
@@ -897,6 +918,34 @@ def record_day(when, track_name, m) -> None:
         return
 
 
+def append_deposit(track_name, when, amount) -> None:
+    """Record a dated cash-in (or, negative, cash-out) event.
+
+    tracker.py replays this file to work out how many ETF units the same money
+    would have bought on the same days, which is the benchmark the dashboard
+    draws the real account against. Append-only; a plain CSV the tracker reads.
+    """
+    import csv
+    amount = float(amount)
+    if not amount:
+        return
+    new = not os.path.exists(DEPOSITS)
+    tmp = DEPOSITS + ".tmp"
+    rows = []
+    if not new:
+        try:
+            with open(DEPOSITS, newline="", encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh))
+        except (OSError, csv.Error):
+            rows = []
+    rows.append({"time": str(when), "track": track_name, "amount": f"{amount:.2f}"})
+    with open(tmp, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=("time", "track", "amount"))
+        w.writeheader()
+        w.writerows(rows)
+    os.replace(tmp, DEPOSITS)
+
+
 def snapshot_payload(state, prices, scores, bar) -> dict:
     """Everything the dashboard renders from, both tracks, no network needed."""
     fx = live_fx()
@@ -917,11 +966,12 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
            "tracks": {}}
     for name in TRACKS:
         bk = book(state, name)
-        # Paper is a dollar model; live is the real account in its own currency.
-        m = mark(bk, to_live(prices) if name == "live" else prices)
+        # Both books are real Trading 212 accounts in the account currency, so
+        # both are marked with the converted prices.
+        m = mark(bk, to_live(prices))
         out["tracks"][name] = {
-            "symbol": fx["sym"] if name == "live" else "$",
-            "currency": fx["ccy"] if name == "live" else "USD",
+            "symbol": fx["sym"],
+            "currency": fx["ccy"],
             "total": round(m["total"], 2), "invested": round(m["invested"], 2),
             "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
             "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
@@ -1027,11 +1077,10 @@ def smoke_describe(s: dict) -> str:
 # The rebalance already works out exactly what to trade. This is what turns that
 # list into orders at Trading 212 once you have said yes.
 #
-# SEPARATE FROM THE TRACK, ON PURPOSE.
-# MOMENTUM_TRACK=live means "plan from what I really hold". It has never meant
-# "and place the orders", and it still does not: MOMENTUM_AUTOTRADE is a second,
-# independent switch, off by default. Turning the track live to see real numbers
-# must not quietly start trading, so the two are not the same setting.
+# GATED BY MOMENTUM_AUTOTRADE, OFF BY DEFAULT.
+# With autotrade off, the bot works out the orders and posts them and you place
+# them by hand -- on either account. With it on, the demo account is traded
+# automatically and the live account waits for your Discord reaction.
 #
 # THE SHAPE, AND WHY
 # One run proposes; a later run executes. In between there is a file on disk with
@@ -1060,7 +1109,11 @@ def smoke_describe(s: dict) -> str:
 # That is the one rule everything here is arranged around: A REQUEST THAT MIGHT
 # HAVE PLACED AN ORDER IS NEVER SENT TWICE.
 
-PENDING = os.path.join(HERE, "pending.json")
+# One batch file per account. The demo run places and settles in a single
+# process, but it still keeps a record so a crash mid-batch can be resumed, and a
+# separate name keeps a --poll tick (live only) from ever reading the demo batch.
+# ponytail: two files keyed by env; live keeps its old filename so nothing migrates.
+PENDING = os.path.join(HERE, "pending.json" if TRACK != "demo" else "pending-demo.json")
 PENDING_EXPIRY_H = 6         # an approval this old approved prices that have moved
 PENDING_WATCH_SEC = 90       # how long one poll waits before exiting
 
@@ -1164,13 +1217,18 @@ def resume_point(orders: list):
 
 
 def propose_batch(name, bar, basket, orders, prices, paid_in, m,
-                  monthly: float = 0.0, start: float = 0.0) -> int:
-    """Post the month's orders for approval and save them. Places nothing.
+                  monthly: float = 0.0, start: float = 0.0,
+                  require_approval: bool = True) -> int:
+    """Save the month's orders as a pending batch. Places nothing.
 
     `start` (opening rebalance only) and `monthly` (every one after) are what
     settle_batch will add to the book's cash and `deposited` once the orders are
     actually sent -- the rebalance run does not save the book, so this is where
     the money becomes real.
+
+    With `require_approval` (live), an approval card with ✅/❌ is posted and the
+    batch waits for the poller. Without it (demo), no card is posted and the
+    caller runs execute_batch() straight away.
 
     Returns a process exit code. Anything that would make execution unsafe is
     caught HERE, before you are asked, rather than halfway through the batch --
@@ -1225,16 +1283,18 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m,
     elif paid_in:
         fields.append({"name": "This month",
                        "value": f"{money(paid_in)} added, from your free funds"})
-    embed = _embed(
-        "Rebalance to approve", AMBER,
-        desc=f"**{bar.date()}** · {n_sell} sell, {n_buy} buy · sizes from that "
-             f"day's close, so fills will not match to the cent",
-        fields=fields,
-        footer=f"React ✅ to place, ❌ to skip. Only you count. "
-               f"Expires in {PENDING_EXPIRY_H}h. Sells go first, then buys.")
-    mid = d.post(content=f"<@{d.OWNER_ID}>", embeds=[embed])
-    d.offer_tick(mid, d.TICK)
-    d.offer_tick(mid, d.CROSS)
+    mid = ""
+    if require_approval:
+        embed = _embed(
+            "Rebalance to approve", AMBER,
+            desc=f"**{bar.date()}** · {n_sell} sell, {n_buy} buy · sizes from that "
+                 f"day's close, so fills will not match to the cent",
+            fields=fields,
+            footer=f"React ✅ to place, ❌ to skip. Only you count. "
+                   f"Expires in {PENDING_EXPIRY_H}h. Sells go first, then buys.")
+        mid = d.post(content=f"<@{d.OWNER_ID}>", embeds=[embed])
+        d.offer_tick(mid, d.TICK)
+        d.offer_tick(mid, d.CROSS)
 
     save_pending({"stage": "offered", "track": name, "bar": str(bar.date()),
                   "month": f"{bar.year}-{bar.month:02d}",
@@ -1246,9 +1306,13 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m,
                   "monthly": monthly, "start": start,
                   "offered_at": datetime.now(timezone.utc).isoformat(),
                   "orders": recs})
-    print(f"\nproposed in Discord (message {mid}). NOTHING has been ordered and "
-          f"the month is not marked done.\nReact {d.TICK} and the poller places "
-          f"them; react {d.CROSS} or wait {PENDING_EXPIRY_H}h and it does not.")
+    if require_approval:
+        print(f"\nproposed in Discord (message {mid}). NOTHING has been ordered "
+              f"and the month is not marked done.\nReact {d.TICK} and the poller "
+              f"places them; react {d.CROSS} or wait {PENDING_EXPIRY_H}h and it "
+              f"does not.")
+    else:
+        print(f"\n{name} batch saved. Placing it now (no approval on demo).")
     return 0
 
 
@@ -1281,6 +1345,8 @@ def settle_batch(state, p, why: str):
     added = float(p.get("start") or 0.0) + float(p.get("monthly") or 0.0)
     bk["cash"] += added
     bk["deposited"] += added
+    if added:
+        append_deposit(p["track"], p["bar"], added)
     done = [o for o in p["orders"] if o.get("state") == "sent"]
     orders = [(o["ticker"], o["shares"], o["cash"]) for o in done]
     prices = {o["ticker"]: o["price"] for o in p["orders"]}
@@ -1313,7 +1379,7 @@ def settle_batch(state, p, why: str):
         scores = rank(px)
         for t in TRACKS:
             record_day(px.index[-1].date(), t,
-                       mark(book(state, t), to_live(usd) if t == "live" else usd))
+                       mark(book(state, t), to_live(usd)))
         write_latest(snapshot_payload(state, usd, scores, px.index[-1]))
     except (Exception, SystemExit) as exc:                 # noqa: BLE001
         # SystemExit is in there on purpose: fetch() raises it when the price
@@ -1422,9 +1488,7 @@ def kill_switch(state) -> int:
         px = fetch()
         for t in TRACKS:
             record_day(px.index[-1].date(), t,
-                       mark(book(state, t),
-                            to_live(px.iloc[-1].to_dict()) if t == "live"
-                            else px.iloc[-1].to_dict()))
+                       mark(book(state, t), to_live(px.iloc[-1].to_dict())))
         write_latest(snapshot_payload(state, px.iloc[-1].to_dict(),
                                       rank(px), px.index[-1]))
     except (Exception, SystemExit) as exc:                 # noqa: BLE001
@@ -1631,7 +1695,7 @@ def execute_batch(state, p) -> int:
     fields = [
         {"name": f"Sold ({len(sold)})", "value": ", ".join(sold) or "-", "inline": True},
         {"name": f"Bought ({len(bought)})", "value": ", ".join(bought) or "-", "inline": True},
-        {"name": "Basket", "value": ", ".join(book(state, "live").get("basket", []))},
+        {"name": "Basket", "value": ", ".join(book(state, p["track"]).get("basket", []))},
         {"name": "Account",
          "value": f"{money(after.get('total', 0.0))}  "
                   f"({after.get('pnl_pct', 0.0):+.1f}% on {money(after.get('deposited', 0.0))})"},
@@ -1988,8 +2052,10 @@ def main() -> int:
                    help="post the account to Discord without rebalancing")
     p.add_argument("--test", action="store_true",
                    help="post a real message to Discord, save nothing")
-    p.add_argument("--track", choices=TRACKS, default=None,
-                   help=f"which book to act on (default {TRACK}, $MOMENTUM_TRACK)")
+    p.add_argument("--env", choices=TRACKS, default=None,
+                   help="which Trading 212 account to act on: demo or live "
+                        "(default from T212_ENV). Read before the broker is "
+                        "imported, so it also picks the key pair.")
     p.add_argument("--deposit", type=float, metavar="AMOUNT",
                    help="record money paid into the account")
     p.add_argument("--withdraw", type=float, metavar="AMOUNT",
@@ -2048,17 +2114,16 @@ def main() -> int:
     args = p.parse_args()
 
     state = load_state()
-    name = args.track or TRACK
+    name = TRACK                    # follows --env / T212_ENV; see the shim above
     bk = book(state, name)
 
-    # money() prints in the currency of the book this run is acting on: the live
-    # account's own (via live_fx, resolved on first use), or dollars for paper.
-    if name == "live":
-        global SYM
-        _fx = live_fx()
-        SYM = _fx["sym"]
-        if _fx["err"]:
-            print(f"  ! {_fx['err']} - live figures shown in USD for now")
+    # money() prints in the account currency (via live_fx, resolved on first
+    # use). Both demo and live are real Trading 212 accounts.
+    global SYM
+    _fx = live_fx()
+    SYM = _fx["sym"]
+    if _fx["err"]:
+        print(f"  ! {_fx['err']} - figures shown in USD for now")
 
     # --- the kill switch --------------------------------------------------
     # Blocks trading, not reading -- --status / --json / --t212-* still work so
@@ -2311,9 +2376,9 @@ def main() -> int:
         snap = broker()
         if snap is None:
             return 1
-        # These always act on the live book — it is the one that mirrors the
-        # broker. Paper is a simulation and has nothing to reconcile against.
-        live = book(state, "live")
+        # Acts on this run's book (demo or live), against the account --env
+        # picked.
+        live = book(state, TRACK)
         scope = "non-pie holdings in the universe"
         print(f"Trading 212 ({t212.ENV}) - {scope}")
         print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}")
@@ -2323,13 +2388,13 @@ def main() -> int:
         if (args.t212_sync and live["positions"] and not snap["positions"]
                 and not args.force):
             raise SystemExit(
-                f"  the broker reports no positions but the live book holds "
+                f"  the broker reports no positions but the {TRACK} book holds "
                 f"{len(live['positions'])}.\n"
                 f"  Refusing to erase it. If you really did sell everything, "
                 f"repeat with --force.")
         diffs = reconcile(live, snap, adopt=args.t212_sync)
         if not diffs:
-            print("  the live book already matches. Nothing to do.")
+            print(f"  the {TRACK} book already matches. Nothing to do.")
         else:
             print(f"\n  {'':<8} {'bot thinks':>14} {'broker says':>14}")
             for tk, a, b in diffs:
@@ -2341,7 +2406,7 @@ def main() -> int:
                 m = mark(live, to_live({tk: q["value"] / q["shares"]
                                         for tk, q in snap["positions"].items()
                                         if q["shares"]}))
-                print(f"\n  adopted into the live book. account {money(m['total'])}, "
+                print(f"\n  adopted into the {TRACK} book. account {money(m['total'])}, "
                       f"{money(m['deposited'])} paid in")
             else:
                 print("\n  nothing changed. --t212-sync adopts the broker's numbers.")
@@ -2361,6 +2426,7 @@ def main() -> int:
         bk["cash"] += sign * amount
         bk["deposited"] += sign * amount
         save_state(state)
+        append_deposit(name, datetime.now(timezone.utc).date(), sign * amount)
         print(f"{verb} {money(amount)} to the {name} book - cash now "
               f"{money(bk['cash'])}, {money(bk['deposited'])} paid in overall")
 
@@ -2388,7 +2454,7 @@ def main() -> int:
         write_latest(payload)
         for t in TRACKS:
             record_day(px.index[-1].date(), t,
-                       mark(book(state, t), to_live(prices) if t == "live" else prices))
+                       mark(book(state, t), to_live(prices)))
         print(json.dumps(payload, indent=1, default=str))
         return 0
 
@@ -2408,7 +2474,7 @@ def main() -> int:
             refresh(state)
             px = fetch()
             usd = px.iloc[-1].to_dict()
-            m = mark(bk, to_live(usd) if name == "live" else usd)
+            m = mark(bk, to_live(usd))
             print(env_source_line())
             print(f"ACCOUNT   {money(m['total'])}   "
                   f"{m['pnl']:+,.2f} = {m['pnl_pct']:+.1f}% "
@@ -2436,9 +2502,9 @@ def main() -> int:
     refresh(state)
     px = fetch()
     prices = px.iloc[-1].to_dict()                     # USD, straight from yfinance
-    # The book this run acts on: the live one is a real account in its own
-    # currency, so its prices are converted; paper stays in dollars.
-    book_prices = to_live(prices) if name == "live" else prices
+    # Both books are real accounts in the account currency, so the prices this
+    # run sizes and marks with are converted.
+    book_prices = to_live(prices)
     scores = rank(px)
     basket = list(scores.index[:HOLD])
     held = bk.get("basket", [])
@@ -2458,7 +2524,7 @@ def main() -> int:
         # gives the dashboard a daily line rather than a monthly staircase.
         for t in TRACKS:
             record_day(bar.date(), t,
-                       mark(book(state, t), to_live(prices) if t == "live" else prices))
+                       mark(book(state, t), to_live(prices)))
         write_latest(snapshot_payload(state, prices, scores, bar))
         return 0
 
@@ -2470,6 +2536,11 @@ def main() -> int:
     pend = load_pending()
     tag = f"{bar.year}-{bar.month:02d}"
     if pend.get("stage") in PENDING_OPEN and not (args.dry or args.test):
+        if name == "demo":
+            # Nothing polls the demo batch file, so a demo run that died
+            # mid-batch would wedge here forever. Finish it instead.
+            print(f"resuming an unfinished demo batch ({pend.get('month')}).")
+            return execute_batch(state, pend)
         print(f"{pend.get('month')} is already out for approval - not planning it "
               f"again.\n\n{pending_describe(pend)}")
         return 0
@@ -2491,14 +2562,15 @@ def main() -> int:
     # same credit once the orders are actually sent.
     #
     #   opening : the Starting amount, on the very first rebalance of an empty
-    #             live book. The `not bk["deposited"]` guard makes it inert after.
+    #             book (demo or live). The `not bk["deposited"]` guard makes it
+    #             inert after.
     #   monthly : the contribution, every rebalance after the first. Not on the
     #             opening one -- that is the amount you are seeding by hand.
     #
     # Both credit cash (so plan() can spend them) and deposited (so they are not
     # read as profit), on the assumption the euros are in free funds.
     opening = 0.0
-    if first and name == "live" and START_BUDGET > 0 and not bk["deposited"]:
+    if first and START_BUDGET > 0 and not bk["deposited"]:
         opening = START_BUDGET
         bk["cash"] += opening
         bk["deposited"] += opening
@@ -2511,7 +2583,7 @@ def main() -> int:
 
     m = mark(bk, book_prices)
     orders = (plan(bk, book_prices, basket, m["total"], contribution=paid_in_today,
-                   reserve=CASH_BUFFER if name == "live" else 0.0)
+                   reserve=CASH_BUFFER)
               if m["total"] > 0 else [])
     print(render_plain(bar, buys, sells, basket, scores, m, orders, book_prices))
     if opening:
@@ -2543,16 +2615,16 @@ def main() -> int:
               "untouched - this was not a rebalance, and the book did not move.")
         return 0
 
-    # When autotrade is armed and there is a batch to place, propose_batch() posts
-    # its own message with the full order list and the ✅/❌. The webhook embed
-    # would just be a second copy of the same eight lines, so it is skipped —
-    # one message, the one you act on.
-    will_propose = AUTOTRADE and name == "live" and bool(orders)
+    # When autotrade is armed and there is a batch to place, the autotrade path
+    # below posts its own Discord message (an approval card for live, a record
+    # for demo). The webhook embed would just be a second copy of the same eight
+    # lines, so it is skipped.
+    will_autotrade = AUTOTRADE and bool(orders)
 
     if not buys and not sells and not first and not orders:
         print("\nbasket unchanged and nothing to trim - not posting")
-    elif will_propose:
-        print("\n(skipping the webhook card - the approval message below covers it)")
+    elif will_autotrade:
+        print("\n(skipping the webhook card - the autotrade message below covers it)")
     elif args.webhook:
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         m=m, orders=orders, prices=book_prices))
@@ -2567,23 +2639,22 @@ def main() -> int:
     # because YOU are going to place them by hand, from the message it just
     # posted.
     #
-    # On, none of that may happen yet. The orders have not been placed and might
-    # never be, so recording them would leave the book describing a portfolio
-    # nobody holds. Instead the batch goes out for approval and everything below
-    # is deferred to settle_batch(), which runs once the orders are actually
-    # sent. That is why the month is still unmarked at this point.
-    if AUTOTRADE and name != "live":
-        # Autotrade forces the track to live unless something explicitly overrode
-        # it -- a MOMENTUM_TRACK export or --track paper. So this only fires for
-        # that deliberate override, and it is a warning, not the silent
-        # do-nothing it once was.
-        print(f"\n  ! 'Place approved orders' is on, but this run is on the "
-              f"{name!r} book (overridden). Nothing is placed from paper - drop "
-              f"the MOMENTUM_TRACK override / --track flag to autotrade.")
-    if AUTOTRADE and name == "live" and orders:
+    # On, it splits by account:
+    #   live : the batch goes out for approval. Nothing is placed and the month
+    #          stays unmarked until a reaction lands and the poller runs
+    #          execute_batch(); everything below is deferred to settle_batch().
+    #   demo : fake money, so there is nothing to approve. The batch is placed
+    #          and settled right here, in this process, and a record is posted to
+    #          the demo channel.
+    if AUTOTRADE and orders:
         why = approval_ready()
         if why:
             raise SystemExit(f"MOMENTUM_AUTOTRADE is on but {why}")
+        if name == "demo":
+            propose_batch(name, bar, basket, orders, book_prices,
+                          paid_in_today, m, monthly=0.0 if first else MONTHLY,
+                          start=opening, require_approval=False)
+            return execute_batch(state, load_pending())
         return propose_batch(name, bar, basket, orders, book_prices,
                              paid_in_today, m,
                              monthly=0.0 if first else MONTHLY,
@@ -2600,8 +2671,7 @@ def main() -> int:
     log_row(bar.date(), buys, sells, basket, after["total"], after["cash"],
             after["deposited"], after["pnl"])
     for t in TRACKS:
-        record_day(bar.date(), t,
-                   mark(book(state, t), to_live(prices) if t == "live" else prices))
+        record_day(bar.date(), t, mark(book(state, t), to_live(prices)))
     write_latest(snapshot_payload(state, prices, scores, bar))
     if orders:
         print(f"recorded {len(orders)} fills at the {bar.date()} close · "

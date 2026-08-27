@@ -1,0 +1,23 @@
+# Hourly account-value snapshot for the dashboard's money-over-time chart.
+#
+# Reads the demo and live Trading 212 account totals and the benchmark ETF, and
+# appends a row per account to hourly.csv. See tracker.py.
+#
+# Install (edit CHANGEME first):
+#   sudo cp momentum-tracker.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-tracker.timer
+
+[Unit]
+Description=Hourly Trading 212 account value snapshot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
+EnvironmentFile=-/etc/momentum-bot.env
+EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python tracker.py
+TimeoutStartSec=120

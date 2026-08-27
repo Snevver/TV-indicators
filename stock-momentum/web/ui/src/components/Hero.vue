@@ -14,7 +14,7 @@ const fmt = (v) => money(v, props.sym);
     <div class="scan"></div>
     <div class="grid">
       <div class="lead">
-        <div class="tag">{{ label }} · live account</div>
+        <div class="tag">{{ label }} account · Trading 212</div>
         <NumberFlow class="big" :value="s?.total ?? 0" :format="fmt" />
         <div class="row">
           <span class="delta" :class="dir">

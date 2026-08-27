@@ -40,11 +40,13 @@ const h = computed(() => store.state?.health || {});
         A stock you sell at a profit does not fund its replacement; the gain
         spreads across all eight, which is why every position grows together.</p>
 
-      <h2>Paper and Trading 212</h2>
-      <p>The paper book simulates the strategy on assumed fills and keeps running
-        whatever else happens. The live book mirrors Trading 212. The gap between
-        them is your execution: slippage, currency fees, an order placed late.
-        Without both you could not tell a bad month from a badly executed one.</p>
+      <h2>Demo and live</h2>
+      <p>The strategy runs on two real Trading 212 accounts. The demo account is
+        traded automatically every month, fake money, no approval, so it is a
+        real-execution preview of what live will do. The live account places the
+        same orders only after you approve them in Discord. The gap between the
+        two curves is your execution: slippage, currency fees, an order placed
+        late.</p>
 
       <h2>What the backtest cannot tell you</h2>
       <p>The forty names were chosen in 2026, so every historical figure is

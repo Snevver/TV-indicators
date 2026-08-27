@@ -126,31 +126,30 @@ It reads `_data-export/data/`, which ships in the repo. A cold parse of that
 45MB export takes about twelve seconds, so it is warmed in a background thread
 at startup and every simulation after that takes about a second.
 
-## The two books
+## The two accounts
 
-A switch at the top of the dashboard flips everything between them.
+A switch at the top of the dashboard flips the account-specific panels between
+them; the **Money over time** chart shows both.
 
-- **Paper** — the strategy simulated on assumed fills. It runs whatever else
-  happens and is never touched by the broker.
-- **Trading 212** — what the broker actually holds, once a key is set.
+- **Demo** — the practice account. The bot trades it automatically every month
+  (fake money, no approval), so it is a real-execution preview of live.
+- **Live** — the real account. The bot places the same orders only after you
+  approve them in Discord.
 
-Keeping both is the point: the gap between them is your execution — slippage,
-currency fees, an order placed late or skipped. With only one number you cannot
-tell a bad month from a badly executed one.
+Keeping both is the point: the gap between the two curves is your execution —
+slippage, currency fees, an order placed late or skipped.
 
-Which book the bot **plans orders from** follows the Automatic trading setting:
-on ⇒ live holdings, off ⇒ the paper book. There is no separate switch. The
-paper/live control at the top of the dashboard only changes which one you are
-*looking at*. Before turning Automatic trading on, check **Compare with broker**
-shows the live book matching Trading 212, or the first rebalance will try to
-sell things you do not hold.
+The **Money over time** chart draws each account against what the same deposits
+would be worth in a broad-market ETF, from `bot/hourly.csv` (written hourly by
+`bot/tracker.py`).
 
 ## Where the numbers come from
 
 | Shown | Source |
 |---|---|
 | Account, holdings, ranking | `bot/latest.json`, rewritten on every bot run |
-| The curves | `bot/history.csv`, one row per day per funded track |
+| The daily curves | `bot/history.csv`, one row per day per funded track |
+| Money over time | `bot/hourly.csv`, one row per account per hour (`tracker.py`) |
 | Rebalances | `bot/rebalances.csv` |
 | Everything else | `bot/state.json` |
 

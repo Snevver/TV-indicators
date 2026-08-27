@@ -39,5 +39,8 @@ User=CHANGEME
 WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
 EnvironmentFile=-/etc/momentum-bot.env
 EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
-ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --poll
+# --env live: the poller acts on the live approval batch. The demo account is
+# traded and settled in one pass by the nightly run, so there is nothing here
+# for it to poll.
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --poll --env live
 TimeoutStartSec=180

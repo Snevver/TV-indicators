@@ -43,20 +43,45 @@ DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 # T212_API_KEY_DEMO=...   T212_API_SECRET_DEMO=...
 # T212_API_KEY_LIVE=...   T212_API_SECRET_LIVE=...
 # DISCORD_BOT_TOKEN=...   DISCORD_CHANNEL_ID=...   DISCORD_OWNER_ID=...
-# DISCORD_CONFIRM_CHANNEL_ID=...   # optional: "placed/skipped/expired" records
-#                                  # go here; unset = the approvals channel.
-#                                  # The bot needs "Manage Messages" in the
-#                                  # approvals channel to tidy answered prompts.
+# DISCORD_CONFIRM_CHANNEL_ID=...   # optional: live "placed/skipped/expired"
+#                                  # records go here; unset = the approvals
+#                                  # channel. The bot needs "Manage Messages" in
+#                                  # the approvals channel to tidy answered prompts.
+# DISCORD_CONFIRM_CHANNEL_ID_DEMO=...  # optional: the demo account's records go
+#                                      # here; unset = the live records channel.
 EOF
 ```
 
 Everything the dashboard does not own lives in that file. The Settings page holds
 `T212_ENV` (demo/live), `MOMENTUM_START_BUDGET`, `MOMENTUM_MONTHLY`,
-`MOMENTUM_AUTOTRADE` and `MOMENTUM_KILL`. There is no `MOMENTUM_TRACK` — autotrade on means "plan
-from and trade the live account", off means "plan from the paper book and only
-post". The live book is valued in the account's own currency (it reads that from
-Trading 212 and converts the dollar price feed once); the paper book stays in
-dollars.
+`MOMENTUM_AUTOTRADE` and `MOMENTUM_KILL`.
+
+### Two accounts, one strategy
+
+The bot runs the strategy on **both** Trading 212 accounts every month. The
+nightly unit invokes it twice, `--env demo` then `--env live`:
+
+- **demo** is traded automatically. Fake money, so there is nothing to approve;
+  the batch is placed and settled in the same run and a record is posted to the
+  demo Discord channel (`DISCORD_CONFIRM_CHANNEL_ID_DEMO`, falls back to the live
+  confirmations channel). It is a real-execution preview of what live will do.
+- **live** posts an approval card and waits for your ✅, exactly as before.
+
+`--env` is read before the broker module loads, so it also picks the key pair
+and decides which book (`state.json` -> `tracks.demo` / `tracks.live`) the run
+writes. With neither `--env` nor `T212_ENV` set the bot acts on **live**, so
+`--poll` never leaves a live approval unexecuted. Both accounts are valued in
+the account currency (read from Trading 212, the dollar price feed converted
+once). The simulated `paper` book was retired when the demo account took its
+place.
+
+With `MOMENTUM_AUTOTRADE` off, neither account is traded automatically: the bot
+works out the orders, posts them, and you place them by hand.
+
+`tracker.py` (its own hourly systemd unit) records each account's total value
+and what the same deposits would be worth in a broad-market ETF
+(`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`) to `hourly.csv`, which is what the
+dashboard's money-over-time chart draws.
 
 `MOMENTUM_START_BUDGET` (default `0`) is how much of your Trading 212 free funds
 the strategy begins with. The **first** live rebalance sizes the opening eight
@@ -293,11 +318,19 @@ Logs land in the journal, a missed run catches up on boot, and the secret stays
 in a 600 file.
 
 ```bash
-sudo cp systemd/momentum-bot.service systemd/momentum-bot.timer /etc/systemd/system/
-sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-bot.service
+sudo cp systemd/momentum-bot.{service,timer} systemd/momentum-smoke.{service,timer} \
+        systemd/momentum-tracker.{service,timer} /etc/systemd/system/
+sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-bot.service \
+        /etc/systemd/system/momentum-smoke.service \
+        /etc/systemd/system/momentum-tracker.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now momentum-bot.timer
+sudo systemctl enable --now momentum-bot.timer momentum-smoke.timer momentum-tracker.timer
 ```
+
+`momentum-bot` runs the monthly rebalance on both accounts (demo, then live).
+`momentum-smoke` polls every minute for your ✅ on the live batch and for the
+smoke test. `momentum-tracker` takes the hourly value snapshot for the
+dashboard's money-over-time chart.
 
 Substitute in `/etc`, not in the checkout — editing the tracked file makes the
 next `git pull` conflict. Adjust the paths in the installed copy by hand if you
@@ -318,11 +351,13 @@ crontab -e
 ```
 
 ```cron
-0 21 * * 1-5 cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py >> cron.log 2>&1
-30 22 * * 1-5 cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py >> cron.log 2>&1
+0 21 * * 1-5 cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py --env demo >> cron.log 2>&1 && .venv/bin/python momentum_bot.py --env live >> cron.log 2>&1
+30 22 * * 1-5 cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py --env demo >> cron.log 2>&1 && .venv/bin/python momentum_bot.py --env live >> cron.log 2>&1
+* * * * * cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python momentum_bot.py --poll --env live >> cron.log 2>&1
+0 * * * * cd /home/YOU/tv-indicators/stock-momentum/bot && set -a && . /etc/momentum-bot.env && set +a && .venv/bin/python tracker.py >> cron.log 2>&1
 ```
 
-The timer runs twice a weeknight, at 21:00 and 22:30 CE(S)T.
+The rebalance runs twice a weeknight, at 21:00 and 22:30 CE(S)T.
 
 That is not redundancy for its own sake. The backtest buys at the **close** of
 the first trading day of the month, so you want the basket before that close —

@@ -17,6 +17,7 @@ async function req(path, opts = {}) {
 
 export const getState = (track) => req(`/api/state?track=${track}`);
 export const getHistory = (track) => req(`/api/history?track=${track}`);
+export const getHourly = (track) => req(`/api/hourly?track=${track}`);
 export const getRebalances = () => req("/api/rebalances");
 export const getConfig = () => req("/api/config");
 

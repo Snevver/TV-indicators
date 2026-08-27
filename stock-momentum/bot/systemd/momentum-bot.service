@@ -24,7 +24,11 @@ WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
 # yet is not an error; ~/.config/momentum is only created on the first save.
 EnvironmentFile=-/etc/momentum-bot.env
 EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
-ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py
+# Two runs, in order: the demo account first (traded automatically), then live
+# (which waits for a Discord reaction). --env is read before the broker module
+# is imported, so it also picks the key pair.
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --env demo
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --env live
 
-# The download can hang; do not leave a run wedged until tomorrow.
-TimeoutStartSec=300
+# Two price downloads, either of which can hang; do not leave a run wedged.
+TimeoutStartSec=600
