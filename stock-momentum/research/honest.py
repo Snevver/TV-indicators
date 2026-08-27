@@ -1,4 +1,19 @@
-"""Where the strategy stands on the best data we have."""
+"""Where the strategy stands on the best data available.
+
+Combines the Yahoo export with the Kaggle delisted extract, then runs the
+strategy two ways: over the forty names the bot actually trades, and over
+whichever companies were genuinely in the index that month.
+
+The gap between those two lines is the part of the backtest that came from
+knowing the answer in advance -- about two points a year, and seventeen points
+of drawdown.
+
+Every figure it prints is a floor, not an estimate. 2008 is the thinnest
+stretch of the data (see coverage.py) and the names missing from it are the
+ones that failed, so the crisis still looks kinder here than it was.
+
+    python3 honest.py
+"""
 import numpy as np, pandas as pd, sys
 sys.path.insert(0, "/home/user/tv-indicators/stock-momentum/web")
 import simulate
