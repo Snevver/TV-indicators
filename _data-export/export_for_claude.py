@@ -13,6 +13,7 @@ Takes a few minutes and writes ~25MB. Everything lands in ./data as gzipped CSV.
 """
 from __future__ import annotations
 
+import gzip
 import io
 import os
 import sys
@@ -132,6 +133,36 @@ def retry_singly(missing, label, pause=1.5):
 # numbers are.
 
 
+def write_checked(df, path, label):
+    """Write a gzip and prove it reads back before moving on.
+
+    A truncated or half-flushed .gz looks fine on disk -- right name, plausible
+    size -- and only fails when something tries to read it, which may be a
+    different machine days later. One decompression here turns that into an
+    error at the point it can still be fixed.
+
+    Written to a temp file and renamed, so an interrupted run leaves the previous
+    good file in place rather than a broken one.
+    """
+    tmp = path + ".tmp"
+    df.to_csv(tmp, index=False, compression="gzip")
+    try:
+        with gzip.open(tmp, "rt") as fh:
+            rows = sum(1 for _ in fh)
+    except Exception as exc:                               # noqa: BLE001
+        os.unlink(tmp)
+        sys.exit(f"  ! {label}: wrote a .gz that will not read back ({exc}). "
+                 f"Nothing replaced; the previous file is untouched.")
+    if rows < 2:
+        os.unlink(tmp)
+        sys.exit(f"  ! {label}: wrote an empty file. Nothing replaced.")
+    os.replace(tmp, path)
+    mb = os.path.getsize(path) / 1e6
+    print(f"  wrote {path}  ({rows - 1:,} rows, {mb:.1f}MB, verified readable)")
+    if mb > 90:
+        print(f"  ! {mb:.0f}MB — GitHub refuses files over 100MB.")
+
+
 def grab(tickers, label):
     """Download in batches, return one long-format frame."""
     frames = []
@@ -172,7 +203,7 @@ def main() -> int:
     etf = grab(ETFS, "ETFs")
     if etf is not None:
         p = os.path.join(OUT, "etfs_daily.csv.gz")
-        etf.to_csv(p, index=False, compression="gzip")
+        write_checked(etf, p, "ETFs")
         print(f"  wrote {p}  ({len(etf):,} rows, "
               f"{os.path.getsize(p)/1e6:.1f}MB, "
               f"{etf.ticker.nunique()} tickers, {etf.time.min()} → {etf.time.max()})")
@@ -209,11 +240,7 @@ def main() -> int:
             # strategy acts on.
             stk = stk[["time", "ticker", "close"]].copy()
             stk["close"] = stk["close"].round(4)
-            stk.to_csv(p, index=False, compression="gzip")
-            mb = os.path.getsize(p) / 1e6
-            if mb > 90:
-                print(f"  ! {mb:.0f}MB — GitHub refuses files over 100MB. "
-                      f"Drop older history or split the file before pushing.")
+            write_checked(stk, p, "S&P 500")
             print(f"  wrote {p}  ({len(stk):,} rows, "
                   f"{os.path.getsize(p)/1e6:.1f}MB, "
                   f"{stk.ticker.nunique()} tickers, {stk.time.min()} → {stk.time.max()})")
@@ -236,7 +263,7 @@ def main() -> int:
             frames.append(df)
         sample = pd.concat(frames, ignore_index=True)
         p = os.path.join(OUT, "intraday15m_sample.csv.gz")
-        sample.to_csv(p, index=False, compression="gzip")
+        write_checked(sample, p, "intraday")
         print(f"  wrote {p}  ({len(sample):,} rows)")
     except Exception as exc:
         print(f"  ! intraday sample skipped ({exc})")
