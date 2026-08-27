@@ -1361,52 +1361,50 @@ def execute_batch(state, p) -> int:
 
         o["state"] = "sending"
         save_pending(p)                     # BEFORE the request. Always.
-        resp, msg = None, ""
-        for attempt in range(FUNDS_RETRY[0] if o["shares"] > 0 else 1):
+
+        def _send(qty):
             try:
-                resp = t212.place_market_order(o["code"], o["shares"])
-                msg = ""
-                break
+                return t212.place_market_order(o["code"], qty), ""
             except Exception as exc:                       # noqa: BLE001
-                msg = str(exc)
-            if "insufficient-free-for-stocks" not in msg or o["shares"] <= 0:
-                break
-            # The order was NOT placed. Two causes, handled in order: earlier
-            # orders still reserving their cushion (wait and retry the same
-            # size), and the real EUR cost of the batch running past what the
-            # mid-market FX estimate assumed (re-read the free cash and trim
-            # THIS order to fit -- the last name ends up slightly light, which
-            # beats a halted batch).
-            if attempt + 1 < FUNDS_RETRY[0]:
-                print(f"  … {o['ticker']}: funds still reserved, waiting "
-                      f"{FUNDS_RETRY[1]:.0f}s")
-                time.sleep(FUNDS_RETRY[1])
-                continue
-            price = abs(o["cash"]) / o["shares"] if o["shares"] else 0.0
-            try:
-                free = float(t212.cash().get("free", 0.0))
-            except Exception:                             # noqa: BLE001
-                free = 0.0
-            fit = t212._round_qty(free * 0.97 / price) if price > 0 else 0.0
-            if fit <= 0:
-                o["state"] = "skipped"
-                o["note"] = f"only {money(free)} free — nothing left to buy with"
-                o["cash"] = 0.0
-                save_pending(p)
-                print(f"  - {o['ticker']}: {o['note']}")
-                msg = ""
-                break
-            print(f"  ! {o['ticker']}: only {money(free)} free — trimming from "
-                  f"{o['shares']} to {fit}")
-            o["shares"] = fit
-            o["cash"] = -round(fit * price, 2)
-            o["note"] = f"trimmed to fit {money(free)} free at execution"
-            try:
-                resp = t212.place_market_order(o["code"], fit)
-                msg = ""
-            except Exception as exc:                       # noqa: BLE001
-                msg = str(exc)
-            break
+                return None, str(exc)
+
+        def _short(m):
+            return bool(m) and "insufficient-free-for-stocks" in m
+
+        # Planned size first. On an insufficient-funds rejection of a buy: wait
+        # once for earlier reservations to release, then shrink this order to the
+        # ACTUAL free cash with a widening haircut. Trading 212 holds back a few
+        # percent of a market buy for slippage, and the mid-market FX rate the
+        # batch was sized at understates the real euro cost -- so the last name
+        # ends up a little light. Better than a halted batch.
+        price = abs(o["cash"]) / o["shares"] if o["shares"] else 0.0
+        want = o["shares"]
+        resp, msg = _send(want)
+        if _short(msg) and want > 0:
+            print(f"  … {o['ticker']}: funds reserved, waiting {FUNDS_RETRY[1]:.0f}s")
+            time.sleep(FUNDS_RETRY[1])
+            resp, msg = _send(want)
+            for hair in (0.95, 0.90, 0.85, 0.78):
+                if not _short(msg):
+                    break
+                try:
+                    free = float(t212.cash().get("free", 0.0))
+                except Exception:                         # noqa: BLE001
+                    free = 0.0
+                fit = min(want, t212._round_qty(free * hair / price)) if price > 0 else 0.0
+                if fit <= 0:
+                    o.update(state="skipped", cash=0.0,
+                             note=f"only {money(free)} free — nothing left to buy with")
+                    save_pending(p)
+                    print(f"  - {o['ticker']}: {o['note']}")
+                    msg = ""
+                    break
+                o["shares"] = fit
+                o["cash"] = -round(fit * price, 2)
+                o["note"] = f"trimmed to {fit} to fit {money(free)} free"
+                print(f"  ! {o['ticker']}: {money(free)} free — trying {fit} of {want}")
+                resp, msg = _send(fit)
+
         if o.get("state") == "skipped":
             continue
         if msg:
