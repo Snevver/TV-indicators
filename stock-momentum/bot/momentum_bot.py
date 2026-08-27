@@ -439,10 +439,18 @@ def mark(bk, prices) -> dict:
 
 # A fully-invested rebalance sized to the last cent has no room for Trading 212's
 # ~0.15% currency-conversion fee or for quantity rounding, so the final buy of the
-# batch is rejected for insufficient funds -- which is exactly what happened on
-# demo. Hold back this fraction of the investable cash; it carries into next
-# month. 0.5% comfortably covers eight conversions plus rounding.
+# batch is rejected for insufficient funds. Hold back this fraction of the
+# investable cash; it carries into next month.
 CASH_BUFFER = float(os.environ.get("MOMENTUM_CASH_BUFFER", "0.005") or 0.005)
+
+# Trading 212 reserves a market buy's cash -- plus a slippage cushion -- until it
+# fills. Fired back-to-back, eight reservations stack before any release and the
+# last order is refused even though the money is really there. So: a short pause
+# between orders (fills clear in seconds during market hours), and on an explicit
+# insufficient-funds rejection -- which means the order was NOT placed -- wait for
+# the earlier fills to settle and try that same order again.
+ORDER_GAP_SEC = float(os.environ.get("MOMENTUM_ORDER_GAP", "2") or 2)
+FUNDS_RETRY = (3, 12.0)          # (attempts, seconds between)
 
 
 def plan(bk, prices, basket, total, contribution: float = 0.0,
@@ -1347,10 +1355,25 @@ def execute_batch(state, p) -> int:
 
         o["state"] = "sending"
         save_pending(p)                     # BEFORE the request. Always.
-        try:
-            resp = t212.place_market_order(o["code"], o["shares"])
-        except Exception as exc:                           # noqa: BLE001
-            msg = str(exc)
+        resp, msg = None, ""
+        for attempt in range(FUNDS_RETRY[0] if o["shares"] > 0 else 1):
+            try:
+                resp = t212.place_market_order(o["code"], o["shares"])
+                msg = ""
+                break
+            except Exception as exc:                       # noqa: BLE001
+                msg = str(exc)
+            # An explicit insufficient-funds rejection on a buy means the order
+            # was NOT placed and the cause is usually earlier orders still
+            # reserving their cushion. Wait for them to settle and try again.
+            if ("insufficient-free-for-stocks" in msg
+                    and attempt + 1 < FUNDS_RETRY[0]):
+                print(f"  … {o['ticker']}: funds still reserved by earlier "
+                      f"orders, waiting {FUNDS_RETRY[1]:.0f}s")
+                time.sleep(FUNDS_RETRY[1])
+                continue
+            break
+        if msg:
             # t212._post marks a request whose outcome it could not learn with
             # UNKNOWN. That order might be live at the broker, so it is left as
             # 'sending' and never touched again by anything automatic.
@@ -1372,6 +1395,7 @@ def execute_batch(state, p) -> int:
         save_pending(p)
         print(f"  * {'sold' if o['shares'] < 0 else 'bought'} "
               f"{abs(o['shares'])} {o['ticker']}")
+        time.sleep(ORDER_GAP_SEC)           # let this fill before the next stacks
 
     p["stage"] = "done"
     save_pending(p)
