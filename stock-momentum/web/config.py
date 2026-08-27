@@ -1,9 +1,9 @@
 """Reading and writing the bot's settings from the browser.
 
-THREE EDITABLE SETTINGS, THE REST READ-ONLY
-The browser owns exactly three: T212_ENV, MOMENTUM_MONTHLY, MOMENTUM_AUTOTRADE.
-It writes them to ~/.config/momentum/momentum.env, which both the web unit and
-the bot unit load after /etc/momentum-bot.env, so a change here wins.
+A FEW EDITABLE SETTINGS, THE REST READ-ONLY
+The browser owns MOMENTUM_START_BUDGET, MOMENTUM_MONTHLY and MOMENTUM_KILL. It
+writes them to ~/.config/momentum/momentum.env, which both the web unit and the
+bot unit load after /etc/momentum-bot.env, so a change here wins.
 
 Everything else -- the Trading 212 key pairs, the Discord webhook and bot token,
 the channel and user ids -- is set once over SSH in /etc/momentum-bot.env and
@@ -82,15 +82,13 @@ def _amount(v):
 # A SHORT LIST, DELIBERATELY. Credentials, channel/user ids and the Trading 212
 # key pairs are set once over SSH in /etc/momentum-bot.env and shown read-only by
 # credentials() below -- they do not belong in a browser form that can drift from
-# the file the bot actually reads. MOMENTUM_TRACK folded into autotrade (the bot
-# plans from live holdings when autotrade is on, paper otherwise). MOMENTUM_
-# CURRENCY is gone: the book is in dollars and relabelling it only misled.
+# the file the bot actually reads.
+#
+# T212_ENV and MOMENTUM_AUTOTRADE used to live here. Both are gone: the bot now
+# runs the strategy on both accounts every month (demo automatically, live after
+# a Discord reaction), so there is no account to pick and nothing to switch off.
+# MOMENTUM_TRACK and MOMENTUM_CURRENCY were removed earlier for similar reasons.
 FIELDS = {
-    "T212_ENV": (_choice("demo", "live"), "Account",
-                 "demo is the practice account (fake money, for a trial run). "
-                 "live is real money. Each uses its own key pair from the env "
-                 "file (T212_API_KEY_DEMO / _LIVE), so switching here needs no "
-                 "re-paste."),
     "MOMENTUM_START_BUDGET": (_amount, "Starting amount",
                               "How much of your Trading 212 free funds the "
                               "strategy begins with. The first rebalance sizes "
@@ -108,20 +106,15 @@ FIELDS = {
                          "Do not also run a bank standing order into the account "
                          "on top of this; the bot only deploys this amount, and "
                          "anything extra piles up untouched."),
-    "MOMENTUM_AUTOTRADE": (_choice("off", "on"), "Automatic trading",
-                           "Off: the bot works out the month's orders, posts "
-                           "them, and you place them yourself. On: it places "
-                           "them at Trading 212, but only after you react with a "
-                           "checkmark in Discord, and it then trades the account "
-                           "chosen above. No reaction within six hours skips the "
-                           "month. Needs the Discord approvals row below to be "
-                           "green."),
     "MOMENTUM_KILL": (_choice("off", "on"), "Kill switch",
-                      "ON sells every strategy position at market right now and "
-                      "freezes all trading until you turn it back off. Your pies "
+                      "Sells every strategy position at market right now and "
+                      "freezes all trading until you press it again. Your pies "
                       "and anything outside the 40 names are untouched. The "
-                      "browser asks you to confirm before it arms."),
+                      "browser asks you to confirm first."),
 }
+
+# Rendered as a red arm/disarm button rather than a form field.
+BUTTON_FIELDS = {"MOMENTUM_KILL"}
 
 UPPER = set()          # nothing stored in a different case any more
 
@@ -166,6 +159,9 @@ def for_display() -> list:
             "value": raw,
             "from_browser": name in ours,
             "choices": getattr(FIELDS[name][0], "choices", None),
+            # A plain field, or the kill switch's arm/disarm button.
+            "kind": "button" if name in BUTTON_FIELDS else "field",
+            "armed": name in BUTTON_FIELDS and str(raw).strip().lower() == "on",
         })
     return rows
 

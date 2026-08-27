@@ -39,7 +39,7 @@ both of those are readable by every user on the box:
 sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
-# Trading 212 and Discord approvals, added when you turn autotrade on:
+# Trading 212 and the Discord approvals bot:
 # T212_API_KEY_DEMO=...   T212_API_SECRET_DEMO=...
 # T212_API_KEY_LIVE=...   T212_API_SECRET_LIVE=...
 # DISCORD_BOT_TOKEN=...   DISCORD_CHANNEL_ID=...   DISCORD_OWNER_ID=...
@@ -53,8 +53,11 @@ EOF
 ```
 
 Everything the dashboard does not own lives in that file. The Settings page holds
-`T212_ENV` (demo/live), `MOMENTUM_START_BUDGET`, `MOMENTUM_MONTHLY`,
-`MOMENTUM_AUTOTRADE` and `MOMENTUM_KILL`.
+`MOMENTUM_START_BUDGET`, `MOMENTUM_MONTHLY`, and the kill switch
+(`MOMENTUM_KILL`, a button). `T212_ENV` and `MOMENTUM_AUTOTRADE` are gone: the
+bot trades both accounts every month, so there is no account to pick and nothing
+to switch off. A stale `T212_ENV` / `MOMENTUM_AUTOTRADE` line in an env file is
+inert.
 
 ### Two accounts, one strategy
 
@@ -69,14 +72,15 @@ nightly unit invokes it twice, `--env demo` then `--env live`:
 
 `--env` is read before the broker module loads, so it also picks the key pair
 and decides which book (`state.json` -> `tracks.demo` / `tracks.live`) the run
-writes. With neither `--env` nor `T212_ENV` set the bot acts on **live**, so
-`--poll` never leaves a live approval unexecuted. Both accounts are valued in
-the account currency (read from Trading 212, the dollar price feed converted
-once). The simulated `paper` book was retired when the demo account took its
-place.
+writes. With no `--env` the bot acts on **live**, so `--poll` never leaves a
+live approval unexecuted, and `--kill` always targets the real account. Both
+accounts are valued in the account currency (read from Trading 212, the dollar
+price feed converted once). The simulated `paper` book was retired when the demo
+account took its place.
 
-With `MOMENTUM_AUTOTRADE` off, neither account is traded automatically: the bot
-works out the orders, posts them, and you place them by hand.
+A run whose plumbing is not ready (no key, Discord unreachable, the FX rate
+missing) fails loudly rather than falling back to a manual post -- there is no
+manual mode any more.
 
 `tracker.py` (its own hourly systemd unit) records each account's total value
 and what the same deposits would be worth in a broad-market ETF
@@ -236,10 +240,10 @@ for a day in `instruments.json`; delete that file to refresh it.
 
 ### Turning it on
 
-Trading 212 app → Settings → API → Generate API key, with portfolio and history
-permissions (and **Orders - Execute** if you want autotrade). Practice and live
-are **separate keys with separate URLs**; the env file holds both, named for the
-account they belong to, and `T212_ENV` picks which pair is used.
+Trading 212 app → Settings → API → Generate API key, with portfolio, history and
+**Orders - Execute** permissions. Practice and live are **separate keys with
+separate URLs**; the env file holds both, named for the account they belong to,
+and each nightly run picks its pair with `--env`.
 
 ```bash
 sudo nano /etc/momentum-bot.env
@@ -247,7 +251,6 @@ sudo nano /etc/momentum-bot.env
 ```
 T212_API_KEY_DEMO=...     T212_API_SECRET_DEMO=...
 T212_API_KEY_LIVE=...     T212_API_SECRET_LIVE=...
-T212_ENV=demo             # or: live -- picks the pair above
 ```
 
 A plain `T212_API_KEY` / `T212_API_SECRET` still works if you only have one
@@ -285,7 +288,7 @@ say you really did sell everything.
 It falls back to the bot's own book and prints one line saying why. A rebalance
 message always goes out. Common causes:
 
-- **401** — wrong key, or a live key with `T212_ENV=demo` (or the reverse).
+- **401** — wrong key, or the demo/live pair swapped in the env file.
 - **403** — the key lacks portfolio or history permission. Re-generate it.
 - **429** — rate limited. It backs off and retries; the API is strict, so do not
   loop `--t212-probe`.
@@ -298,15 +301,14 @@ a live account. `--t212-probe` is the step that settles them.
 
 ## Kill switch
 
-`MOMENTUM_KILL` (Settings page, or `--kill` on the box). ON: the next bot run —
-or the poller, within a minute — sells every strategy position at market, drops
-the book to cash, and refuses to propose or place anything until you turn it
-back off. Pies and holdings outside the 40 names are never touched. It acts
-whether or not Automatic trading is on, as long as a live Orders-Execute key is
-configured; without one it posts the position list to Discord for you to sell by
-hand. A sell that fails is reported, not retried into a halt — close those
-yourself. Turning it back off re-arms it for next time; the next rebalance opens
-a fresh position from the sale proceeds.
+The **Arm kill switch** button on the Settings page (or `--kill` on the box,
+which always targets the live account). It sells every strategy position at
+market right now, drops the book to cash, and refuses to propose or place
+anything until you press **Resume trading**. The poller re-fires it within a
+minute if the first attempt failed. Pies and holdings outside the 40 names are
+never touched. A sell that fails is reported, not retried into a halt — close
+those yourself. After you resume, the next rebalance opens a fresh position from
+the sale proceeds.
 
 ## Running it on a schedule
 

@@ -49,8 +49,6 @@ const health = computed(() => [
     state: h.value.latest_hours != null && h.value.latest_hours < 36 ? "on" : "warn" },
   { label: "Trading 212", value: h.value.t212?.configured ? "on" : "off",
     state: h.value.t212?.configured ? "on" : "off" },
-  { label: "Automatic", value: h.value.autotrade ? "on" : "off",
-    state: h.value.autotrade ? "on" : "" },
   { label: "Feed", value: store.error ? "error" : "nominal", state: store.error ? "warn" : "on" },
 ]);
 </script>

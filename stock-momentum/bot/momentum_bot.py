@@ -136,6 +136,10 @@ if "--env" in sys.argv:
 os.environ.setdefault("T212_ENV", "live")
 if os.environ["T212_ENV"].strip().lower() not in ("demo", "live"):
     os.environ["T212_ENV"] = "live"
+# The panic button only ever means the real account. It takes no --env, so pin
+# it here rather than trust whatever T212_ENV happened to be.
+if "--kill" in sys.argv:
+    os.environ["T212_ENV"] = "live"
 
 # Optional broker link. A missing, broken or half-written t212.py must not stop
 # the bot running — the whole point of it is that it is not required.
@@ -285,14 +289,13 @@ MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
 # live here has to come back -- nothing warns you now, because with fractional
 # orders nothing can be unbuyable.
 
-# Whether an approved rebalance is placed at the broker or only written out for
-# you to place yourself. Off unless it is explicitly turned on: the default has
-# to be the one where a misconfiguration costs nothing.
-#
-# On its own it still places nothing. It only makes the reaction in Discord mean
-# "do it" instead of "noted" -- see the batch section further down.
-AUTOTRADE = os.environ.get("MOMENTUM_AUTOTRADE", "").strip().lower() in (
-    "1", "on", "yes", "true")
+# The bot places orders at the broker: the demo account automatically, the live
+# account after a Discord reaction. This was once a toggle (MOMENTUM_AUTOTRADE);
+# it is not any more, because trading both accounts is the whole point of the
+# bot. A run where the plumbing is not ready still fails loudly rather than
+# placing something it cannot verify -- see approval_ready() and the batch
+# section further down. MOMENTUM_AUTOTRADE in an env file is now inert.
+AUTOTRADE = True
 
 # The kill switch. ON: sell every strategy position at market at once and freeze
 # all trading until it is cleared. Independent of AUTOTRADE -- "get me out" must
@@ -1077,10 +1080,9 @@ def smoke_describe(s: dict) -> str:
 # The rebalance already works out exactly what to trade. This is what turns that
 # list into orders at Trading 212 once you have said yes.
 #
-# GATED BY MOMENTUM_AUTOTRADE, OFF BY DEFAULT.
-# With autotrade off, the bot works out the orders and posts them and you place
-# them by hand -- on either account. With it on, the demo account is traded
-# automatically and the live account waits for your Discord reaction.
+# The demo account is traded automatically; the live account waits for your
+# Discord reaction. There is no longer a switch for this -- trading both accounts
+# is what the bot is for.
 #
 # THE SHAPE, AND WHY
 # One run proposes; a later run executes. In between there is a file on disk with
@@ -2615,16 +2617,13 @@ def main() -> int:
               "untouched - this was not a rebalance, and the book did not move.")
         return 0
 
-    # When autotrade is armed and there is a batch to place, the autotrade path
-    # below posts its own Discord message (an approval card for live, a record
-    # for demo). The webhook embed would just be a second copy of the same eight
-    # lines, so it is skipped.
-    will_autotrade = AUTOTRADE and bool(orders)
-
+    # When there is a batch to place, the execution path below posts its own
+    # Discord message (an approval card for live, a record for demo). The webhook
+    # embed would just be a second copy of the same eight lines, so it is skipped.
     if not buys and not sells and not first and not orders:
         print("\nbasket unchanged and nothing to trim - not posting")
-    elif will_autotrade:
-        print("\n(skipping the webhook card - the autotrade message below covers it)")
+    elif orders:
+        print("\n(skipping the webhook card - the Discord message below covers it)")
     elif args.webhook:
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         m=m, orders=orders, prices=book_prices))
@@ -2632,24 +2631,21 @@ def main() -> int:
     else:
         print("\nno webhook set ($DISCORD_WEBHOOK) - printed only")
 
-    # AUTOMATIC EXECUTION FORKS HERE.
+    # EXECUTION FORKS BY ACCOUNT.
     #
-    # Off (the default), the run behaves exactly as it always has: it assumes the
-    # orders filled at today's close, moves the book, and marks the month done --
-    # because YOU are going to place them by hand, from the message it just
-    # posted.
-    #
-    # On, it splits by account:
     #   live : the batch goes out for approval. Nothing is placed and the month
     #          stays unmarked until a reaction lands and the poller runs
     #          execute_batch(); everything below is deferred to settle_batch().
     #   demo : fake money, so there is nothing to approve. The batch is placed
     #          and settled right here, in this process, and a record is posted to
     #          the demo channel.
-    if AUTOTRADE and orders:
+    #
+    # With no batch to place (orders empty) the run falls through to the tail
+    # below, which just marks the month checked so it is not re-planned tomorrow.
+    if orders:
         why = approval_ready()
         if why:
-            raise SystemExit(f"MOMENTUM_AUTOTRADE is on but {why}")
+            raise SystemExit(f"cannot place the {name} batch: {why}")
         if name == "demo":
             propose_batch(name, bar, basket, orders, book_prices,
                           paid_in_today, m, monthly=0.0 if first else MONTHLY,
