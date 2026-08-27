@@ -437,7 +437,16 @@ def mark(bk, prices) -> dict:
             "unrealised": sum(r["pnl"] for r in rows.values())}
 
 
-def plan(bk, prices, basket, total, contribution: float = 0.0) -> list:
+# A fully-invested rebalance sized to the last cent has no room for Trading 212's
+# ~0.15% currency-conversion fee or for quantity rounding, so the final buy of the
+# batch is rejected for insufficient funds -- which is exactly what happened on
+# demo. Hold back this fraction of the investable cash; it carries into next
+# month. 0.5% comfortably covers eight conversions plus rounding.
+CASH_BUFFER = float(os.environ.get("MOMENTUM_CASH_BUFFER", "0.005") or 0.005)
+
+
+def plan(bk, prices, basket, total, contribution: float = 0.0,
+         reserve: float = 0.0) -> list:
     """The orders that move the current book to the new basket.
 
     Whatever the sells raised, plus any idle cash, is split over the names that
@@ -451,6 +460,9 @@ def plan(bk, prices, basket, total, contribution: float = 0.0) -> list:
     into the arrivals, that won seven of eight windows and the full history, by
     about 1.3%. A narrow win, but it is also what a Trading 212 pie does with a
     standing order. With contribution=0 this function is unchanged.
+
+    `reserve` (0..1) holds back that fraction of the cash being deployed, so a
+    real broker's fees and rounding do not sink the last order. 0.0 for paper.
     """
     pos = bk["positions"]
     sells = []
@@ -464,16 +476,17 @@ def plan(bk, prices, basket, total, contribution: float = 0.0) -> list:
     def priced(tickers):
         return [t for t in tickers if prices.get(t, 0.0) > 0]
 
+    keep = 1.0 - max(0.0, min(reserve, 0.5))
     buys = {}
     arriving = priced(t for t in basket if pos.get(t, 0.0) <= 0)
-    pot = bk["cash"] + sum(o[2] for o in sells) - contribution
+    pot = (bk["cash"] + sum(o[2] for o in sells) - contribution) * keep
     if arriving and pot > 0:
         each = pot / len(arriving)
         for tk in arriving:
             buys[tk] = buys.get(tk, 0.0) + each / prices[tk]
     spread_over = priced(basket)
     if contribution > 0 and spread_over:
-        each = contribution / len(spread_over)
+        each = contribution * keep / len(spread_over)
         for tk in spread_over:
             buys[tk] = buys.get(tk, 0.0) + each / prices[tk]
 
@@ -2192,7 +2205,8 @@ def main() -> int:
             paid_in_today = MONTHLY
 
     m = mark(bk, book_prices)
-    orders = (plan(bk, book_prices, basket, m["total"], contribution=paid_in_today)
+    orders = (plan(bk, book_prices, basket, m["total"], contribution=paid_in_today,
+                   reserve=CASH_BUFFER if name == "live" else 0.0)
               if m["total"] > 0 else [])
     print(render_plain(bar, buys, sells, basket, scores, m, orders, book_prices))
     if MONTHLY > 0 and not paid_in_today:
