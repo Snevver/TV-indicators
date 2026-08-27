@@ -84,7 +84,10 @@ def one(ticker: str):
         if c not in df:
             df[c] = 0
     df.insert(1, "ticker", ticker)
-    return df[["time", "ticker", "open", "high", "low", "close", "volume"]]
+    # Same three columns as the main export: anything wider re-inflates the file
+    # past GitHub's limit the moment it is merged.
+    df["close"] = pd.to_numeric(df["close"], errors="coerce").round(4)
+    return df[["time", "ticker", "close"]]
 
 
 def main() -> int:

@@ -198,7 +198,22 @@ def main() -> int:
                 print(f"  wrote data/missing_tickers.txt — the remaining bias, "
                       f"named rather than hidden")
             p = os.path.join(OUT, "sp500_daily.csv.gz")
+            # Close only, rounded.
+            #
+            # Nearly a thousand tickers over twenty-one years is 3.2 million
+            # rows, and with auto_adjust every OHLC value carries full float
+            # precision -- which pushed the file to 108MB and past GitHub's 100MB
+            # limit. Every reader in this repo asks for time, ticker and close
+            # and nothing else, so the other four columns were 80MB of data no
+            # code has ever read. Four decimals is finer than any price this
+            # strategy acts on.
+            stk = stk[["time", "ticker", "close"]].copy()
+            stk["close"] = stk["close"].round(4)
             stk.to_csv(p, index=False, compression="gzip")
+            mb = os.path.getsize(p) / 1e6
+            if mb > 90:
+                print(f"  ! {mb:.0f}MB — GitHub refuses files over 100MB. "
+                      f"Drop older history or split the file before pushing.")
             print(f"  wrote {p}  ({len(stk):,} rows, "
                   f"{os.path.getsize(p)/1e6:.1f}MB, "
                   f"{stk.ticker.nunique()} tickers, {stk.time.min()} → {stk.time.max()})")

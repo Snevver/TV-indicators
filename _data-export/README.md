@@ -17,10 +17,18 @@ Then tell Claude it is pushed.
 | File | Contents |
 |---|---|
 | `data/etfs_daily.csv.gz` | 28 liquid ETFs, daily, 2005 → today |
-| `data/sp500_daily.csv.gz` | Current S&P 500 members, daily, 2005 → today |
+| `data/sp500_daily.csv.gz` | Every historical S&P 500 member, daily close, 2005 → today |
 | `data/intraday15m_sample.csv.gz` | 60 days of 15-minute bars, 4 ETFs |
 
-Long format throughout: `time, ticker, open, high, low, close, volume`.
+Long format. The ETF and intraday files carry `time, ticker, open, high, low,
+close, volume`; the stocks file carries **`time, ticker, close` only**.
+
+That is not laziness. Nearly a thousand tickers over twenty-one years is 3.2
+million rows, and with total-return adjustment every OHLC value carries full
+float precision — which took the file to 108MB, past GitHub's 100MB limit and
+unpushable. Every reader in this repo asks for `time, ticker, close` and nothing
+else, so the other four columns were 80MB nothing had ever read. Close rounded to
+four decimals brings it to about 30MB.
 
 ## Two things to know
 
