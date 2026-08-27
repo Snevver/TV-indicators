@@ -1099,15 +1099,16 @@ def resume_point(orders: list):
     """Index of the first order still to send, or (None, why) if it is not safe.
 
     Safe means every order before it definitely happened or definitely did not.
-    A single 'sending', 'unknown' or 'failed' anywhere makes the rest of the
-    batch unsafe, because the cash that pays for the buys depends on the sells
-    ahead of them having actually gone through.
+    'pending' has not been tried; 'failed' got a definitive rejection (a 400/403
+    from Trading 212, never sent) -- both are safe to send now. Only 'sending'
+    (died mid-request) and 'unknown' (a network timeout that may or may not have
+    reached the broker) leave a hole nothing after them can be sent across.
     """
     for i, o in enumerate(orders):
         st = o.get("state")
         if st in DONE_STATES:
             continue
-        if st == "pending":
+        if st in ("pending", "failed"):
             return i, ""
         return None, (f"order {i + 1} ({o['ticker']}) is {st!r} — its fate is not "
                       f"known, so nothing after it can be sent safely")
