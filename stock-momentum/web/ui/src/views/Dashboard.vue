@@ -59,10 +59,10 @@ const health = computed(() => [
   <div class="page">
     <div class="topbar">
       <div class="seg">
-        <button :class="{ on: store.track === 'demo' }"
-                @click="setTrack('demo')">Demo</button>
         <button :class="{ on: store.track === 'live' }"
                 @click="setTrack('live')">Live</button>
+        <button :class="{ on: store.track === 'demo' }"
+                @click="setTrack('demo')">Demo</button>
       </div>
       <span class="tick tag">
         <i class="led on"></i>updated {{ ago(store.fetchedAt) }}

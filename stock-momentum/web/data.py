@@ -206,7 +206,7 @@ def health() -> dict:
             return None
 
     return {"latest_age": age(LATEST), "state_age": age(STATE),
-            "has_history": bool(history("paper") or history("live")),
+            "has_history": bool(history("demo") or history("live")),
             "bar": lat.get("bar", ""), "mode": lat.get("mode", ""),
             "track": lat.get("track", ""), "currency": lat.get("currency", ""),
             "next_rebalance": lat.get("next_rebalance", ""),
