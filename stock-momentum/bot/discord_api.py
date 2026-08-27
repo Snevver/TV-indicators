@@ -121,6 +121,12 @@ def post(content: str = "", embeds=None) -> str:
     """Post a message and return its id, which is the handle for the answer."""
     body = {}
     if content:
+        # Discord's cap is 2000 characters. Truncating silently is how the
+        # instruction at the bottom of a long message ("react to approve")
+        # disappears while the message still looks complete, so it says so.
+        if len(content) > 1900:
+            print(f"  ! Discord message trimmed from {len(content)} characters "
+                  f"to 1900 — the end of it was cut off.")
         body["content"] = content[:1900]
     if embeds:
         body["embeds"] = embeds

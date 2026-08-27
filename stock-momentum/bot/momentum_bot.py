@@ -203,20 +203,28 @@ MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
 #   paper : the strategy simulated on assumed fills. Always runs, never touched
 #           by the broker, so there is something to measure execution against.
 #   live  : what Trading 212 actually holds.
-# MOMENTUM_TRACK picks which one the bot plans from and reports on. It does NOT
-# decide whether anything is traded -- nothing here ever trades. Every call to
-# the broker is a GET; the only POST in this file goes to Discord. Setting it to
-# 'live' cannot move money, fund a pie, or place an order, because no code to do
-# any of that exists.
+# MOMENTUM_TRACK picks which one the bot plans from and reports on. What it
+# changes is which holdings the monthly orders are worked out from: once you are
+# following the live book, they have to be planned from what you really hold, or
+# the bot will tell you to sell something you do not own.
 #
-# What it does change: which holdings the monthly instructions are worked out
-# from. Once you are following the live book, orders have to be planned from
-# what you really hold, or the bot will tell you to sell something you do not
-# own.
+# IT DOES NOT DECIDE WHETHER ANYTHING IS TRADED. That is MOMENTUM_AUTOTRADE, a
+# separate switch that is off by default, and even with it on nothing is placed
+# without a reaction from you in Discord. Setting the track to 'live' on its own
+# still cannot place a single order.
 TRACKS = ("paper", "live")
 TRACK = os.environ.get("MOMENTUM_TRACK", "paper").strip().lower()
 if TRACK not in TRACKS:
     raise SystemExit(f"MOMENTUM_TRACK must be 'paper' or 'live', not {TRACK!r}")
+
+# Whether an approved rebalance is placed at the broker or only written out for
+# you to place yourself. Off unless it is explicitly turned on: the default has
+# to be the one where a misconfiguration costs nothing.
+#
+# On its own it still places nothing. It only makes the reaction in Discord mean
+# "do it" instead of "noted" -- see the batch section further down.
+AUTOTRADE = os.environ.get("MOMENTUM_AUTOTRADE", "").strip().lower() in (
+    "1", "on", "yes", "true")
 
 GREEN = 0x3BA55D    # something changed
 BLURPLE = 0x5865F2  # ranked, nothing to do
@@ -768,6 +776,10 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
            # The opening rebalance credits this before it sizes anything, so a
            # preview that leaves it out promises the wrong slice.
            "monthly": MONTHLY,
+           # The dashboard has to be able to say whether the bot will place the
+           # orders or only suggest them. Getting that wrong in either direction
+           # is the worst kind of surprise.
+           "autotrade": AUTOTRADE,
            "next_rebalance": next_month_label(bar),
            "ranking": [{"ticker": tk, "momentum_pct": round(float(v) * 100, 2),
                         "held": i < HOLD}
@@ -877,6 +889,422 @@ def smoke_describe(s: dict) -> str:
     return line
 
 
+# ------------------------------------------------- the monthly batch of orders
+#
+# The rebalance already works out exactly what to trade. This is what turns that
+# list into orders at Trading 212 once you have said yes.
+#
+# SEPARATE FROM THE TRACK, ON PURPOSE.
+# MOMENTUM_TRACK=live means "plan from what I really hold". It has never meant
+# "and place the orders", and it still does not: MOMENTUM_AUTOTRADE is a second,
+# independent switch, off by default. Turning the track live to see real numbers
+# must not quietly start trading, so the two are not the same setting.
+#
+# THE SHAPE, AND WHY
+# One run proposes; a later run executes. In between there is a file on disk with
+# the whole batch in it, one record per order.
+#
+#   propose : plan the orders, resolve every instrument code, post them to
+#             Discord with a checkmark, write pending.json, and STOP. The month
+#             is not marked done, the book is not moved, nothing is ordered.
+#   execute : the poller sees your reaction, then walks the batch in order --
+#             sells first, because their proceeds are what pays for the buys.
+#
+# Splitting it that way is what makes an approval mean something. A single run
+# that asked and then acted would have to hold the decision in memory for as long
+# as you took to answer; this one can be killed, rebooted or upgraded in the gap
+# and the batch is still exactly where it was.
+#
+# WHAT HAPPENS IF IT DIES HALFWAY
+# Each order is written as 'sending' BEFORE the request goes out and 'sent'
+# after. So a run that dies after three of eight leaves order four as 'pending'
+# and orders one to three as 'sent', and the next poll starts at four. If it dies
+# DURING an order, that one stays 'sending' -- meaning nobody knows whether the
+# broker got it -- and the batch stops dead rather than guessing. The same is
+# true of a network failure: an order that timed out may still have been filled,
+# so it is never, ever retried.
+#
+# That is the one rule everything here is arranged around: A REQUEST THAT MIGHT
+# HAVE PLACED AN ORDER IS NEVER SENT TWICE.
+
+PENDING = os.path.join(HERE, "pending.json")
+PENDING_EXPIRY_H = 6         # an approval this old approved prices that have moved
+PENDING_WATCH_SEC = 90       # how long one poll waits before exiting
+
+# Stages that mean a batch is live: a new one cannot be proposed over the top,
+# and the poller has work to do.
+PENDING_OPEN = ("offered", "trading", "stuck")
+
+# Order states. 'sending' is the dangerous one and the reason the file is written
+# twice per order.
+DONE_STATES = ("sent", "skipped")
+
+
+def load_pending() -> dict:
+    try:
+        with open(PENDING, encoding="utf-8") as fh:
+            d = json.load(fh)
+        return d if isinstance(d, dict) else {}
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_pending(d: dict) -> None:
+    """Written whole, then moved into place, and fsynced first.
+
+    An order file that is half-written is worse than none: the next run would
+    read a batch whose order states do not match what the broker was actually
+    sent. os.replace is atomic, so a reader sees either the old file or the new
+    one and never a torn one.
+    """
+    tmp = PENDING + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(d, fh, indent=1, default=str)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, PENDING)
+
+
+def pending_expired(p: dict) -> bool:
+    when = p.get("offered_at")
+    if not when:
+        return False
+    try:
+        made = datetime.fromisoformat(str(when))
+    except ValueError:
+        return False
+    if made.tzinfo is None:
+        made = made.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - made).total_seconds() > PENDING_EXPIRY_H * 3600
+
+
+def pending_line(o: dict, state: bool = True) -> str:
+    """One order as a line. `state` off while the batch is only a proposal --
+    there is no state worth showing yet, and 'pending' eight times reads as
+    though something is wrong."""
+    side = "SELL" if o["shares"] < 0 else "BUY "
+    flag = {"pending": " ", "sending": "?", "sent": "*", "skipped": "-",
+            "failed": "!", "unknown": "?"}.get(o.get("state"), "?")
+    line = (f"{flag} {side} {abs(o['shares']):.6f} {o['ticker']:<6} "
+            f"{money(abs(o['cash'])):>12}")
+    return line + (f"   {o.get('state', '?')}" if state else "")
+
+
+def pending_describe(p: dict) -> str:
+    if not p:
+        return "no batch outstanding."
+    lines = [f"stage    : {p.get('stage')}",
+             f"month    : {p.get('month')}   (planned from the {p.get('bar')} close)",
+             f"track    : {p.get('track')}",
+             f"message  : {p.get('message_id')}",
+             f"orders   : {len(p.get('orders', []))}"]
+    lines += ["  " + pending_line(o) for o in p.get("orders", [])]
+    if p.get("error"):
+        lines.append(f"\nlast error: {p['error']}")
+    if p.get("stage") == "stuck":
+        lines.append(
+            "\n  * = already sent to the broker.  ? = UNKNOWN, may or may not\n"
+            "  have been placed. Open the Trading 212 app and compare, then:\n"
+            "    --pending-resume    carry on from the first untouched order\n"
+            "    --pending-abandon   record what did go through and stop there")
+    return "\n".join(lines)
+
+
+def resume_point(orders: list):
+    """Index of the first order still to send, or (None, why) if it is not safe.
+
+    Safe means every order before it definitely happened or definitely did not.
+    A single 'sending', 'unknown' or 'failed' anywhere makes the rest of the
+    batch unsafe, because the cash that pays for the buys depends on the sells
+    ahead of them having actually gone through.
+    """
+    for i, o in enumerate(orders):
+        st = o.get("state")
+        if st in DONE_STATES:
+            continue
+        if st == "pending":
+            return i, ""
+        return None, (f"order {i + 1} ({o['ticker']}) is {st!r} — its fate is not "
+                      f"known, so nothing after it can be sent safely")
+    return None, "every order is finished"
+
+
+def propose_batch(name, bar, basket, orders, prices, paid_in, m) -> int:
+    """Post the month's orders for approval and save them. Places nothing.
+
+    Returns a process exit code. Anything that would make execution unsafe is
+    caught HERE, before you are asked, rather than halfway through the batch --
+    an approval you gave on a message that then failed to execute is the worst
+    of both.
+    """
+    d = discord_api
+    codes = t212.resolve_universe([o[0] for o in orders])["map"]
+    missing = [o[0] for o in orders if not codes.get(o[0])]
+    if missing:
+        raise SystemExit(
+            f"not proposing: {', '.join(missing)} did not resolve to a Trading "
+            f"212 instrument.\nRun --t212-instruments to see the whole mapping. "
+            f"Placing part of a rebalance is worse than placing none.")
+
+    spend = sum(-o[2] for o in orders if o[2] < 0)
+    raise_ = sum(o[2] for o in orders if o[2] > 0)
+    # Two ceilings, both meant to catch a bug in the sizing rather than a bad
+    # market. Neither should ever fire.
+    if spend > m["total"] * 1.05 + 1:
+        raise SystemExit(f"not proposing: the buys come to {money(spend)} against "
+                         f"an account of {money(m['total'])}. That is a sizing "
+                         f"bug, not a rebalance.")
+    snap = broker()
+    free = (snap or {}).get("cash")
+    if free is not None and spend - raise_ > free + 0.01:
+        print(f"  ! the buys need {money(spend - raise_)} more than the sells "
+              f"raise, and Trading 212 shows {money(free)} free in the whole "
+              f"account.\n    Some of these will be rejected. Move money in "
+              f"first, or cancel with {d.CROSS}.")
+
+    recs = [{"ticker": tk, "code": codes[tk], "shares": round(sh, 6),
+             "cash": round(dc, 2), "price": round(float(prices[tk]), 4),
+             "state": "pending"} for tk, sh, dc in orders]
+
+    body = [f"**{bar.date()} — {len(recs)} orders, for real money.**", ""]
+    body += [f"`{pending_line(o, state=False)}`" for o in recs]
+    body += ["", f"Sells raise about {money(raise_)}; buys spend about "
+                 f"{money(spend)}.",
+             f"Sizes were worked out from the {bar.date()} close — the market "
+             f"moves, so what fills will not match to the cent.", ""]
+    if paid_in:
+        body.append(f"Includes {money(paid_in)} paid in this month.")
+    body += [f"React {d.TICK} to place them, {d.CROSS} to skip this month.",
+             f"Only <@{d.OWNER_ID}> counts. Expires in {PENDING_EXPIRY_H} hours; "
+             f"ignore it and nothing happens.",
+             "Sells go first, then buys."]
+    mid = d.post("\n".join(body))
+    d.offer_tick(mid, d.TICK)
+    d.offer_tick(mid, d.CROSS)
+
+    save_pending({"stage": "offered", "track": name, "bar": str(bar.date()),
+                  "month": f"{bar.year}-{bar.month:02d}",
+                  "message_id": mid, "basket": basket, "paid_in": paid_in,
+                  # Carried in the batch because the rebalance run deliberately
+                  # does not save the book -- nothing is true yet. settle_batch
+                  # records it, so a month that is cancelled never books a
+                  # contribution the strategy did not receive.
+                  "monthly": MONTHLY,
+                  "offered_at": datetime.now(timezone.utc).isoformat(),
+                  "orders": recs})
+    print(f"\nproposed in Discord (message {mid}). NOTHING has been ordered and "
+          f"the month is not marked done.\nReact {d.TICK} and the poller places "
+          f"them; react {d.CROSS} or wait {PENDING_EXPIRY_H}h and it does not.")
+    return 0
+
+
+def settle_batch(state, p, why: str) -> None:
+    """Write the orders that actually went to the broker into the book.
+
+    Only 'sent' orders count. An order that was never sent, or whose fate is
+    unknown, must not move the book -- the book would then describe a portfolio
+    nobody holds, which is the one thing worse than an out-of-date one.
+
+    Fills are recorded at the price the batch was PLANNED at, which is the same
+    assumption the manual instructions have always made. Positions correct
+    themselves on the next run, because refresh() reads them back from the
+    broker; cash does not, so if a fill was far from the close, --fill is what
+    fixes it.
+    """
+    if p.get("settled_at"):
+        # Settling twice would book the month's contribution twice and apply
+        # every fill again. --pending-abandon on a batch that already finished is
+        # the way that happens.
+        print(f"already settled at {p['settled_at']} ({p.get('settled_because')}) "
+              f"— not doing it again.")
+        return
+    bk = book(state, p["track"])
+    # The rebalance run added this in memory and then threw the book away
+    # unsaved, so this is the first moment it is real. Without it every euro
+    # paid in would be reported as profit.
+    bk["deposited"] += float(p.get("monthly") or 0.0)
+    done = [o for o in p["orders"] if o.get("state") == "sent"]
+    orders = [(o["ticker"], o["shares"], o["cash"]) for o in done]
+    prices = {o["ticker"]: o["price"] for o in p["orders"]}
+    apply_orders(bk, orders, prices)
+    after = mark(bk, prices)
+    bar = p["bar"]
+    bk["equity"].append([bar, round(after["total"], 2)])
+    bk.update({"basket": p["basket"], "last_rebalance": bar,
+               "last_rebalance_month": p["month"]})
+    save_state(state)
+    buys = [o["ticker"] for o in done if o["shares"] > 0]
+    sells = [o["ticker"] for o in done if o["shares"] < 0]
+    log_row(bar, buys, sells, p["basket"], after["total"], after["cash"],
+            after["deposited"], after["pnl"])
+    p["settled_at"] = datetime.now(timezone.utc).isoformat()
+    p["settled_because"] = why
+    save_pending(p)
+    print(f"recorded {len(done)} of {len(p['orders'])} orders on the "
+          f"{p['track']} book · account {money(after['total'])} · cash "
+          f"{money(after['cash'])}")
+
+    # The dashboard renders from latest.json, which is written by the nightly
+    # --json run. Without this it would go on showing last month's basket until
+    # tomorrow evening -- on the one day of the month anybody is actually
+    # looking. A failure here costs a stale page, not a wrong book, so it is
+    # caught: the book above is already saved.
+    try:
+        px = fetch()
+        live_prices = px.iloc[-1].to_dict()
+        scores = rank(px)
+        for t in TRACKS:
+            record_day(px.index[-1].date(), t, mark(book(state, t), live_prices))
+        write_latest(snapshot_payload(state, live_prices, scores, px.index[-1]))
+    except (Exception, SystemExit) as exc:                 # noqa: BLE001
+        # SystemExit is in there on purpose: fetch() raises it when the price
+        # download comes back unusable. Letting that through would abort the run
+        # AFTER the orders were sent and the book saved, which reads as a failed
+        # rebalance when in fact the only casualty is a stale page.
+        print(f"  ! the book is saved, but the dashboard cache is not: {exc}")
+
+
+def execute_batch(state, p) -> int:
+    """Send the batch to the broker, in order, stopping at the first surprise."""
+    d = discord_api
+    orders = p["orders"]
+    start, why = resume_point(orders)
+    if start is None:
+        if any(o.get("state") not in DONE_STATES for o in orders):
+            p["stage"] = "stuck"
+            p["error"] = why
+            save_pending(p)
+            print(f"not safe to continue: {why}\n\n{pending_describe(p)}")
+            return 1
+        p["stage"] = "done"
+        save_pending(p)
+        settle_batch(state, p, "all orders sent")
+        return 0
+
+    p["stage"] = "trading"
+    save_pending(p)
+
+    # THE BUYS WERE SIZED ON THE ASSUMPTION THAT THE SELLS RAISE WHAT THEY SAID.
+    #
+    # If a sell turns out smaller than planned -- or does not happen at all,
+    # because the position was sold by hand -- every buy behind it is now asking
+    # for money that is not there. Left alone, the broker rejects them one at a
+    # time and a tidy situation becomes a halted batch.
+    #
+    # So the shortfall is carried forward and the remaining buys are scaled down
+    # to fit it. Planned buys B are covered by sells S plus idle cash C, with
+    # B <= S + C. Raise only S - short, and what is affordable is B - short, so
+    # every buy is multiplied by (B - short) / B. Small, proportional, and it
+    # keeps the basket rather than dropping whichever name came last.
+    planned_buys = sum(-o["cash"] for o in orders if o["shares"] > 0
+                       and o.get("state") not in DONE_STATES)
+    short = 0.0
+
+    for i in range(start, len(orders)):
+        o = orders[i]
+        if o.get("state") in DONE_STATES:
+            continue
+
+        if o["shares"] > 0 and short > 0 and planned_buys > 0:
+            scale = (planned_buys - short) / planned_buys
+            if scale <= 0:
+                p["stage"] = "stuck"
+                p["error"] = (f"the sells raised {money(short)} less than planned, "
+                              f"which is everything the buys needed")
+                save_pending(p)
+                d.post(f"⚠️ Stopped before buying anything. The sells raised "
+                       f"{money(short)} less than the plan assumed — enough that "
+                       f"there is nothing left to buy with.\nNothing further was "
+                       f"sent. Check the app and `--pending-status`.")
+                print(p["error"])
+                return 1
+            o["shares"] = round(o["shares"] * scale, 6)
+            o["cash"] = round(o["cash"] * scale, 2)
+            o["note"] = f"scaled to {scale:.3f} — the sells raised less than planned"
+            if o["shares"] <= 0:
+                o["state"] = "skipped"
+                o["note"] = "nothing left to buy with after the sells fell short"
+                o["cash"] = 0.0
+                save_pending(p)
+                continue
+
+        if o["shares"] < 0:
+            # NEVER SELL WHAT YOU DO NOT HOLD. The book can be a day stale and
+            # the broker cannot; a sell sized from the book against a position
+            # that is not there any more is a short, not a rebalance.
+            held = None
+            try:
+                held = t212.positions(universe=UNIVERSE).get(
+                    o["ticker"], {}).get("shares")
+            except Exception as exc:                       # noqa: BLE001
+                p["stage"] = "stuck"
+                p["error"] = f"could not read positions before selling: {exc}"
+                save_pending(p)
+                d.post(f"⚠️ Stopped before selling `{o['ticker']}` — could not "
+                       f"read the position back from Trading 212 ({exc}). "
+                       f"Nothing further was sent.")
+                print(p["error"])
+                return 1
+            if not held or held <= 1e-9:
+                short += o["cash"]                  # proceeds that will not arrive
+                o["state"] = "skipped"
+                o["note"] = "broker shows no position"
+                o["cash"] = 0.0
+                save_pending(p)
+                print(f"  - {o['ticker']}: nothing held at the broker, skipping "
+                      f"the sell")
+                continue
+            if held < abs(o["shares"]) - 1e-9:
+                # Sell what is there. Selling the difference short is not a
+                # smaller version of the right answer, it is a different trade.
+                o["note"] = (f"asked for {abs(o['shares'])}, broker holds {held}")
+                was = o["cash"]
+                o["cash"] = round(o["cash"] * held / abs(o["shares"]), 2)
+                short += was - o["cash"]
+                o["shares"] = -round(float(held), 6)
+                print(f"  ! {o['ticker']}: {o['note']} — selling what is there")
+
+        o["state"] = "sending"
+        save_pending(p)                     # BEFORE the request. Always.
+        try:
+            resp = t212.place_market_order(o["code"], o["shares"])
+        except Exception as exc:                           # noqa: BLE001
+            msg = str(exc)
+            # t212._post marks a request whose outcome it could not learn with
+            # UNKNOWN. That order might be live at the broker, so it is left as
+            # 'sending' and never touched again by anything automatic.
+            o["state"] = "unknown" if msg.startswith("UNKNOWN") else "failed"
+            o["error"] = msg
+            p["stage"] = "stuck"
+            p["error"] = f"{o['ticker']}: {msg}"
+            save_pending(p)
+            d.post(f"⚠️ **Stopped part-way through the rebalance.**\n"
+                   f"`{o['ticker']}` came back: {msg[:400]}\n\n"
+                   f"{len([x for x in orders if x.get('state') == 'sent'])} of "
+                   f"{len(orders)} orders were sent before this. Nothing after it "
+                   f"was. Check the app, then run `--pending-status` on the box.")
+            print(f"halted at {o['ticker']}: {msg}")
+            return 1
+        o["state"] = "sent"
+        o["response"] = resp
+        o["sent_at"] = datetime.now(timezone.utc).isoformat()
+        save_pending(p)
+        print(f"  * {'sold' if o['shares'] < 0 else 'bought'} "
+              f"{abs(o['shares'])} {o['ticker']}")
+
+    p["stage"] = "done"
+    save_pending(p)
+    settle_batch(state, p, "all orders sent")
+    sent = [o for o in orders if o.get("state") == "sent"]
+    skipped = [o for o in orders if o.get("state") == "skipped"]
+    d.post(f"{d.TICK} **Rebalance placed — {len(sent)} orders.**\n"
+           + "\n".join(f"`{pending_line(o).rstrip()}`" for o in orders)
+           + (f"\n\n{len(skipped)} skipped (nothing held to sell)." if skipped else "")
+           + "\n\nMarket orders fill at the market, so the amounts above are what "
+             "was asked for, not what it cost. Check the app for the fills.")
+    return 0
+
+
 LOG_COLS = ("date", "buys", "sells", "basket", "account", "cash", "deposited", "pnl")
 
 
@@ -935,6 +1363,261 @@ def env_source_line() -> str:
                                      "  (the other was not found)")
 
 
+def smoke_poll(once: bool) -> int:
+    """The reaction-driven half of the smoke test. Split out so --poll can
+    run it alongside the monthly batch in one process, rather than starving
+    one of them while the other waits."""
+    d = discord_api
+    s = load_smoke()
+    if not s:
+        print("nothing offered. Run --smoke-offer first.")
+        return 0
+    stage = s.get("stage")
+
+    if stage in ("buying", "selling", "unknown"):
+        print(f"stage is {stage!r} — a previous run did not finish cleanly.\n"
+              f"Check the Trading 212 app, then delete {SMOKE} once the "
+              f"position matches what you expect.")
+        if s.get("error"):
+            print(f"last error: {s['error']}")
+        return 1
+
+    if stage not in ("offered", "bought"):
+        print(f"nothing to do (stage {stage!r}).")
+        return 0
+
+    # An offer that has been sitting around is not an offer any more: the
+    # price it quoted has moved on, and a tick three days later should not
+    # buy at today's. The sell prompt never expires -- an open position has
+    # to stay closeable.
+    if stage == "offered" and _smoke_expired(s):
+        s["stage"] = "expired"
+        save_smoke(s)
+        d.post(f"{d.CROSS} Smoke test expired after {SMOKE_EXPIRY_MIN} "
+               f"minutes. Nothing was ordered.")
+        print("offer expired; nothing ordered.")
+        return 0
+
+    # Each stage watches its own message, so a stale reaction on an old one
+    # cannot drive the next step.
+    watch = s["message_id"] if stage == "offered" else s.get("sell_message_id")
+    want = d.TICK if stage == "offered" else d.CROSS
+    if not watch:
+        print(f"no message to watch for stage {stage!r}.")
+        return 1
+    # Discord cannot call us, so somebody has to ask. Asking once a minute
+    # means up to a minute of nothing happening while you stare at the
+    # message. Instead one run stays for a while and asks every few seconds,
+    # so a reaction lands in about the time it takes to notice you made it.
+    #
+    # A gateway websocket would be instant, and an interactions webhook would
+    # be too -- but that needs a public HTTPS endpoint, and this dashboard is
+    # deliberately not reachable from the internet. Polling briefly is the
+    # version that does not require opening the box up.
+    deadline = time.monotonic() + (SMOKE_WATCH_SEC if not once else 0)
+    while True:
+        if d.approved_by_owner(watch, want):
+            break
+        if time.monotonic() >= deadline:
+            print(f"waiting for {want} from the owner on message {watch} "
+                  f"(stage: {stage}).")
+            return 0
+        time.sleep(3)
+
+    if stage == "offered":
+        # Written BEFORE the order goes out. If this run dies between the
+        # request and the reply, the next one must not read "offered" and
+        # buy a second time -- it reads "buying" and asks for reconciliation.
+        s["stage"] = "buying"
+        save_smoke(s)
+        try:
+            resp = t212.place_market_order(s["code"], s["qty"])
+        except t212.T212Error as exc:
+            s["stage"] = "unknown"
+            s["error"] = str(exc)
+            save_smoke(s)
+            d.post(f"⚠️ Smoke test buy did not complete cleanly: {exc}")
+            raise SystemExit(f"{exc}")
+        s.update({"stage": "bought", "buy_response": resp,
+                  "bought_at": datetime.now(timezone.utc).isoformat()})
+        save_smoke(s)
+        # A fresh message with a single reaction, rather than a second
+        # reaction on the first one: the question has changed, so the thing
+        # you are answering should change with it.
+        sell_id = d.post(
+            f"{d.TICK} **Bought {s['qty']} of `{s['code']}`.**\n"
+            f"Broker said: `{json.dumps(resp, default=str)[:300]}`\n\n"
+            f"Check it in the Trading 212 app, then react {d.CROSS} **on this "
+            f"message** to sell it straight back.")
+        d.offer_tick(sell_id, d.CROSS)
+        s["sell_message_id"] = sell_id
+        save_smoke(s)
+        print(f"BOUGHT {s['qty']} {s['code']}\n"
+              f"{json.dumps(resp, indent=1, default=str)}\n"
+              f"asked about selling in message {sell_id}")
+        return 0
+
+    if stage == "bought":
+        # NEVER SELL WHAT YOU DO NOT HOLD.
+        #
+        # "The buy was accepted" and "the buy filled" are different claims.
+        # Outside regular hours an order can sit pending for hours, and the
+        # response says so rather than reporting a fill. Selling against a
+        # position that does not exist yet is how a test turns into a short.
+        #
+        # So the broker is asked what is actually there, and the sell is for
+        # what it says, not for what the buy requested.
+        held = None
+        try:
+            pos = t212.positions(universe=UNIVERSE)
+            held = pos.get(SMOKE_TICKER, {}).get("shares")
+        except Exception as exc:                       # noqa: BLE001
+            print(f"  ! could not read the position back ({exc})")
+        if held is None or held <= 0:
+            d.post(f"⚠️ Not selling: Trading 212 shows no {SMOKE_TICKER} "
+                   f"position.\nThe buy was accepted but may not have filled "
+                   f"— outside US market hours it can sit pending. Check the "
+                   f"app; react {d.CROSS} again once it shows.")
+            print(f"refusing to sell: broker reports no {SMOKE_TICKER} "
+                  f"holding (buy may still be pending).")
+            return 1
+        want_qty = min(abs(float(s["qty"])), float(held))
+        if abs(want_qty - abs(float(s["qty"]))) > 1e-9:
+            print(f"  ! selling {want_qty} rather than {s['qty']} — that is "
+                  f"what the broker shows as held.")
+        s["stage"] = "selling"
+        s["sell_qty"] = want_qty
+        save_smoke(s)
+        try:
+            # Exactly what the broker says is held, which is normally what
+            # was bought. Not "a euro's worth" recomputed -- the price has
+            # moved since, and a recomputed size would leave a sliver behind
+            # or try to sell more than exists.
+            resp = t212.place_market_order(s["code"], -abs(float(s["sell_qty"])))
+        except t212.T212Error as exc:
+            s["stage"] = "unknown"
+            s["error"] = str(exc)
+            save_smoke(s)
+            d.post(f"⚠️ Smoke test sell did not complete cleanly: {exc}")
+            raise SystemExit(f"{exc}")
+        s.update({"stage": "closed", "sell_response": resp,
+                  "closed_at": datetime.now(timezone.utc).isoformat()})
+        save_smoke(s)
+        d.post(f"{d.TICK} Sold {s['sell_qty']} of `{s['code']}` back. Round "
+               f"trip complete — the whole chain works end to end.\n"
+               f"Broker said: `{json.dumps(resp, default=str)[:400]}`")
+        print(f"SOLD {s['sell_qty']} {s['code']}\n"
+              f"{json.dumps(resp, indent=1, default=str)}")
+        return 0
+
+    print(f"nothing to do (stage {stage!r}).")
+    return 0
+
+
+def approval_ready() -> str:
+    """Empty when the broker and Discord can both be used, otherwise the reason.
+
+    Everything that places an order goes through here first, so a missing key is
+    a sentence rather than an AttributeError three frames deep.
+    """
+    if t212 is None:
+        return f"t212.py did not load: {_T212_IMPORT_ERROR}"
+    if discord_api is None:
+        return f"discord_api.py did not load: {_DISCORD_IMPORT_ERROR}"
+    if not t212.configured():
+        return t212.why_not()
+    if not discord_api.configured():
+        return f"Discord approval is {discord_api.why_not()}"
+    return ""
+
+
+def pending_poll(state, once: bool) -> int:
+    """Read the answer to this month's proposal and act on it."""
+    d = discord_api
+    p = load_pending()
+    stage = p.get("stage")
+
+    # A run that died mid-batch left this. It is not waiting on an answer -- you
+    # already gave one -- so it picks up where it stopped without asking again.
+    if stage == "trading":
+        print("resuming a batch that was interrupted")
+        return execute_batch(state, p)
+    if stage != "offered":
+        return 0
+
+    # Prices move. An approval given tomorrow would be approving sizes worked
+    # out from a close that is two days old, which is a different trade from the
+    # one that was shown.
+    if pending_expired(p):
+        p["stage"] = "expired"
+        save_pending(p)
+        d.post(f"{d.CROSS} The {p['month']} rebalance expired after "
+               f"{PENDING_EXPIRY_H} hours. Nothing was ordered, and the month is "
+               f"still open — run it again when you are ready.")
+        print("proposal expired; nothing ordered.")
+        return 0
+
+    deadline = time.monotonic() + (0 if once else PENDING_WATCH_SEC)
+    while True:
+        choice = d.owner_choice(p["message_id"])
+        if choice:
+            break
+        if time.monotonic() >= deadline:
+            print(f"waiting for an answer on message {p['message_id']} "
+                  f"({len(p['orders'])} orders, {p['month']}).")
+            return 0
+        time.sleep(3)
+
+    if choice == "no":
+        p["stage"] = "cancelled"
+        p["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        save_pending(p)
+        d.post(f"{d.CROSS} Skipping {p['month']}. Nothing was ordered and the "
+               f"book has not moved — it still holds last month's basket.\n"
+               f"To change your mind, run the rebalance again with `--force`."
+               + (f"\n\nThis month's {money(float(p.get('monthly') or 0))} was "
+                  f"not recorded as paid in, because no rebalance happened. If "
+                  f"the standing order still ran, `--deposit` it." 
+                  if p.get("monthly") else ""))
+        print("cancelled; nothing ordered.")
+        return 0
+
+    return execute_batch(state, p)
+
+
+def poll_all(state, once: bool) -> int:
+    """What the timer runs every minute.
+
+    THE IDLE PATH TOUCHES NOTHING. With no test and no batch outstanding this
+    reads two small files and returns, so running it sixty times an hour costs
+    nothing and there is no reason to make the schedule cleverer.
+
+    Both are polled in the same process, deliberately. Doing one per tick would
+    mean a smoke position left open for a week -- which is a perfectly normal
+    thing to forget -- starving the monthly rebalance behind it.
+    """
+    smoke = load_smoke()
+    pend = load_pending()
+    smoke_waiting = smoke.get("stage") in ("offered", "bought")
+    # 'stuck' is deliberately absent: a batch that stopped on a surprise waits
+    # for a person, and a poller that kept trying is exactly what must not happen.
+    pend_waiting = pend.get("stage") in ("offered", "trading")
+    if not (smoke_waiting or pend_waiting):
+        return 0
+
+    why = approval_ready()
+    if why:
+        print(f"something is waiting, but: {why}")
+        return 1
+
+    rc = 0
+    if pend_waiting:
+        rc |= pending_poll(state, once) and 1
+    if smoke_waiting:
+        rc |= smoke_poll(once) and 1
+    return rc
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--dry", action="store_true", help="decide and print, post nothing")
@@ -970,6 +1653,23 @@ def main() -> int:
     p.add_argument("--smoke-once", action="store_true",
                    help="check for a reaction once and exit, instead of watching "
                         "for a minute or so")
+    p.add_argument("--pending-status", action="store_true",
+                   help="show the month's proposed orders and what happened to "
+                        "each one")
+    p.add_argument("--pending-poll", action="store_true",
+                   help="act on the reaction to this month's orders. THIS PLACES "
+                        "REAL ORDERS.")
+    p.add_argument("--pending-cancel", action="store_true",
+                   help="drop an outstanding proposal without placing anything")
+    p.add_argument("--pending-resume", action="store_true",
+                   help="after a halt, carry on from the first order that was "
+                        "definitely never sent. Read --pending-status first.")
+    p.add_argument("--pending-abandon", action="store_true",
+                   help="after a halt, record the orders that did go through and "
+                        "stop there. The month counts as rebalanced.")
+    p.add_argument("--poll", action="store_true",
+                   help="what the timer runs: act on any reaction, smoke test or "
+                        "monthly batch. Does nothing when nothing is waiting.")
     p.add_argument("--t212-find", metavar="TEXT",
                    help="search the broker's instrument list by code or name; "
                         "read-only, for names --t212-instruments could not resolve")
@@ -988,6 +1688,59 @@ def main() -> int:
     state = load_state()
     name = args.track or TRACK
     bk = book(state, name)
+
+    # --- this month's orders, and the timer that carries them out -----------
+    if args.pending_status:
+        print(pending_describe(load_pending()))
+        return 0
+
+    if args.poll:
+        return poll_all(state, args.smoke_once)
+
+    if args.pending_poll:
+        why = approval_ready()
+        if why:
+            raise SystemExit(why)
+        return pending_poll(state, args.smoke_once)
+
+    if args.pending_cancel:
+        pend = load_pending()
+        if pend.get("stage") != "offered":
+            raise SystemExit(f"nothing to cancel (stage "
+                             f"{pend.get('stage') or 'none'!r}).\n"
+                             + pending_describe(pend))
+        pend["stage"] = "cancelled"
+        pend["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        save_pending(pend)
+        print(f"cancelled {pend['month']}; nothing was ordered.")
+        return 0
+
+    if args.pending_resume or args.pending_abandon:
+        pend = load_pending()
+        if pend.get("stage") != "stuck":
+            raise SystemExit(f"only a halted batch can be resumed or abandoned "
+                             f"(stage {pend.get('stage') or 'none'!r}).")
+        if args.pending_abandon:
+            # You have looked at the app and decided the rest is not going to be
+            # sent. Record what definitely was, so the book stops describing a
+            # portfolio nobody holds, and close the month.
+            pend["stage"] = "abandoned"
+            save_pending(pend)
+            settle_batch(state, pend, "abandoned by hand after a halt")
+            print("\nThe month is now marked rebalanced. Anything the broker "
+                  "filled that is\nnot in the list above is invisible to the "
+                  "book — put it right with --fill.")
+            return 0
+        # Resuming clears the halt so execute_batch will look again. It still
+        # refuses if an order's fate is genuinely unknown; --pending-abandon is
+        # the way past that, because only you can read the app.
+        why = approval_ready()
+        if why:
+            raise SystemExit(why)
+        pend["stage"] = "trading"
+        pend.pop("error", None)
+        save_pending(pend)
+        return execute_batch(state, pend)
 
     # --- the optional broker link -------------------------------------------
     if args.discord_check:
@@ -1088,149 +1841,7 @@ def main() -> int:
         return 0
 
     if args.smoke_poll:
-        if not s:
-            print("nothing offered. Run --smoke-offer first.")
-            return 0
-        stage = s.get("stage")
-
-        if stage in ("buying", "selling", "unknown"):
-            print(f"stage is {stage!r} — a previous run did not finish cleanly.\n"
-                  f"Check the Trading 212 app, then delete {SMOKE} once the "
-                  f"position matches what you expect.")
-            if s.get("error"):
-                print(f"last error: {s['error']}")
-            return 1
-
-        if stage not in ("offered", "bought"):
-            print(f"nothing to do (stage {stage!r}).")
-            return 0
-
-        # An offer that has been sitting around is not an offer any more: the
-        # price it quoted has moved on, and a tick three days later should not
-        # buy at today's. The sell prompt never expires -- an open position has
-        # to stay closeable.
-        if stage == "offered" and _smoke_expired(s):
-            s["stage"] = "expired"
-            save_smoke(s)
-            d.post(f"{d.CROSS} Smoke test expired after {SMOKE_EXPIRY_MIN} "
-                   f"minutes. Nothing was ordered.")
-            print("offer expired; nothing ordered.")
-            return 0
-
-        # Each stage watches its own message, so a stale reaction on an old one
-        # cannot drive the next step.
-        watch = s["message_id"] if stage == "offered" else s.get("sell_message_id")
-        want = d.TICK if stage == "offered" else d.CROSS
-        if not watch:
-            print(f"no message to watch for stage {stage!r}.")
-            return 1
-        # Discord cannot call us, so somebody has to ask. Asking once a minute
-        # means up to a minute of nothing happening while you stare at the
-        # message. Instead one run stays for a while and asks every few seconds,
-        # so a reaction lands in about the time it takes to notice you made it.
-        #
-        # A gateway websocket would be instant, and an interactions webhook would
-        # be too -- but that needs a public HTTPS endpoint, and this dashboard is
-        # deliberately not reachable from the internet. Polling briefly is the
-        # version that does not require opening the box up.
-        deadline = time.monotonic() + (SMOKE_WATCH_SEC if not args.smoke_once else 0)
-        while True:
-            if d.approved_by_owner(watch, want):
-                break
-            if time.monotonic() >= deadline:
-                print(f"waiting for {want} from the owner on message {watch} "
-                      f"(stage: {stage}).")
-                return 0
-            time.sleep(3)
-
-        if stage == "offered":
-            # Written BEFORE the order goes out. If this run dies between the
-            # request and the reply, the next one must not read "offered" and
-            # buy a second time -- it reads "buying" and asks for reconciliation.
-            s["stage"] = "buying"
-            save_smoke(s)
-            try:
-                resp = t212.place_market_order(s["code"], s["qty"])
-            except t212.T212Error as exc:
-                s["stage"] = "unknown"
-                s["error"] = str(exc)
-                save_smoke(s)
-                d.post(f"⚠️ Smoke test buy did not complete cleanly: {exc}")
-                raise SystemExit(f"{exc}")
-            s.update({"stage": "bought", "buy_response": resp,
-                      "bought_at": datetime.now(timezone.utc).isoformat()})
-            save_smoke(s)
-            # A fresh message with a single reaction, rather than a second
-            # reaction on the first one: the question has changed, so the thing
-            # you are answering should change with it.
-            sell_id = d.post(
-                f"{d.TICK} **Bought {s['qty']} of `{s['code']}`.**\n"
-                f"Broker said: `{json.dumps(resp, default=str)[:300]}`\n\n"
-                f"Check it in the Trading 212 app, then react {d.CROSS} **on this "
-                f"message** to sell it straight back.")
-            d.offer_tick(sell_id, d.CROSS)
-            s["sell_message_id"] = sell_id
-            save_smoke(s)
-            print(f"BOUGHT {s['qty']} {s['code']}\n"
-                  f"{json.dumps(resp, indent=1, default=str)}\n"
-                  f"asked about selling in message {sell_id}")
-            return 0
-
-        if stage == "bought":
-            # NEVER SELL WHAT YOU DO NOT HOLD.
-            #
-            # "The buy was accepted" and "the buy filled" are different claims.
-            # Outside regular hours an order can sit pending for hours, and the
-            # response says so rather than reporting a fill. Selling against a
-            # position that does not exist yet is how a test turns into a short.
-            #
-            # So the broker is asked what is actually there, and the sell is for
-            # what it says, not for what the buy requested.
-            held = None
-            try:
-                pos = t212.positions(universe=UNIVERSE)
-                held = pos.get(SMOKE_TICKER, {}).get("shares")
-            except Exception as exc:                       # noqa: BLE001
-                print(f"  ! could not read the position back ({exc})")
-            if held is None or held <= 0:
-                d.post(f"⚠️ Not selling: Trading 212 shows no {SMOKE_TICKER} "
-                       f"position.\nThe buy was accepted but may not have filled "
-                       f"— outside US market hours it can sit pending. Check the "
-                       f"app; react {d.CROSS} again once it shows.")
-                print(f"refusing to sell: broker reports no {SMOKE_TICKER} "
-                      f"holding (buy may still be pending).")
-                return 1
-            want_qty = min(abs(float(s["qty"])), float(held))
-            if abs(want_qty - abs(float(s["qty"]))) > 1e-9:
-                print(f"  ! selling {want_qty} rather than {s['qty']} — that is "
-                      f"what the broker shows as held.")
-            s["stage"] = "selling"
-            s["sell_qty"] = want_qty
-            save_smoke(s)
-            try:
-                # Exactly what the broker says is held, which is normally what
-                # was bought. Not "a euro's worth" recomputed -- the price has
-                # moved since, and a recomputed size would leave a sliver behind
-                # or try to sell more than exists.
-                resp = t212.place_market_order(s["code"], -abs(float(s["sell_qty"])))
-            except t212.T212Error as exc:
-                s["stage"] = "unknown"
-                s["error"] = str(exc)
-                save_smoke(s)
-                d.post(f"⚠️ Smoke test sell did not complete cleanly: {exc}")
-                raise SystemExit(f"{exc}")
-            s.update({"stage": "closed", "sell_response": resp,
-                      "closed_at": datetime.now(timezone.utc).isoformat()})
-            save_smoke(s)
-            d.post(f"{d.TICK} Sold {s['sell_qty']} of `{s['code']}` back. Round "
-                   f"trip complete — the whole chain works end to end.\n"
-                   f"Broker said: `{json.dumps(resp, default=str)[:400]}`")
-            print(f"SOLD {s['sell_qty']} {s['code']}\n"
-                  f"{json.dumps(resp, indent=1, default=str)}")
-            return 0
-
-        print(f"nothing to do (stage {stage!r}).")
-        return 0
+        return smoke_poll(args.smoke_once)
 
     if args.t212_find:
         if t212 is None:
@@ -1438,6 +2049,25 @@ def main() -> int:
         write_latest(snapshot_payload(state, prices, scores, bar))
         return 0
 
+    # A month can only be out for approval once. Without this, tomorrow's run
+    # would see an unmarked month, plan the same trades again, and post a second
+    # set of orders over the top of the first -- and a tick on either message
+    # would place them. The month is not marked done until the orders are
+    # actually sent, so this file is what holds the place in the meantime.
+    pend = load_pending()
+    tag = f"{bar.year}-{bar.month:02d}"
+    if pend.get("stage") in PENDING_OPEN and not (args.dry or args.test):
+        print(f"{pend.get('month')} is already out for approval — not planning it "
+              f"again.\n\n{pending_describe(pend)}")
+        return 0
+    if (pend.get("month") == tag and pend.get("stage") in ("cancelled", "expired")
+            and not (args.force or args.dry or args.test)):
+        # You said no, or you let it lapse. Re-posting the same orders every day
+        # until you gave in would make the checkmark meaningless.
+        print(f"{tag} was {pend['stage']} — not offering it again. Use --force if "
+              f"you have changed your mind.")
+        return 0
+
     buys = [t for t in basket if t not in held]
     sells = [t for t in held if t not in basket]
     first = not held
@@ -1507,6 +2137,31 @@ def main() -> int:
         print("\nposted to Discord")
     else:
         print("\nno webhook set ($DISCORD_WEBHOOK) — printed only")
+
+    # AUTOMATIC EXECUTION FORKS HERE.
+    #
+    # Off (the default), the run behaves exactly as it always has: it assumes the
+    # orders filled at today's close, moves the book, and marks the month done --
+    # because YOU are going to place them by hand, from the message it just
+    # posted.
+    #
+    # On, none of that may happen yet. The orders have not been placed and might
+    # never be, so recording them would leave the book describing a portfolio
+    # nobody holds. Instead the batch goes out for approval and everything below
+    # is deferred to settle_batch(), which runs once the orders are actually
+    # sent. That is why the month is still unmarked at this point.
+    if AUTOTRADE and name != "live":
+        # Easy to set one and forget the other, and the failure is silent: the
+        # bot goes on printing instructions while you believe it is trading.
+        print(f"\n  ! 'Place approved orders' is on, but the track is "
+              f"{name!r}. Nothing is placed from a paper book — set 'Which book "
+              f"to follow' to live as well.")
+    if AUTOTRADE and name == "live" and orders:
+        why = approval_ready()
+        if why:
+            raise SystemExit(f"MOMENTUM_AUTOTRADE is on but {why}")
+        return propose_batch(name, bar, basket, orders, prices,
+                             paid_in_today, m)
 
     # Assume the orders filled at today's close. --fill corrects any that did not.
     apply_orders(bk, orders, prices)

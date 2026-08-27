@@ -2,15 +2,27 @@
 
 Plain order of events. What the bot does, what you do, and when.
 
-**Today, the bot never places an order.** It reads your account and tells you
-what to trade; you place every trade in the Trading 212 app.
+**By default the bot never places an order.** It reads your account and tells you
+what to trade; you place every trade in the Trading 212 app. That is how it
+arrives, and how it stays until you change one setting.
 
-That is a statement about what is built, not about what is possible. Approving
-orders with a Discord reaction is half finished: the bot can post the orders, add
-the checkmark, and confirm that **you specifically** ticked it. What does not
-exist yet is the code that turns an approved tick into an order at Trading 212.
-Until that is written and tested, the answer to "did anything trade on its own?"
-is no.
+**Turning that setting on does not make it trade on its own either.** With
+_Place approved orders_ set to `on`, the bot posts the month's orders to Discord
+with a ✅ and then stops. Nothing is sent to Trading 212 until you react — and
+only your reaction counts. No reaction, no orders: the batch expires after six
+hours and the month stays open.
+
+So there are three settings, and all three have to line up before a single euro
+moves:
+
+| Setting | What it decides |
+|---|---|
+| _Which book to follow_ = `live` | orders are worked out from what you really hold |
+| _Place approved orders_ = `on` | an approved batch is actually sent to the broker |
+| your ✅ in Discord | that this particular batch is approved |
+
+Miss any one of them and the bot goes on telling you what to trade and leaving
+the trading to you.
 
 ---
 
@@ -48,7 +60,10 @@ pie, or in something other than those forty.
 ## The first month
 
 ### A few days before the 1st
-- **You:** make sure the money has landed in free funds.
+- **You:** make sure the money has landed in **free funds** — the uninvested
+  balance Trading 212 shows at the top of the app. Money sitting in a pie, or a
+  bank transfer that has not settled, is not free funds, and an order against it
+  is rejected. `--t212-check` prints the figure the broker reports.
 
 ### First trading day of the month, 21:00 Amsterdam
 - **Bot:** ranks the forty names, takes the top 8, works out the orders, and
@@ -126,6 +141,8 @@ already hold.
 | `--fill TICKER=SHARES@PRICE` | Correct one assumed fill |
 | `--deposit 500` | Tell the bot you paid money in by hand |
 | `--dry` | Show what it would do, save nothing |
+| `--pending-status` | This month's orders and what happened to each one |
+| `--pending-cancel` | Drop an outstanding proposal without placing anything |
 
 ---
 
@@ -148,19 +165,48 @@ in is a real decision.
 
 ---
 
-## Automatic trading: what is and is not built
+## Automatic trading
 
-**Built and proven:** the bot posts a message, adds a ✅, reads back who ticked
-it, and accepts it only from your user id. A tick from anyone else is ignored.
+Off by default. To turn it on: **Settings → Place approved orders → on**, with
+_Which book to follow_ already on `live`.
 
-**Not built:** the step that submits the orders. There is no code path from an
-approved tick to a trade.
+### What happens then, on rebalance day
 
-So a reaction today does nothing except get read back. Once the submitting half
-exists, the sequence becomes: bot posts the orders and the ✅ at 21:00, you tick
-it, the bot checks the tick is yours, submits the orders, and reports what
-filled. An unapproved batch expires at the market close rather than firing the
-next morning at a price nobody looked at.
+1. **21:00.** The bot ranks the forty, works out the orders, and posts them to
+   Discord with a ✅ and a ❌. **Nothing has been sent.** The month is not marked
+   done, and the book has not moved — because none of it is true yet.
+2. **You react.** ✅ places them, ❌ skips the month. Only your user id counts;
+   a checkmark from anyone else is ignored and said so out loud.
+3. **Within about a minute** the poller sees the reaction and sends the orders:
+   every sell first, then every buy, because the sells are what pays for the
+   buys. It posts back what went out.
+4. **Only then** does the book move and the month count as rebalanced.
 
-Before that gets switched on: one full month done manually, so we know the
-instructions are actually executable, and a first automated run watched live.
+Ignore the message and it expires after six hours, having ordered nothing. React
+❌ and the month is skipped and not offered again — `--force` if you change your
+mind.
+
+### What it refuses to do
+
+- **Sell what you do not hold.** Before every sell it asks Trading 212 what is
+  actually there and sells that, not what the book assumed. If the broker shows
+  nothing, the sell is skipped rather than opening a short.
+- **Send the same order twice.** Each order is written to disk as _sending_
+  before the request goes out. If the process is killed halfway through, the next
+  run resumes at the order after the last confirmed one. If it died *during* an
+  order — or the network failed, which looks the same from here — that order's
+  fate is unknown, so the batch stops dead and waits for you. It is never
+  retried.
+- **Carry on after a surprise.** Anything unexpected halts the whole batch,
+  because the cash that pays for the buys depends on the sells ahead of them
+  having gone through. `--pending-status` shows exactly what was sent and what
+  was not; `--pending-resume` carries on, `--pending-abandon` records what did
+  go through and closes the month there.
+- **Trade on the paper track.** Paper is a model of the strategy. It never
+  touches the broker, whatever the settings say.
+
+### Before you switch it on
+
+Do the smoke test (`--smoke-offer`, then ✅ and ❌ in Discord) so you have seen a
+real order placed and closed by reaction. Then one full month by hand, so we know
+the instructions are executable. Then turn it on and watch the first run live.

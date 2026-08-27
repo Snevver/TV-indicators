@@ -20,6 +20,14 @@ const SMOKE = [
   { id: "smoke_status", label: "Test status" },
 ];
 
+// Reading and cancelling the month's batch. There is deliberately no button that
+// SENDS it: that happens from the reaction in Discord, read back by the timer.
+// A one-click "place eight orders" is the thing this whole design avoids.
+const BATCH = [
+  { id: "pending_status", label: "This month's orders" },
+  { id: "pending_cancel", label: "Cancel them" },
+];
+
 async function go(id) {
   out.value = `> ${id}\nrunning… a price download can take up to a minute.`;
   const r = await act(id);
@@ -44,6 +52,18 @@ async function go(id) {
         {{ store.busy === a.id ? "running…" : a.label }}
       </button>
     </div>
+    <div class="bar">
+      <span class="tag" :class="store.state?.health?.autotrade ? 'warn' : 'muted'">
+        {{ store.state?.health?.autotrade
+           ? "Approved orders are placed for you"
+           : "Orders are yours to place" }}
+      </span>
+      <button v-for="a in BATCH" :key="a.id" class="quiet"
+              :disabled="!!store.busy" @click="go(a.id)">
+        {{ store.busy === a.id ? "running…" : a.label }}
+      </button>
+    </div>
+
     <pre v-if="out" class="out">{{ out }}</pre>
   </div>
 </template>
@@ -54,4 +74,5 @@ async function go(id) {
   border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
   background: color-mix(in srgb, var(--amber) 7%, transparent) }
 .tag.warn { color: var(--amber); letter-spacing: .06em }
+.tag.muted { color: var(--muted); letter-spacing: .06em }
 </style>

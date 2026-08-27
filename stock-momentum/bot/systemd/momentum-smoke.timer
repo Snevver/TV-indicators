@@ -2,7 +2,7 @@
 # at Discord, not two hours later.
 
 [Unit]
-Description=Check for a reaction to the smoke test
+Description=Check for a reaction to anything awaiting approval
 
 [Timer]
 # 'minutely' is *-*-* *:*:00. Written as *:*:0/60 this silently fails to

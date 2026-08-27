@@ -195,6 +195,10 @@ def health() -> dict:
             # sizes anything, so the launch preview needs it to promise the right
             # slice rather than one based on today's balance alone.
             "monthly": lat.get("monthly") or 0.0,
+            # Whether an approved batch is placed for you or written out for you
+            # to place. The page has to be able to say which, because being wrong
+            # about it in either direction is the worst kind of surprise.
+            "autotrade": bool(lat.get("autotrade")),
             "t212": lat.get("t212") or {},
             "python_ok": os.path.exists(PYTHON)}
 
@@ -216,6 +220,12 @@ ACTIONS = {
     "smoke_offer": ["--smoke-offer"],
     "smoke_poll": ["--smoke-poll"],
     "smoke_status": ["--smoke-status"],
+    # The monthly batch. Read and cancel only, deliberately: --pending-poll is
+    # what the timer runs, and a button that sends a whole month of orders in one
+    # click is more risk than it is convenience. Cancel is safe by definition --
+    # the worst it can do is nothing.
+    "pending_status": ["--pending-status"],
+    "pending_cancel": ["--pending-cancel"],
 }
 
 

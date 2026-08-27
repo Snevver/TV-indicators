@@ -54,6 +54,11 @@ def _choice(*allowed):
         if v.lower() not in allowed:
             raise Invalid(f"must be one of: {', '.join(allowed)}")
         return v.lower()
+    # Hung on the function so the page can render a dropdown from the same list
+    # that validates the answer. It used to be a second dict keyed by field name,
+    # which meant a new choice field silently rendered as a free-text box until
+    # somebody noticed.
+    check.choices = list(allowed)
     return check
 
 
@@ -162,6 +167,13 @@ FIELDS = {
                          "to the paper book on rebalance day and spread over "
                          "all eight holdings. 0 turns it off. The live track "
                          "takes its cash from Trading 212 instead."),
+    "MOMENTUM_AUTOTRADE": (_choice("off", "on"), "Place approved orders",
+                           "With this off the bot works out the orders and posts "
+                           "them, and you place them yourself. With it on it "
+                           "places them at Trading 212 — but only after you react "
+                           "with a checkmark in Discord, and only on the live "
+                           "track. No reaction, no orders. Needs the bot token, "
+                           "channel id and your user id filled in above."),
 }
 
 UPPER = {"MOMENTUM_CURRENCY"}          # stored uppercase, chosen lowercase
@@ -206,15 +218,9 @@ def for_display() -> list:
             "hint": ("···" + raw[-4:]) if (name in SECRET and len(raw) >= 4) else "",
             "value": "" if name in SECRET else raw,
             "from_browser": name in ours,
-            "choices": _choices_for(name),
+            "choices": getattr(FIELDS[name][0], "choices", None),
         })
     return rows
-
-
-def _choices_for(name):
-    return {"T212_ENV": ["demo", "live"],
-            "MOMENTUM_TRACK": ["paper", "live"],
-            "MOMENTUM_CURRENCY": ["usd", "eur", "gbp"]}.get(name)
 
 
 def apply(form) -> tuple[dict, dict]:

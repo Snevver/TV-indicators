@@ -1,4 +1,5 @@
-# Reads back your Discord reaction and acts on it.
+# Reads back your Discord reaction and acts on it -- for the smoke test and
+# for the monthly batch of real orders. One timer, both jobs.
 #
 # WHY A TIMER AND NOT A LISTENER
 # Discord cannot call us. A reaction sits on the message until something asks
@@ -6,10 +7,14 @@
 # the same question either way; the timer just asks every minute so a reaction
 # turns into an order on its own.
 #
-# Costs nothing when idle: with no test pending, --smoke-poll exits immediately
-# without touching the network. When a test IS pending it stays for about ninety
-# seconds asking every few seconds, so a reaction turns into an order in about
-# the time it takes you to look up from Discord -- not on the next minute tick.
+# Costs nothing when idle: with nothing outstanding, --poll reads two small files
+# and exits without touching the network. When something IS waiting it stays for
+# about ninety seconds asking every few seconds, so a reaction turns into an
+# order in about the time it takes you to look up from Discord -- not on the next
+# minute tick.
+#
+# It polls BOTH in the same run. Doing one per tick would let a smoke position you
+# forgot to close starve the monthly rebalance behind it.
 #
 # A gateway websocket or an interactions webhook would be truly instant, but both
 # need either a permanent connection or a public HTTPS endpoint, and this box is
@@ -19,9 +24,12 @@
 #   sudo cp momentum-smoke.{service,timer} /etc/systemd/system/
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now momentum-smoke.timer
+#
+# Already installed? The same two lines are enough -- copy and daemon-reload. The
+# unit name has not changed, so there is nothing to enable again.
 
 [Unit]
-Description=Act on a Discord reaction to a smoke test
+Description=Act on a Discord reaction (smoke test and monthly orders)
 After=network-online.target
 Wants=network-online.target
 
@@ -31,5 +39,5 @@ User=CHANGEME
 WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
 EnvironmentFile=-/etc/momentum-bot.env
 EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
-ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --smoke-poll
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --poll
 TimeoutStartSec=180

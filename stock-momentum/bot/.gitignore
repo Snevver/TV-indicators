@@ -13,3 +13,8 @@ instruments.json
 # The smoke test is a local experiment, not the repo's.
 smoke.json
 smoke.json.tmp
+
+# This month's batch of orders: a live record of what was sent to the broker
+# and what came back. Never the repo's business, and it holds order ids.
+pending.json
+pending.json.tmp
