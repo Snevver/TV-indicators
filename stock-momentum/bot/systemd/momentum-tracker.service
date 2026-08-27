@@ -1,7 +1,8 @@
-# Hourly account-value snapshot for the dashboard's money-over-time chart.
+# Hourly strategy-value snapshot for the dashboard's money-over-time chart.
 #
-# Reads the demo and live Trading 212 account totals and the benchmark ETF, and
-# appends a row per account to hourly.csv. See tracker.py.
+# Values each book (cash + shares * latest price) and the benchmark ETF, and
+# appends a row per book to hourly.csv. Reads state.json and yfinance only, no
+# broker call. See tracker.py.
 #
 # Install (edit CHANGEME first):
 #   sudo cp momentum-tracker.{service,timer} /etc/systemd/system/

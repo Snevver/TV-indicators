@@ -139,9 +139,9 @@ them; the **Money over time** chart shows both.
 Keeping both is the point: the gap between the two curves is your execution —
 slippage, currency fees, an order placed late or skipped.
 
-The **Money over time** chart draws each account against what the same deposits
-would be worth in a broad-market ETF, from `bot/hourly.csv` (written hourly by
-`bot/tracker.py`).
+The **Money over time** chart draws each book's value (cash plus holdings, not
+the whole Trading 212 account) against what the same deposits would be worth in a
+broad-market ETF, from `bot/hourly.csv` (written hourly by `bot/tracker.py`).
 
 ## Where the numbers come from
 

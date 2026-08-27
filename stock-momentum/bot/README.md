@@ -82,10 +82,12 @@ A run whose plumbing is not ready (no key, Discord unreachable, the FX rate
 missing) fails loudly rather than falling back to a manual post -- there is no
 manual mode any more.
 
-`tracker.py` (its own hourly systemd unit) records each account's total value
-and what the same deposits would be worth in a broad-market ETF
-(`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`) to `hourly.csv`, which is what the
-dashboard's money-over-time chart draws.
+`tracker.py` (its own hourly systemd unit) values each book's holdings -- cash
+plus shares times the latest price, the strategy's slice, not the whole Trading
+212 account -- and works out what the same deposits would be worth in a
+broad-market ETF (`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`). Both go to
+`hourly.csv`, which is what the dashboard's money-over-time chart draws. It reads
+`state.json` and yfinance only, no broker call.
 
 `MOMENTUM_START_BUDGET` (default `0`) is how much of your Trading 212 free funds
 the strategy begins with. The **first** live rebalance sizes the opening eight
@@ -331,7 +333,7 @@ sudo systemctl enable --now momentum-bot.timer momentum-smoke.timer momentum-tra
 
 `momentum-bot` runs the monthly rebalance on both accounts (demo, then live).
 `momentum-smoke` polls every minute for your ✅ on the live batch and for the
-smoke test. `momentum-tracker` takes the hourly value snapshot for the
+smoke test. `momentum-tracker` values each book hourly for the
 dashboard's money-over-time chart.
 
 Substitute in `/etc`, not in the checkout — editing the tracked file makes the

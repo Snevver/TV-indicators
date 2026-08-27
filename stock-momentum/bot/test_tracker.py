@@ -1,4 +1,10 @@
-"""Runnable check for the benchmark math in tracker.py. `python test_tracker.py`."""
+"""tracker.py: the benchmark math and the strategy valuation. `python test_tracker.py`.
+
+The valuation must be cash + shares*price -- the STRATEGY's slice -- not the
+whole Trading 212 account, or free funds sitting in the account inflate the
+money-over-time line.
+"""
+import sys
 import tracker
 
 
@@ -24,9 +30,33 @@ def test_bench_value_none_without_data():
     assert tracker.bench_value([("2026-01-02", 100.0)], None, None) is None
 
 
+def test_strategy_total_is_cash_plus_held_shares():
+    book = {"cash": 1004.98, "deposited": 2000.0,
+            "positions": {"AAA": 2.0, "BBB": 1.0}}
+    px = {"AAA": 100.0, "BBB": 24.0}
+    # 1004.98 + 200 + 24 = 1228.98  -- NOT the 5000 sitting in the account.
+    assert tracker.strategy_total(book, px) == 1228.98
+
+
+def test_strategy_total_tolerates_a_missing_price():
+    book = {"cash": 50.0, "deposited": 50.0, "positions": {"AAA": 3.0}}
+    assert tracker.strategy_total(book, {}) == 50.0        # just the cash
+
+
+def test_strategy_total_none_for_an_unfunded_book():
+    assert tracker.strategy_total({"cash": 0.0, "positions": {}}, {}) is None
+    assert tracker.strategy_total({}, {}) is None
+
+
 if __name__ == "__main__":
+    fails = 0
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
-            fn()
-            print(f"ok  {name}")
-    print("all passed")
+            try:
+                fn()
+                print(f"ok   {name}")
+            except AssertionError as e:
+                fails += 1
+                print(f"FAIL {name}: {e}")
+    print("all passed" if not fails else f"{fails} failed")
+    sys.exit(1 if fails else 0)
