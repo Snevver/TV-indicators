@@ -440,3 +440,16 @@ Both are gitignored.
 Don't. `UNIVERSE`, `LOOKBACK`, `SKIP` and `HOLD` are frozen at the values that
 were validated. Changing them makes the measured results in `../README.md`
 describe something other than what you are running.
+
+## Tests
+
+```bash
+python ../run_tests.py        # everything, bot/ and web/
+python test_book.py           # or one file on its own
+```
+
+Plain `assert` scripts, no framework, no network. They cover the money math
+(`mark` / `apply_orders` / `plan`, and the identity `total == cash + positions`),
+the ranking and `due()`, the `state.json` migration, batch-resume safety,
+quantity truncation, the Discord embed shape, settings validation, and the
+dashboard's file readers. Run them before you push a change to any of that.
