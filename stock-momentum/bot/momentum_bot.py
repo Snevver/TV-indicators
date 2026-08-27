@@ -450,7 +450,7 @@ CASH_BUFFER = float(os.environ.get("MOMENTUM_CASH_BUFFER", "0.005") or 0.005)
 # insufficient-funds rejection -- which means the order was NOT placed -- wait for
 # the earlier fills to settle and try that same order again.
 ORDER_GAP_SEC = float(os.environ.get("MOMENTUM_ORDER_GAP", "2") or 2)
-FUNDS_RETRY = (3, 12.0)          # (attempts, seconds between)
+FUNDS_RETRY = (2, 8.0)           # (attempts, seconds to wait) before trimming to fit
 
 
 def plan(bk, prices, basket, total, contribution: float = 0.0,
@@ -1368,16 +1368,46 @@ def execute_batch(state, p) -> int:
                 break
             except Exception as exc:                       # noqa: BLE001
                 msg = str(exc)
-            # An explicit insufficient-funds rejection on a buy means the order
-            # was NOT placed and the cause is usually earlier orders still
-            # reserving their cushion. Wait for them to settle and try again.
-            if ("insufficient-free-for-stocks" in msg
-                    and attempt + 1 < FUNDS_RETRY[0]):
-                print(f"  … {o['ticker']}: funds still reserved by earlier "
-                      f"orders, waiting {FUNDS_RETRY[1]:.0f}s")
+            if "insufficient-free-for-stocks" not in msg or o["shares"] <= 0:
+                break
+            # The order was NOT placed. Two causes, handled in order: earlier
+            # orders still reserving their cushion (wait and retry the same
+            # size), and the real EUR cost of the batch running past what the
+            # mid-market FX estimate assumed (re-read the free cash and trim
+            # THIS order to fit -- the last name ends up slightly light, which
+            # beats a halted batch).
+            if attempt + 1 < FUNDS_RETRY[0]:
+                print(f"  … {o['ticker']}: funds still reserved, waiting "
+                      f"{FUNDS_RETRY[1]:.0f}s")
                 time.sleep(FUNDS_RETRY[1])
                 continue
+            price = abs(o["cash"]) / o["shares"] if o["shares"] else 0.0
+            try:
+                free = float(t212.cash().get("free", 0.0))
+            except Exception:                             # noqa: BLE001
+                free = 0.0
+            fit = t212._round_qty(free * 0.97 / price) if price > 0 else 0.0
+            if fit <= 0:
+                o["state"] = "skipped"
+                o["note"] = f"only {money(free)} free — nothing left to buy with"
+                o["cash"] = 0.0
+                save_pending(p)
+                print(f"  - {o['ticker']}: {o['note']}")
+                msg = ""
+                break
+            print(f"  ! {o['ticker']}: only {money(free)} free — trimming from "
+                  f"{o['shares']} to {fit}")
+            o["shares"] = fit
+            o["cash"] = -round(fit * price, 2)
+            o["note"] = f"trimmed to fit {money(free)} free at execution"
+            try:
+                resp = t212.place_market_order(o["code"], fit)
+                msg = ""
+            except Exception as exc:                       # noqa: BLE001
+                msg = str(exc)
             break
+        if o.get("state") == "skipped":
+            continue
         if msg:
             # t212._post marks a request whose outcome it could not learn with
             # UNKNOWN. That order might be live at the broker, so it is left as
