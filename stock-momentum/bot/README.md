@@ -39,14 +39,19 @@ both of those are readable by every user on the box:
 sudo install -m 600 -o "$USER" /dev/null /etc/momentum-bot.env
 sudo tee /etc/momentum-bot.env >/dev/null <<'EOF'
 DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
-MOMENTUM_CURRENCY=EUR
+# Trading 212 and Discord approvals, added when you turn autotrade on:
+# T212_API_KEY_DEMO=...   T212_API_SECRET_DEMO=...
+# T212_API_KEY_LIVE=...   T212_API_SECRET_LIVE=...
+# DISCORD_BOT_TOKEN=...   DISCORD_CHANNEL_ID=...   DISCORD_OWNER_ID=...
 EOF
 ```
 
-`MOMENTUM_CURRENCY` is the label on every figure. It does not convert anything.
-
-`MOMENTUM_TRACK` (default `paper`) picks which book the bot trades. See
-**The two books** in `../web/README.md`.
+Everything the dashboard does not own lives in that file. The dashboard's
+Settings page holds only three things: `T212_ENV` (demo/live), `MOMENTUM_MONTHLY`
+and `MOMENTUM_AUTOTRADE`. There is no `MOMENTUM_TRACK` setting any more — autotrade
+on means "plan from and trade the live account", off means "plan from the paper
+book and only post". Every figure is in dollars (the book values US stocks at
+their dollar prices); there is no currency label to set.
 
 `MOMENTUM_MONTHLY` (default `0`, off) is what you pay in by standing order each
 month. On rebalance day it is credited to the **paper** book and spread over all
@@ -204,21 +209,23 @@ for a day in `instruments.json`; delete that file to refresh it.
 ### Turning it on
 
 Trading 212 app → Settings → API → Generate API key, with portfolio and history
-permissions. Practice and live are **separate keys with separate URLs**; generate
-the one for the account you are actually running.
+permissions (and **Orders - Execute** if you want autotrade). Practice and live
+are **separate keys with separate URLs**; the env file holds both, named for the
+account they belong to, and `T212_ENV` picks which pair is used.
 
 ```bash
 sudo nano /etc/momentum-bot.env
 ```
 ```
-T212_API_KEY=...
-T212_ENV=demo          # or: live
-T212_PIE_ID=9911
+T212_API_KEY_DEMO=...     T212_API_SECRET_DEMO=...
+T212_API_KEY_LIVE=...     T212_API_SECRET_LIVE=...
+T212_ENV=demo             # or: live -- picks the pair above
 ```
 
-The key is a password, exactly like the webhook. That file is mode 600 and is
-the only place it belongs — never the repo, never a crontab, never a chat
-message. If it leaks, revoke it in the app and generate another.
+A plain `T212_API_KEY` / `T212_API_SECRET` still works if you only have one
+account set up. The keys are passwords, exactly like the webhook. That file is
+mode 600 and is the only place they belong — never the repo, never a crontab,
+never a chat. If one leaks, revoke it in the app and generate another.
 
 ```bash
 set -a; . /etc/momentum-bot.env; set +a

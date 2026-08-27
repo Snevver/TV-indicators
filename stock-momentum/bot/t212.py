@@ -24,10 +24,12 @@ SETUP (when you are ready — it is fine to leave this off)
      running. You get TWO values: an API key and a secret key. Both are needed --
      the key is the username half and the secret is the password half of an HTTP
      Basic login. Practice and live are separate pairs with separate URLs.
-  2. Put them in /etc/momentum-bot.env, which is mode 600:
-         T212_API_KEY=...
-         T212_API_SECRET=...      # the second value shown when you generated it
-         T212_ENV=demo            # or: live
+  2. Put them in /etc/momentum-bot.env, which is mode 600. Name them for the
+     account they belong to, so demo and live can both be stored:
+         T212_API_KEY_DEMO=...      T212_API_SECRET_DEMO=...
+         T212_API_KEY_LIVE=...      T212_API_SECRET_LIVE=...
+         T212_ENV=demo             # or: live -- picks which pair is used
+     A plain T212_API_KEY / T212_API_SECRET still works if you only have one.
   3. python momentum_bot.py --t212-probe     # prove the pair works
      python momentum_bot.py --t212-check     # broker vs the bot's book
      python momentum_bot.py --t212-sync      # adopt the broker's numbers
@@ -57,9 +59,17 @@ import json
 import os
 import time
 
-API_KEY = os.environ.get("T212_API_KEY", "").strip()
-API_SECRET = os.environ.get("T212_API_SECRET", "").strip()
 ENV = os.environ.get("T212_ENV", "demo").strip().lower()
+
+# Demo and live are separate accounts with separate key pairs. Keeping both in
+# the env file means flipping T212_ENV does not also mean re-pasting a key. The
+# plain T212_API_KEY / T212_API_SECRET still work as a fallback for a one-key
+# setup.
+_SFX = ENV.upper()
+API_KEY = (os.environ.get(f"T212_API_KEY_{_SFX}")
+           or os.environ.get("T212_API_KEY", "")).strip()
+API_SECRET = (os.environ.get(f"T212_API_SECRET_{_SFX}")
+              or os.environ.get("T212_API_SECRET", "")).strip()
 TIMEOUT = float(os.environ.get("T212_TIMEOUT", "20") or 20)
 
 BASE = {"demo": "https://demo.trading212.com/api/v0",
@@ -80,7 +90,8 @@ def configured() -> bool:
 
 def why_not() -> str:
     if not API_KEY:
-        return "T212_API_KEY is not set — using the bot's own book"
+        return (f"no key for T212_ENV={ENV!r} — set T212_API_KEY_{_SFX} "
+                f"(or a plain T212_API_KEY) — using the bot's own book")
     if not BASE:
         return f"T212_ENV must be 'demo' or 'live', not {ENV!r} — using the bot's own book"
     return ""
@@ -117,12 +128,12 @@ def _get(path: str, tries: int = 3):
                 raise T212Error(f"{path}: 200 but the body was not JSON: {r.text[:200]}")
         if r.status_code == 401:
             missing = ("" if API_SECRET else
-                       " T212_API_SECRET is not set, and Trading 212 issues a key "
-                       "AND a secret — the key alone is rejected. That is the most "
-                       "likely cause.")
+                       f" T212_API_SECRET_{_SFX} (or T212_API_SECRET) is not set, "
+                       "and Trading 212 issues a key AND a secret — the key alone "
+                       "is rejected. That is the most likely cause.")
             raise T212Error(f"{path}: 401 — the credentials were rejected.{missing} "
-                            f"Otherwise: a mistyped pair, or a live key against "
-                            f"T212_ENV=demo (or the reverse).")
+                            f"Otherwise: a mistyped pair, or the {ENV} key pair is "
+                            f"really the {'live' if ENV == 'demo' else 'demo'} one.")
         if r.status_code == 403:
             raise T212Error(f"{path}: 403 — the key is valid but lacks this "
                             f"permission. Re-generate it with portfolio and "

@@ -1,31 +1,21 @@
 """Reading and writing the bot's settings from the browser.
 
-TWO FILES, ON PURPOSE
-/etc/momentum-bot.env is where the setup instructions put your secrets, and it
-stays authoritative for anything you set over SSH. The web app never writes it:
-/etc is root-owned, so a process running as you can overwrite that file but
-cannot create a temp file beside it, which makes an atomic replace impossible.
-A half-written env file is a bot that will not start.
+THREE EDITABLE SETTINGS, THE REST READ-ONLY
+The browser owns exactly three: T212_ENV, MOMENTUM_MONTHLY, MOMENTUM_AUTOTRADE.
+It writes them to ~/.config/momentum/momentum.env, which both the web unit and
+the bot unit load after /etc/momentum-bot.env, so a change here wins.
 
-So the app owns a second file, ~/.config/momentum/momentum.env, and both the
-web unit and the bot unit read both files. systemd applies EnvironmentFile
-entries in order, so anything set here wins over /etc. That is the intended
-precedence: what you last changed in the browser is what runs.
-
-The bot's unit used to read only /etc, so settings saved here -- including
-MOMENTUM_TRACK, which decides the book orders are planned from -- reached this
-dashboard and never reached the bot. momentum_bot.py now also loads both files
-itself, so a run started by hand resolves settings identically to one started by
-systemd. If you add a file to that list, add it in both places.
-
-SECRETS ARE WRITE-ONLY
-A stored key is never sent back to the browser. The form shows whether one is
-set and its last four characters, and an empty field means "leave it alone".
+Everything else -- the Trading 212 key pairs, the Discord webhook and bot token,
+the channel and user ids -- is set once over SSH in /etc/momentum-bot.env and
+only reported present/absent by credentials(). The web app never writes /etc:
+it is root-owned, so a process running as you can overwrite the file but cannot
+create a temp file beside it for an atomic replace, and a half-written env file
+is a bot that will not start. Keeping credentials out of the browser form also
+means one source of truth for them rather than two that can drift.
 """
 from __future__ import annotations
 
 import os
-import re
 import stat
 import tempfile
 
@@ -35,8 +25,13 @@ CONFIG_DIR = os.environ.get("MOMENTUM_CONFIG_DIR") or os.path.join(
 CONFIG = os.path.join(CONFIG_DIR, "momentum.env")
 ETC = "/etc/momentum-bot.env"
 
-SECRET = {"T212_API_KEY", "T212_API_SECRET", "DISCORD_WEBHOOK",
-          "DISCORD_BOT_TOKEN"}
+# Set over SSH in /etc/momentum-bot.env, shown read-only by credentials(). Not
+# fields: a browser copy would be a second place they could drift from the file
+# the bot reads.
+SECRET = ("T212_API_KEY_DEMO", "T212_API_SECRET_DEMO", "T212_API_KEY_LIVE",
+          "T212_API_SECRET_LIVE", "T212_API_KEY", "T212_API_SECRET",
+          "DISCORD_WEBHOOK", "DISCORD_BOT_TOKEN", "DISCORD_CHANNEL_ID",
+          "DISCORD_OWNER_ID")
 
 # MOMENTUM_MODE and MOMENTUM_FRACTIONAL used to live here. Both were settled by
 # measurement -- drift, fractional -- and hardcoded in the bot, so exposing them
@@ -62,51 +57,10 @@ def _choice(*allowed):
     return check
 
 
-def _api_key(v):
-    v = v.strip()
-    if not v:
-        raise Invalid("cannot be blank — leave the field empty to keep the current key")
-    if re.search(r"\s", v):
-        raise Invalid("contains a space or newline; copy it again without wrapping")
-    if len(v) < 8:
-        raise Invalid("looks too short to be a real key")
-    return v
-
-
-def _webhook(v):
-    v = v.strip()
-    if not v.startswith("https://discord.com/api/webhooks/"):
-        raise Invalid("must start with https://discord.com/api/webhooks/")
-    if re.search(r"\s", v):
-        raise Invalid("contains a space or newline")
-    return v
-
-
-def _snowflake(v):
-    """A Discord id: 17-20 digits. Copied with Developer Mode on."""
-    v = v.strip()
-    if v and not v.isdigit():
-        raise Invalid("a Discord id is digits only — turn on Developer Mode, "
-                      "then right-click and Copy ID")
-    if v and not 15 <= len(v) <= 21:
-        raise Invalid(f"that is {len(v)} digits; a Discord id is about 18")
-    return v
-
-
-def _bot_token(v):
-    v = v.strip()
-    if not v:
-        raise Invalid("cannot be blank — leave the field empty to keep the current token")
-    # Checked before the whitespace rule: "Bot xyz" contains a space, and
-    # "copy it again without wrapping" would send you looking for the wrong thing.
-    if v.lower().startswith("bot "):
-        raise Invalid("drop the leading 'Bot ' — just the token itself")
-    if re.search(r"\s", v):
-        raise Invalid("contains a space or newline; copy it again without wrapping")
-    if v.count(".") < 2:
-        raise Invalid("a bot token has three dot-separated parts; this looks "
-                      "truncated, or it may be a webhook URL")
-    return v
+# The credential validators (_api_key, _webhook, _snowflake, _bot_token) were
+# removed with the credential fields. Those values are set over SSH in
+# /etc/momentum-bot.env now and only shown, never validated here -- see
+# credentials().
 
 
 def _amount(v):
@@ -123,60 +77,34 @@ def _amount(v):
 
 
 # name -> (validator, human label, help text)
+#
+# THREE KNOBS, DELIBERATELY. Credentials, channel/user ids and the Trading 212
+# key pairs are set once over SSH in /etc/momentum-bot.env and shown read-only by
+# credentials() below -- they do not belong in a browser form that can drift from
+# the file the bot actually reads. MOMENTUM_TRACK folded into autotrade (the bot
+# plans from live holdings when autotrade is on, paper otherwise). MOMENTUM_
+# CURRENCY is gone: the book is in dollars and relabelling it only misled.
 FIELDS = {
-    "T212_API_KEY": (_api_key, "Trading 212 API key",
-                     "From the app: Settings, API, Generate. It hands you a key "
-                     "AND a secret — this is the first of the two. Practice and "
-                     "live have separate pairs."),
-    "T212_API_SECRET": (_api_key, "Trading 212 secret key",
-                        "The second value shown when the key was generated. Both "
-                        "halves are required: the key on its own is rejected. It "
-                        "is only shown once, so regenerate the pair if it was "
-                        "not saved."),
-    "T212_ENV": (_choice("demo", "live"), "Which account",
-                 "demo is the practice account, live is real money."),
-    "DISCORD_WEBHOOK": (_webhook, "Discord webhook",
-                        "Where the monthly rebalance is posted."),
-    "DISCORD_BOT_TOKEN": (_bot_token, "Discord bot token",
-                          "Only needed to approve orders by reaction. From the "
-                          "Discord developer portal, Bot tab. A password: anything "
-                          "holding it can act as your bot."),
-    "DISCORD_CHANNEL_ID": (_snowflake, "Discord channel id",
-                           "The channel the bot posts orders into. Developer Mode "
-                           "on, right-click the channel, Copy Channel ID."),
-    "DISCORD_OWNER_ID": (_snowflake, "Your Discord user id",
-                         "Only a checkmark from THIS user approves an order. "
-                         "Right-click your own name, Copy User ID."),
-    "MOMENTUM_TRACK": (_choice("paper", "live"), "Which book to follow",
-                       "Which numbers the monthly instructions are worked out "
-                       "from. 'paper' keeps its own book from assumed fills; "
-                       "'live' uses what Trading 212 actually holds. Switching "
-                       "does not by itself place an order — but the bot can now "
-                       "place orders you approve, so this is not the safety "
-                       "catch it once was. Switch once --t212-check agrees with "
-                       "the broker."),
-    "MOMENTUM_CURRENCY": (_choice("usd", "eur", "gbp"), "Currency",
-                          "A LABEL ONLY — it converts nothing. The book values US "
-                          "stocks at their dollar prices, so the figures are "
-                          "dollars whatever this says. On a euro account the two "
-                          "drift apart as EUR/USD moves, and by the 0.15% "
-                          "Trading 212 charges on each conversion. Set it to "
-                          "whatever you would rather read; it changes no maths."),
+    "T212_ENV": (_choice("demo", "live"), "Account",
+                 "demo is the practice account — fake money, for a trial run. "
+                 "live is real money. Each uses its own key pair from the env "
+                 "file (T212_API_KEY_DEMO / _LIVE), so switching here needs no "
+                 "re-paste."),
     "MOMENTUM_MONTHLY": (_amount, "Monthly contribution",
-                         "What you pay in each month by standing order. Added "
-                         "to the paper book on rebalance day and spread over "
-                         "all eight holdings. 0 turns it off. The live track "
-                         "takes its cash from Trading 212 instead."),
-    "MOMENTUM_AUTOTRADE": (_choice("off", "on"), "Place approved orders",
-                           "With this off the bot works out the orders and posts "
-                           "them, and you place them yourself. With it on it "
-                           "places them at Trading 212 — but only after you react "
-                           "with a checkmark in Discord, and only on the live "
-                           "track. No reaction, no orders. Needs the bot token, "
-                           "channel id and your user id filled in above."),
+                         "What you pay in each month by standing order, so a "
+                         "deposit is not counted as profit. Keep it matched to "
+                         "your real standing order. 0 turns it off."),
+    "MOMENTUM_AUTOTRADE": (_choice("off", "on"), "Automatic trading",
+                           "Off: the bot works out the month's orders, posts "
+                           "them, and you place them yourself. On: it places "
+                           "them at Trading 212 — but only after you react with a "
+                           "checkmark in Discord, and it then trades the account "
+                           "chosen above. No reaction within six hours skips the "
+                           "month. Needs the Discord approvals row below to be "
+                           "green."),
 }
 
-UPPER = {"MOMENTUM_CURRENCY"}          # stored uppercase, chosen lowercase
+UPPER = set()          # nothing stored in a different case any more
 
 
 def parse_env(path: str) -> dict:
@@ -205,7 +133,8 @@ def effective() -> dict:
 
 
 def for_display() -> list:
-    """One row per setting, with secrets reduced to a hint."""
+    """One row per editable setting. No secrets here any more -- those are in
+    credentials(), read-only."""
     live = effective()
     ours = parse_env(CONFIG)
     rows = []
@@ -213,14 +142,39 @@ def for_display() -> list:
         raw = live.get(name, "")
         rows.append({
             "name": name, "label": label, "help": help_text,
-            "secret": name in SECRET,
+            "secret": False,
             "set": bool(raw),
-            "hint": ("···" + raw[-4:]) if (name in SECRET and len(raw) >= 4) else "",
-            "value": "" if name in SECRET else raw,
+            "value": raw,
             "from_browser": name in ours,
             "choices": getattr(FIELDS[name][0], "choices", None),
         })
     return rows
+
+
+def credentials() -> list:
+    """The values set once over SSH in /etc/momentum-bot.env, reported present or
+    not -- never their content. The dashboard shows this so you can see the bot
+    has what it needs without opening the file."""
+    e = effective()
+
+    def has(*names):
+        return any(e.get(n, "").strip() for n in names)
+
+    return [
+        {"label": "Trading 212 — demo key",
+         "set": has("T212_API_KEY_DEMO", "T212_API_KEY"),
+         "note": "T212_API_KEY_DEMO / T212_API_SECRET_DEMO"},
+        {"label": "Trading 212 — live key",
+         "set": has("T212_API_KEY_LIVE", "T212_API_KEY"),
+         "note": "T212_API_KEY_LIVE / T212_API_SECRET_LIVE"},
+        {"label": "Discord webhook (monthly message)",
+         "set": has("DISCORD_WEBHOOK"),
+         "note": "DISCORD_WEBHOOK"},
+        {"label": "Discord approvals (react to place orders)",
+         "set": has("DISCORD_BOT_TOKEN") and has("DISCORD_CHANNEL_ID")
+         and has("DISCORD_OWNER_ID"),
+         "note": "DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID + DISCORD_OWNER_ID"},
+    ]
 
 
 def apply(form) -> tuple[dict, dict]:

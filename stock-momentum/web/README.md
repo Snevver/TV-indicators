@@ -138,9 +138,12 @@ Keeping both is the point: the gap between them is your execution — slippage,
 currency fees, an order placed late or skipped. With only one number you cannot
 tell a bad month from a badly executed one.
 
-`MOMENTUM_TRACK` (the "Trading" setting) decides which book the bot plans orders
-from. Switch it to live only once **Compare with broker** shows the live book
-matching Trading 212, or the bot will tell you to buy things you already own.
+Which book the bot **plans orders from** follows the Automatic trading setting:
+on ⇒ live holdings, off ⇒ the paper book. There is no separate switch. The
+paper/live control at the top of the dashboard only changes which one you are
+*looking at*. Before turning Automatic trading on, check **Compare with broker**
+shows the live book matching Trading 212, or the first rebalance will try to
+sell things you do not hold.
 
 ## Where the numbers come from
 

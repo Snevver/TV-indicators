@@ -258,7 +258,8 @@ def api_config():
                 config.write(values)
             except OSError as exc:
                 errors = {"_": f"could not write {config.CONFIG}: {exc}"}
-    return jsonify({"fields": config.for_display(), "errors": errors,
+    return jsonify({"fields": config.for_display(),
+                    "credentials": config.credentials(), "errors": errors,
                     "paths": {"config": config.CONFIG, "etc": config.ETC}})
 
 

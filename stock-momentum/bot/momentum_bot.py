@@ -156,8 +156,13 @@ HOLD = 8            # positions
 
 # Sizing and bookkeeping. None of this touches the ranking — the strategy is the
 # same whatever these say.
-CURRENCY = os.environ.get("MOMENTUM_CURRENCY", "EUR")
-SYM = {"USD": "$", "EUR": "\u20ac", "GBP": "\u00a3"}.get(CURRENCY, CURRENCY + " ")
+#
+# The book values US stocks at their dollar prices, so every figure is dollars.
+# MOMENTUM_CURRENCY used to let you relabel that; it converted nothing and only
+# invited the reading that a euro account's numbers were euros. Fixed to what the
+# maths actually is.
+CURRENCY = "USD"
+SYM = "$"
 
 # MOMENTUM_MIN_ORDER used to sit here, defaulting to 1, and plan() skipped any
 # buy worth less than it. Removed on request: it was one more knob for a case
@@ -199,24 +204,6 @@ MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
 # live here has to come back -- nothing warns you now, because with fractional
 # orders nothing can be unbuyable.
 
-# Two books are kept side by side.
-#   paper : the strategy simulated on assumed fills. Always runs, never touched
-#           by the broker, so there is something to measure execution against.
-#   live  : what Trading 212 actually holds.
-# MOMENTUM_TRACK picks which one the bot plans from and reports on. What it
-# changes is which holdings the monthly orders are worked out from: once you are
-# following the live book, they have to be planned from what you really hold, or
-# the bot will tell you to sell something you do not own.
-#
-# IT DOES NOT DECIDE WHETHER ANYTHING IS TRADED. That is MOMENTUM_AUTOTRADE, a
-# separate switch that is off by default, and even with it on nothing is placed
-# without a reaction from you in Discord. Setting the track to 'live' on its own
-# still cannot place a single order.
-TRACKS = ("paper", "live")
-TRACK = os.environ.get("MOMENTUM_TRACK", "paper").strip().lower()
-if TRACK not in TRACKS:
-    raise SystemExit(f"MOMENTUM_TRACK must be 'paper' or 'live', not {TRACK!r}")
-
 # Whether an approved rebalance is placed at the broker or only written out for
 # you to place yourself. Off unless it is explicitly turned on: the default has
 # to be the one where a misconfiguration costs nothing.
@@ -225,6 +212,22 @@ if TRACK not in TRACKS:
 # "do it" instead of "noted" -- see the batch section further down.
 AUTOTRADE = os.environ.get("MOMENTUM_AUTOTRADE", "").strip().lower() in (
     "1", "on", "yes", "true")
+
+# Two books are kept side by side.
+#   paper : the strategy simulated on assumed fills. Always runs, never touched
+#           by the broker, so there is something to measure execution against.
+#   live  : what Trading 212 actually holds.
+# TRACK is which one the monthly orders are worked out from. It is no longer a
+# setting of its own: autotrade acts on the live account, so it plans from live
+# holdings; without it there is nothing to plan against but the paper book. That
+# removes the combination -- autotrade on, track paper -- where the bot posted
+# orders and placed nothing. A bare MOMENTUM_TRACK export still wins, for the
+# "watch the live numbers a while before arming" case.
+TRACKS = ("paper", "live")
+TRACK = (os.environ.get("MOMENTUM_TRACK", "").strip().lower()
+         or ("live" if AUTOTRADE else "paper"))
+if TRACK not in TRACKS:
+    raise SystemExit(f"MOMENTUM_TRACK must be 'paper' or 'live', not {TRACK!r}")
 
 GREEN = 0x3BA55D    # something changed
 BLURPLE = 0x5865F2  # ranked, nothing to do
@@ -2151,11 +2154,13 @@ def main() -> int:
     # is deferred to settle_batch(), which runs once the orders are actually
     # sent. That is why the month is still unmarked at this point.
     if AUTOTRADE and name != "live":
-        # Easy to set one and forget the other, and the failure is silent: the
-        # bot goes on printing instructions while you believe it is trading.
-        print(f"\n  ! 'Place approved orders' is on, but the track is "
-              f"{name!r}. Nothing is placed from a paper book — set 'Which book "
-              f"to follow' to live as well.")
+        # Autotrade forces the track to live unless something explicitly overrode
+        # it -- a MOMENTUM_TRACK export or --track paper. So this only fires for
+        # that deliberate override, and it is a warning, not the silent
+        # do-nothing it once was.
+        print(f"\n  ! 'Place approved orders' is on, but this run is on the "
+              f"{name!r} book (overridden). Nothing is placed from paper — drop "
+              f"the MOMENTUM_TRACK override / --track flag to autotrade.")
     if AUTOTRADE and name == "live" and orders:
         why = approval_ready()
         if why:

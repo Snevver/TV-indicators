@@ -12,17 +12,15 @@ with a ✅ and then stops. Nothing is sent to Trading 212 until you react — an
 only your reaction counts. No reaction, no orders: the batch expires after six
 hours and the month stays open.
 
-So there are three settings, and all three have to line up before a single euro
-moves:
+So two things have to line up before a single euro moves:
 
-| Setting | What it decides |
+| | What it decides |
 |---|---|
-| _Which book to follow_ = `live` | orders are worked out from what you really hold |
-| _Place approved orders_ = `on` | an approved batch is actually sent to the broker |
+| _Automatic trading_ = `on` | an approved batch is sent to the broker, and orders are worked out from what you really hold |
 | your ✅ in Discord | that this particular batch is approved |
 
-Miss any one of them and the bot goes on telling you what to trade and leaving
-the trading to you.
+Miss either and the bot goes on telling you what to trade and leaving the trading
+to you.
 
 ---
 
@@ -44,10 +42,13 @@ Both are needed: the bank moves the money, the setting tells the bot to expect i
 
 | Setting | Value |
 |---|---|
-| Which account | `live` |
-| Which book to follow | `paper` — leave it here for now |
-| Currency | `EUR` |
+| Account | `demo` for the trial month, then `live` |
 | Monthly contribution | `100`, or `0` for none |
+| Automatic trading | `off` until the trial has run |
+
+Everything else — the Trading 212 keys, the Discord webhook and bot token, the
+channel and your user id — is set once over SSH in `/etc/momentum-bot.env`; the
+settings page just shows whether each is present.
 
 **4. Keep your other investments out of the way**
 The bot ignores anything held in a **pie**, and anything outside its forty names.
@@ -167,8 +168,9 @@ in is a real decision.
 
 ## Automatic trading
 
-Off by default. To turn it on: **Settings → Place approved orders → on**, with
-_Which book to follow_ already on `live`.
+Off by default. To turn it on: **Settings → Automatic trading → on**. That one
+switch also makes the bot plan from your real Trading 212 holdings rather than
+the simulated book — there is no separate "which book" setting to get wrong.
 
 ### What happens then, on rebalance day
 
