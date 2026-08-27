@@ -518,20 +518,36 @@ def reconcile(bk, snap, adopt: bool) -> list:
         # difference of a millionth of a share is noise, not a discrepancy.
         if abs(a - b) > max(1e-6, 1e-4 * max(a, b)):
             diffs.append((tk, a, b))
-    if abs(bk["cash"] - snap["cash"]) > 0.01:
-        diffs.append(("(cash)", bk["cash"], snap["cash"]))
+    # Cash is deliberately NOT compared, and never adopted. See below.
 
     if adopt:
         bk["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
         bk["book"] = {tk: p["cost"] for tk, p in theirs.items()}
-        bk["cash"] = snap["cash"]
+        # THE BROKER OWNS THE POSITIONS. THE BOT OWNS THE CASH.
+        #
+        # Trading 212 reports one pool of free funds for the whole account, and
+        # the strategy is only a part of it. Adopting that number told the
+        # strategy it had every uninvested euro in the account -- on this one,
+        # 21,310 against a declared 1,000 -- and the next rebalance would have
+        # deployed the lot into eight stocks.
+        #
+        # A pie would have fenced it off, but a pie cannot be funded through the
+        # API, so the fence is this rule instead: cash is what the bot was told
+        # was paid in, plus what it sold, minus what it bought. It is a ledger,
+        # not an observation, and --deposit is the only thing that moves it.
+        #
+        # The cost of that: if a fill differs from what was assumed, the cash
+        # ledger drifts and only --fill corrects it. That is a small, visible
+        # error. Adopting the account balance is a large, invisible one.
         if not bk["deposited"]:
-            # Nothing was ever declared, so the only honest starting point is
-            # what is there now. Say so rather than quietly inventing a return.
-            bk["deposited"] = snap["total"]
-            print(f"  note: nothing was paid in on record, so {money(snap['total'])} "
-                  f"is being treated as the starting balance. Use --deposit if "
-                  f"that is wrong.")
+            # Nothing was ever declared. The account total is not a safe answer
+            # here either -- it includes everything else you own -- so say so and
+            # change nothing.
+            print(f"  ! nothing has been paid in on record, so there is no "
+                  f"starting balance to measure against.\n"
+                  f"    Run --deposit AMOUNT with what this strategy is actually "
+                  f"funded with. The account holds {money(snap['total'])}, but "
+                  f"that is the whole account, not this strategy.")
     return diffs
 
 
@@ -1291,8 +1307,10 @@ def main() -> int:
         live = book(state, "live")
         scope = "non-pie holdings in the universe"
         print(f"Trading 212 ({t212.ENV}) — {scope}")
-        print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}"
-              + f", cash {money(snap['cash'])}")
+        print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}")
+        print(f"  the account's free funds are {money(snap['cash'])} — that is the "
+              f"WHOLE account,\n  not this strategy's, and the bot never adopts it "
+              f"as its own.")
         if (args.t212_sync and live["positions"] and not snap["positions"]
                 and not args.force):
             raise SystemExit(
