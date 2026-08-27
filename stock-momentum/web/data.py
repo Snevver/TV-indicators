@@ -227,6 +227,9 @@ ACTIONS = {
     # the worst it can do is nothing.
     "pending_status": ["--pending-status"],
     "pending_cancel": ["--pending-cancel"],
+    # Sells everything and freezes. Fired by the Settings page right after it
+    # writes MOMENTUM_KILL=on; the poller re-fires it if this run failed.
+    "kill": ["--kill"],
 }
 
 

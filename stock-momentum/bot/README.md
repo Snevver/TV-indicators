@@ -43,12 +43,16 @@ DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
 # T212_API_KEY_DEMO=...   T212_API_SECRET_DEMO=...
 # T212_API_KEY_LIVE=...   T212_API_SECRET_LIVE=...
 # DISCORD_BOT_TOKEN=...   DISCORD_CHANNEL_ID=...   DISCORD_OWNER_ID=...
+# DISCORD_CONFIRM_CHANNEL_ID=...   # optional: "placed/skipped/expired" records
+#                                  # go here; unset = the approvals channel.
+#                                  # The bot needs "Manage Messages" in the
+#                                  # approvals channel to tidy answered prompts.
 EOF
 ```
 
 Everything the dashboard does not own lives in that file. The Settings page holds
-four things: `T212_ENV` (demo/live), `MOMENTUM_START_BUDGET`, `MOMENTUM_MONTHLY`
-and `MOMENTUM_AUTOTRADE`. There is no `MOMENTUM_TRACK` — autotrade on means "plan
+`T212_ENV` (demo/live), `MOMENTUM_START_BUDGET`, `MOMENTUM_MONTHLY`,
+`MOMENTUM_AUTOTRADE` and `MOMENTUM_KILL`. There is no `MOMENTUM_TRACK` — autotrade on means "plan
 from and trade the live account", off means "plan from the paper book and only
 post". The live book is valued in the account's own currency (it reads that from
 Trading 212 and converts the dollar price feed once); the paper book stays in
@@ -266,6 +270,18 @@ message always goes out. Common causes:
 
 The field names in `t212.py` were written from public documentation, not against
 a live account. `--t212-probe` is the step that settles them.
+
+## Kill switch
+
+`MOMENTUM_KILL` (Settings page, or `--kill` on the box). ON: the next bot run —
+or the poller, within a minute — sells every strategy position at market, drops
+the book to cash, and refuses to propose or place anything until you turn it
+back off. Pies and holdings outside the 40 names are never touched. It acts
+whether or not Automatic trading is on, as long as a live Orders-Execute key is
+configured; without one it posts the position list to Discord for you to sell by
+hand. A sell that fails is reported, not retried into a halt — close those
+yourself. Turning it back off re-arms it for next time; the next rebalance opens
+a fresh position from the sale proceeds.
 
 ## Running it on a schedule
 

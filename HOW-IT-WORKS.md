@@ -193,6 +193,21 @@ Ignore the message and it expires after six hours, having ordered nothing. React
 ❌ and the month is skipped and not offered again — `--force` if you change your
 mind.
 
+The ✅/❌ prompt lives in one Discord channel and **deletes itself** once you
+answer it (or it expires). The permanent record — *placed*, *skipped*, *expired*
+— goes to a second channel (`DISCORD_CONFIRM_CHANNEL_ID`; unset means both in the
+one channel).
+
+### The kill switch
+
+**Settings → Kill switch → on** (the browser asks you to confirm). It sells every
+strategy position at market straight away, drops the book to cash, and freezes
+all trading until you turn it back off. It does this whether or not Automatic
+trading is on. Your pies and anything outside the 40 names are not touched. A
+sell that fails is reported to the confirmations channel, not retried — close
+those by hand. Turn it back off and the next rebalance opens fresh from the
+proceeds.
+
 ### What it refuses to do
 
 - **Sell what you do not hold.** Before every sell it asks Trading 212 what is

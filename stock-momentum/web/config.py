@@ -115,6 +115,11 @@ FIELDS = {
                            "chosen above. No reaction within six hours skips the "
                            "month. Needs the Discord approvals row below to be "
                            "green."),
+    "MOMENTUM_KILL": (_choice("off", "on"), "Kill switch",
+                      "ON sells every strategy position at market right now and "
+                      "freezes all trading until you turn it back off. Your pies "
+                      "and anything outside the 40 names are untouched. The "
+                      "browser asks you to confirm before it arms."),
 }
 
 UPPER = set()          # nothing stored in a different case any more
@@ -187,6 +192,10 @@ def credentials() -> list:
          "set": has("DISCORD_BOT_TOKEN") and has("DISCORD_CHANNEL_ID")
          and has("DISCORD_OWNER_ID"),
          "note": "DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID + DISCORD_OWNER_ID"},
+        {"label": "Discord confirmations channel (optional)",
+         "set": has("DISCORD_CONFIRM_CHANNEL_ID"),
+         "note": "DISCORD_CONFIRM_CHANNEL_ID — records go here; unset = the "
+                 "approvals channel"},
     ]
 
 

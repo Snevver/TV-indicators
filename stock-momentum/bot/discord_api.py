@@ -34,6 +34,10 @@ import urllib.parse
 API = "https://discord.com/api/v10"
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "").strip()
 CHANNEL_ID = os.environ.get("DISCORD_CHANNEL_ID", "").strip()
+# Where the permanent records go -- "rebalance placed", "skipped", "expired".
+# The ✅/❌ approval prompts stay in CHANNEL_ID and delete themselves once
+# answered. Unset means both in the one channel, which is the old behaviour.
+CONFIRM_CHANNEL_ID = os.environ.get("DISCORD_CONFIRM_CHANNEL_ID", "").strip() or CHANNEL_ID
 OWNER_ID = os.environ.get("DISCORD_OWNER_ID", "").strip()
 TIMEOUT = float(os.environ.get("DISCORD_TIMEOUT", "20") or 20)
 
@@ -90,7 +94,8 @@ def _req(method: str, path: str, body=None, tries: int = 3):
         if r.status_code == 403:
             raise DiscordError(f"403 — the bot lacks a permission for {path}. It "
                                f"needs View Channels, Send Messages, Read Message "
-                               f"History and Add Reactions in that channel.")
+                               f"History, Add Reactions and Manage Messages in "
+                               f"that channel.")
         if r.status_code == 404:
             raise DiscordError(f"404 — {path} does not exist, or the bot cannot "
                                f"see it. Check DISCORD_CHANNEL_ID and that the bot "
@@ -117,8 +122,9 @@ def channel() -> dict:
     return _req("GET", f"/channels/{CHANNEL_ID}")
 
 
-def post(content: str = "", embeds=None) -> str:
-    """Post a message and return its id, which is the handle for the answer."""
+def post(content: str = "", embeds=None, channel: str = "") -> str:
+    """Post a message and return its id. `channel` defaults to CHANNEL_ID; pass
+    CONFIRM_CHANNEL_ID for a record that should stay put."""
     body = {}
     if content:
         # Discord's cap is 2000 characters. Truncating silently is how the
@@ -130,11 +136,23 @@ def post(content: str = "", embeds=None) -> str:
         body["content"] = content[:1900]
     if embeds:
         body["embeds"] = embeds
-    d = _req("POST", f"/channels/{CHANNEL_ID}/messages", body)
+    d = _req("POST", f"/channels/{channel or CHANNEL_ID}/messages", body)
     mid = (d or {}).get("id")
     if not mid:
         raise DiscordError(f"posted, but no message id came back: {str(d)[:200]}")
     return str(mid)
+
+
+def delete_message(message_id: str, channel: str = "") -> None:
+    """Remove a message. Best-effort: a message left in place is untidy, not a
+    failure, so this never raises."""
+    if not message_id:
+        return
+    try:
+        _req("DELETE", f"/channels/{channel or CHANNEL_ID}/messages/{message_id}",
+             tries=2)
+    except Exception as exc:                          # noqa: BLE001
+        print(f"  ! Discord: could not delete message {message_id} ({exc})")
 
 
 def offer_tick(message_id: str, emoji: str = TICK) -> None:

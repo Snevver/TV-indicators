@@ -4,7 +4,12 @@ import * as api from "../api.js";
 
 const rows = ref([]); const creds = ref([]); const errors = ref({});
 const saved = ref(false); const paths = ref({}); const busy = ref(false);
-const form = ref({});
+const form = ref({}); const killOut = ref("");
+
+const stored = (name) => {
+  const f = rows.value.find((x) => x.name === name);
+  return f ? seed(f) : "";
+};
 
 // Choice values come back as the bot stores them; the option list is lowercase.
 // Normalise so the <select> matches instead of rendering blank.
@@ -22,13 +27,24 @@ async function load() {
 onMounted(load);
 
 async function save() {
-  busy.value = true; saved.value = false; errors.value = {};
+  const arming = form.value.MOMENTUM_KILL === "on" && stored("MOMENTUM_KILL") !== "on";
+  if (arming && !window.confirm(
+    "Turn ON the kill switch?\n\nThis sells EVERY strategy position at market " +
+    "immediately and freezes all trading until you turn it back off.")) {
+    form.value.MOMENTUM_KILL = stored("MOMENTUM_KILL") || "off";
+    return;
+  }
+  busy.value = true; saved.value = false; errors.value = {}; killOut.value = "";
   try {
     const d = await api.saveConfig({ ...form.value });
-    if (d.errors && Object.keys(d.errors).length) errors.value = d.errors;
-    else {
-      saved.value = true; rows.value = d.fields; creds.value = d.credentials || [];
-      d.fields.forEach((f) => (form.value[f.name] = seed(f)));
+    if (d.errors && Object.keys(d.errors).length) { errors.value = d.errors; return; }
+    saved.value = true; rows.value = d.fields; creds.value = d.credentials || [];
+    d.fields.forEach((f) => (form.value[f.name] = seed(f)));
+    if (arming) {
+      killOut.value = "running the kill switch…";
+      const r = await api.runAction("kill");
+      killOut.value = ((r.out || "") + (r.err ? "\n" + r.err : "")).trim()
+        || (r.ok ? "kill switch done." : "kill switch failed with no output");
     }
   } catch (e) { errors.value = { _: String(e) }; }
   finally { busy.value = false; }
@@ -49,6 +65,7 @@ async function save() {
 
     <p v-if="saved" class="ok">Saved. The next bot run picks it up.</p>
     <p v-if="errors._" class="err">{{ errors._ }}</p>
+    <pre v-if="killOut" class="out">{{ killOut }}</pre>
 
     <form class="hud form" @submit.prevent="save">
       <div v-for="f in rows" :key="f.name" class="field" :class="{ bad: errors[f.name] }">

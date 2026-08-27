@@ -274,6 +274,14 @@ MONTHLY = float(os.environ.get("MOMENTUM_MONTHLY", "0") or 0)
 AUTOTRADE = os.environ.get("MOMENTUM_AUTOTRADE", "").strip().lower() in (
     "1", "on", "yes", "true")
 
+# The kill switch. ON: sell every strategy position at market at once and freeze
+# all trading until it is cleared. Independent of AUTOTRADE -- "get me out" must
+# not depend on another toggle -- so it acts whenever a live order-capable key is
+# configured. kill_switch() writes a `kill_done` marker on the live book so it
+# runs once, not every poll; clearing MOMENTUM_KILL clears the marker.
+KILL = os.environ.get("MOMENTUM_KILL", "").strip().lower() in (
+    "1", "on", "yes", "true")
+
 # Two books are kept side by side.
 #   paper : the strategy simulated on assumed fills. Always runs, never touched
 #           by the broker, so there is something to measure execution against.
@@ -1273,6 +1281,122 @@ def settle_batch(state, p, why: str) -> None:
         print(f"  ! the book is saved, but the dashboard cache is not: {exc}")
 
 
+def kill_switch(state) -> int:
+    """Sell every strategy position at market, at once, and freeze. Runs once:
+    a `kill_done` marker on the live book stops it repeating while MOMENTUM_KILL
+    stays on. Clearing the setting clears the marker (see main())."""
+    live = book(state, "live")
+    d = discord_api
+
+    # 1. No batch may go out while this is on. Abandon anything open.
+    pend = load_pending()
+    if pend.get("stage") in PENDING_OPEN:
+        pend["stage"] = "abandoned"
+        pend["error"] = "killswitch"
+        save_pending(pend)
+        if d is not None and d.configured():
+            d.delete_message(pend.get("message_id"))
+        print("  killswitch: abandoned the open batch.")
+
+    if live.get("kill_done"):
+        print("killswitch already executed; MOMENTUM_KILL is still on. Frozen.")
+        return 0
+
+    def _confirm(msg):
+        if d is not None and d.configured():
+            try:
+                d.post(msg, channel=d.CONFIRM_CHANNEL_ID)
+            except Exception as exc:                       # noqa: BLE001
+                print(f"  ! could not post the killswitch summary ({exc})")
+
+    # 2. Can we place orders at all?
+    if t212 is None or not t212.configured():
+        why = _T212_IMPORT_ERROR or (t212.why_not() if t212 else "no broker")
+        names = ", ".join(sorted(live.get("positions", {}))) or "(none on record)"
+        _confirm(f"🛑 **KILL SWITCH armed — but the bot cannot place orders** "
+                 f"({why}).\nSell these by hand now: {names}\nAll automatic "
+                 f"trading is frozen until the Kill switch is turned off.")
+        live["kill_done"] = True
+        save_state(state)
+        print(f"killswitch: cannot trade ({why}). Posted a manual list; frozen.")
+        return 1
+
+    snap = broker()
+    pos = (snap or {}).get("positions", {})
+    if not pos:
+        live["kill_done"] = True
+        live["basket"] = []
+        save_state(state)
+        _confirm("🛑 **KILL SWITCH armed.** Trading 212 shows no strategy "
+                 "positions — nothing to sell. All automatic trading is frozen "
+                 "until the Kill switch is turned off.")
+        print("killswitch: no strategy positions at the broker. Frozen.")
+        return 0
+
+    # 3. Sell each, at market, pacing like execute_batch.
+    try:
+        px = fetch()
+        book_prices = to_live(px.iloc[-1].to_dict())
+    except (Exception, SystemExit):                        # noqa: BLE001
+        book_prices = {}
+    codes = t212.resolve_universe(list(pos))["map"]
+    sold, failed = [], []
+    for tk, info in sorted(pos.items()):
+        sh = float(info.get("shares") or 0.0)
+        if sh <= 0 or tk not in codes:
+            failed.append((tk, "no shares or no instrument code"))
+            continue
+        try:
+            t212.place_market_order(codes[tk], -abs(sh))
+            sold.append((tk, sh))
+            print(f"  * sold {sh} {tk}")
+        except Exception as exc:                           # noqa: BLE001
+            failed.append((tk, str(exc)[:200]))
+            print(f"  ! {tk}: {exc}")
+        time.sleep(ORDER_GAP_SEC)
+
+    # 4. Move the book flat. apply_orders keeps realised P&L and the cash ledger
+    #    right when prices are in hand; without them the positions are still
+    #    cleared and the next refresh() re-adopts the real (empty) portfolio and
+    #    a --fill fixes any cash drift.
+    if sold and book_prices:
+        apply_orders(live, [(tk, -sh, sh * book_prices.get(tk, 0.0))
+                            for tk, sh in sold], book_prices)
+    for tk, _ in (sold + failed):
+        live["positions"].pop(tk, None)
+        live["book"].pop(tk, None)
+    live["basket"] = []
+    live["kill_done"] = True
+    after = mark(live, book_prices)
+    live["equity"].append([str(datetime.now(timezone.utc).date()),
+                           round(after["total"], 2)])
+    save_state(state)
+    log_row(str(datetime.now(timezone.utc).date()), [], [t for t, _ in sold], [],
+            after["total"], after["cash"], after["deposited"], after["pnl"])
+    try:
+        px = fetch()
+        for t in TRACKS:
+            record_day(px.index[-1].date(), t,
+                       mark(book(state, t),
+                            to_live(px.iloc[-1].to_dict()) if t == "live"
+                            else px.iloc[-1].to_dict()))
+        write_latest(snapshot_payload(state, px.iloc[-1].to_dict(),
+                                      rank(px), px.index[-1]))
+    except (Exception, SystemExit) as exc:                 # noqa: BLE001
+        print(f"  ! book saved, dashboard cache not: {exc}")
+
+    line = (f"🛑 **KILL SWITCH — sold {len(sold)} position(s)** "
+            f"for about {money(after['cash'])}.")
+    if failed:
+        line += ("\n**Could not sell:** "
+                 + ", ".join(f"`{t}` ({e})" for t, e in failed)
+                 + "\nClose those by hand.")
+    line += "\nAll automatic trading is frozen until the Kill switch is off."
+    _confirm(line)
+    print(f"killswitch done: {len(sold)} sold, {len(failed)} failed. Frozen.")
+    return 0 if not failed else 1
+
+
 def execute_batch(state, p) -> int:
     """Send the batch to the broker, in order, stopping at the first surprise."""
     d = discord_api
@@ -1325,6 +1449,7 @@ def execute_batch(state, p) -> int:
                        f"{money(short)} less than the plan assumed — enough that "
                        f"there is nothing left to buy with.\nNothing further was "
                        f"sent. Check the app and `--pending-status`.")
+                d.delete_message(p.get("message_id"))
                 print(p["error"])
                 return 1
             o["shares"] = round(o["shares"] * scale, 6)
@@ -1352,6 +1477,7 @@ def execute_batch(state, p) -> int:
                 d.post(f"⚠️ Stopped before selling `{o['ticker']}` — could not "
                        f"read the position back from Trading 212 ({exc}). "
                        f"Nothing further was sent.")
+                d.delete_message(p.get("message_id"))
                 print(p["error"])
                 return 1
             if not held or held <= 1e-9:
@@ -1430,11 +1556,14 @@ def execute_batch(state, p) -> int:
             p["stage"] = "stuck"
             p["error"] = f"{o['ticker']}: {msg}"
             save_pending(p)
+            # The halt is the new actionable thing, so it stays in the approvals
+            # channel; the answered prompt above it is removed.
             d.post(f"⚠️ **Stopped part-way through the rebalance.**\n"
                    f"`{o['ticker']}` came back: {msg[:400]}\n\n"
                    f"{len([x for x in orders if x.get('state') == 'sent'])} of "
                    f"{len(orders)} orders were sent before this. Nothing after it "
                    f"was. Check the app, then run `--pending-status` on the box.")
+            d.delete_message(p.get("message_id"))
             print(f"halted at {o['ticker']}: {msg}")
             return 1
         o["state"] = "sent"
@@ -1454,7 +1583,9 @@ def execute_batch(state, p) -> int:
            + "\n".join(f"`{pending_line(o).rstrip()}`" for o in orders)
            + (f"\n\n{len(skipped)} skipped (nothing held to sell)." if skipped else "")
            + "\n\nMarket orders fill at the market, so the amounts above are what "
-             "was asked for, not what it cost. Check the app for the fills.")
+             "was asked for, not what it cost. Check the app for the fills.",
+           channel=d.CONFIRM_CHANNEL_ID)
+    d.delete_message(p.get("message_id"))       # the approval is answered
     return 0
 
 
@@ -1711,7 +1842,9 @@ def pending_poll(state, once: bool) -> int:
         save_pending(p)
         d.post(f"{d.CROSS} The {p['month']} rebalance expired after "
                f"{PENDING_EXPIRY_H} hours. Nothing was ordered, and the month is "
-               f"still open — run it again when you are ready.")
+               f"still open — run it again when you are ready.",
+               channel=d.CONFIRM_CHANNEL_ID)
+        d.delete_message(p.get("message_id"))
         print("proposal expired; nothing ordered.")
         return 0
 
@@ -1736,7 +1869,9 @@ def pending_poll(state, once: bool) -> int:
                f"To change your mind, run the rebalance again with `--force`."
                + (f"\n\n{money(skipped_in)} was NOT drawn from free funds or "
                   f"recorded as paid in — no rebalance happened. It will go in "
-                  f"with the next one." if skipped_in else ""))
+                  f"with the next one." if skipped_in else ""),
+               channel=d.CONFIRM_CHANNEL_ID)
+        d.delete_message(p.get("message_id"))
         print("cancelled; nothing ordered.")
         return 0
 
@@ -1754,6 +1889,12 @@ def poll_all(state, once: bool) -> int:
     mean a smoke position left open for a week -- which is a perfectly normal
     thing to forget -- starving the monthly rebalance behind it.
     """
+    if KILL:
+        # The dashboard fires --kill on the toggle, but if that failed this is
+        # the safety net: within a minute the poller sells and freezes. It never
+        # runs the batch or smoke polls while armed.
+        return kill_switch(state) if not book(state, "live").get("kill_done") else 0
+
     smoke = load_smoke()
     pend = load_pending()
     smoke_waiting = smoke.get("stage") in ("offered", "bought")
@@ -1828,6 +1969,9 @@ def main() -> int:
     p.add_argument("--poll", action="store_true",
                    help="what the timer runs: act on any reaction, smoke test or "
                         "monthly batch. Does nothing when nothing is waiting.")
+    p.add_argument("--kill", action="store_true",
+                   help="sell every strategy position at market and freeze all "
+                        "trading. Needs MOMENTUM_KILL=on. THIS PLACES REAL ORDERS.")
     p.add_argument("--t212-find", metavar="TEXT",
                    help="search the broker's instrument list by code or name; "
                         "read-only, for names --t212-instruments could not resolve")
@@ -1856,6 +2000,22 @@ def main() -> int:
         if _fx["err"]:
             print(f"  ! {_fx['err']} — live figures shown in USD for now")
 
+    # --- the kill switch --------------------------------------------------
+    # Blocks trading, not reading -- --status / --json / --t212-* still work so
+    # you can see the frozen account. --kill, --poll and the rebalance run are
+    # what actually execute it; --pending-poll / --pending-resume refuse.
+    if not KILL and book(state, "live").get("kill_done"):
+        # Turned back off -- clear the marker so a future arm works.
+        book(state, "live").pop("kill_done", None)
+        save_state(state)
+        print("MOMENTUM_KILL is off — the kill switch is re-armed for next time.")
+
+    if args.kill:
+        if not KILL:
+            raise SystemExit("MOMENTUM_KILL is not on — arm it on the Settings "
+                             "page (or export MOMENTUM_KILL=on) first.")
+        return kill_switch(state)
+
     # --- this month's orders, and the timer that carries them out -----------
     if args.pending_status:
         print(pending_describe(load_pending()))
@@ -1865,6 +2025,8 @@ def main() -> int:
         return poll_all(state, args.smoke_once)
 
     if args.pending_poll:
+        if KILL:
+            raise SystemExit("MOMENTUM_KILL is on — refusing to place orders.")
         why = approval_ready()
         if why:
             raise SystemExit(why)
@@ -1879,10 +2041,14 @@ def main() -> int:
         pend["stage"] = "cancelled"
         pend["cancelled_at"] = datetime.now(timezone.utc).isoformat()
         save_pending(pend)
+        if discord_api is not None and discord_api.configured():
+            discord_api.delete_message(pend.get("message_id"))
         print(f"cancelled {pend['month']}; nothing was ordered.")
         return 0
 
     if args.pending_resume or args.pending_abandon:
+        if KILL and args.pending_resume:
+            raise SystemExit("MOMENTUM_KILL is on — refusing to place orders.")
         pend = load_pending()
         if pend.get("stage") != "stuck":
             raise SystemExit(f"only a halted batch can be resumed or abandoned "
@@ -2200,6 +2366,12 @@ def main() -> int:
             post(args.webhook, render_snapshot(bar, m, bk))
             print("\nposted to Discord")
         return 0
+
+    if KILL:
+        if book(state, "live").get("kill_done"):
+            print("MOMENTUM_KILL is on — no rebalance. Turn it off to resume.")
+            return 0
+        return kill_switch(state)
 
     refresh(state)
     px = fetch()
