@@ -97,7 +97,7 @@ const beat = computed(() => {
       <h1>Simulate a window</h1>
       <p class="lede">Run the same rules the bot follows over any past period and
         see it against simply buying the index and holding. Same ranking, same
-        monthly trade, same 10 basis points on the money that moves — only the
+        monthly trade, same 10 basis points on the money that moves. Only the
         names that changed are traded, exactly as the bot does it.</p>
     </div>
 
@@ -143,7 +143,7 @@ const beat = computed(() => {
             <b class="mono" :class="beat >= 0 ? 'up' : 'down'">
               {{ money(result.stats.strategy.final, sym) }}</b>
             against <b class="mono">{{ money(result.stats.spy.final, sym) }}</b>
-            from the index — the rotation was
+            from the index. The rotation was
             <b :class="beat >= 0 ? 'up' : 'down'">{{ Math.abs(beat).toFixed(1) }}
             points</b> {{ beat >= 0 ? "ahead" : "behind" }} over the window,
             through a worst fall of
@@ -153,7 +153,7 @@ const beat = computed(() => {
             You paid in <b class="mono">{{ money(result.stats.strategy.paid_in, sym) }}</b>
             and finished with
             <b class="mono" :class="beat >= 0 ? 'up' : 'down'">
-              {{ money(result.stats.strategy.final, sym) }}</b> —
+              {{ money(result.stats.strategy.final, sym) }}</b>,
             a gain of
             <b class="mono" :class="result.stats.strategy.gain >= 0 ? 'up' : 'down'">
               {{ money(result.stats.strategy.gain, sym) }}</b>, worth
@@ -203,12 +203,12 @@ const beat = computed(() => {
                   <b>{{ r.label }}</b><span class="sub">{{ r.note }}</span>
                 </td>
                 <td class="mono">{{ money(result.stats[r.key].final, sym) }}</td>
-                <td class="mono" v-if="result.stats[r.key].ret_pct == null">—</td>
+                <td class="mono" v-if="result.stats[r.key].ret_pct == null">-</td>
                 <td class="mono" v-else
                     :class="result.stats[r.key].ret_pct >= 0 ? 'up' : 'down'">
                   {{ pct(result.stats[r.key].ret_pct, 1) }}</td>
                 <td class="mono">{{ (result.stats[r.key].irr_pct
-                  ?? result.stats[r.key].cagr_pct) == null ? "—"
+                  ?? result.stats[r.key].cagr_pct) == null ? "-"
                   : pct(result.stats[r.key].irr_pct ?? result.stats[r.key].cagr_pct, 1) }}</td>
                 <td class="mono down">−{{ result.stats[r.key].maxdd_pct.toFixed(1) }}%</td>
                 <td class="mono dim">{{ result.stats[r.key].vol_pct.toFixed(0) }}%</td>
@@ -236,7 +236,7 @@ const beat = computed(() => {
 
         <p class="fine caveat">
           The rotation picks from forty names chosen in 2026, so it is flattered
-          by knowing which companies survived — a list drawn in 2010 would have
+          by knowing which companies survived; a list drawn in 2010 would have
           held some that later went nowhere. The index line has no such
           hindsight in it, which is exactly why it is the one worth comparing
           against. Dividends are excluded from the stocks and included in the

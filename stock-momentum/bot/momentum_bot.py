@@ -378,7 +378,7 @@ def fetch(days: int = 400):
         except (KeyError, ValueError):
             continue
     if len(cols) < HOLD * 2:
-        raise SystemExit(f"only {len(cols)} usable tickers — aborting rather than "
+        raise SystemExit(f"only {len(cols)} usable tickers - aborting rather than "
                          f"ranking a broken universe")
     return pd.DataFrame(cols).sort_index()
 
@@ -573,7 +573,7 @@ def refresh(state) -> bool:
     # --force is how you say you really did sell everything.
     if live["positions"] and not snap["positions"]:
         print("  ! Trading 212 reports no positions, but the live book holds "
-              f"{len(live['positions'])}. Not adopting that — it would erase "
+              f"{len(live['positions'])}. Not adopting that - it would erase "
               f"the book. Check --t212-probe, or --t212-sync --force if you "
               f"really did sell everything.")
         return False
@@ -589,7 +589,7 @@ def broker() -> dict | None:
     """The broker's view, or None if it is not set up or did not answer."""
     if t212 is None:
         if _T212_IMPORT_ERROR:
-            print(f"  ! t212.py did not load ({_T212_IMPORT_ERROR}) — using the "
+            print(f"  ! t212.py did not load ({_T212_IMPORT_ERROR}) - using the "
                   f"bot's own book")
         return None
     try:
@@ -597,7 +597,7 @@ def broker() -> dict | None:
             return None
         return t212.snapshot(universe=UNIVERSE)
     except Exception as exc:                          # belt and braces
-        print(f"  ! Trading 212 link failed ({type(exc).__name__}: {exc}) — "
+        print(f"  ! Trading 212 link failed ({type(exc).__name__}: {exc}) - "
               f"using the bot's own book")
         return None
 
@@ -737,14 +737,14 @@ def render_embed(bar, buys, sells, basket, scores, first: bool,
 
     if first:
         change = "```diff\n" + "\n".join(f"+ {t}" for t in basket) + "\n```"
-        change_name = f"Opening position — {len(basket)} names"
+        change_name = f"Opening position - {len(basket)} names"
     elif changed:
         rows = [f"+ {t}" for t in buys] + [f"- {t}" for t in sells]
         change = "```diff\n" + "\n".join(rows) + "\n```"
-        change_name = f"Changes — {len(buys)} in, {len(sells)} out"
+        change_name = f"Changes - {len(buys)} in, {len(sells)} out"
     else:
         change = "```\nNo change. Same eight names as last month.\n```"
-        change_name = "Changes — none"
+        change_name = "Changes - none"
 
     held = [f"{i:>2}  {tk:<5} {m * 100:>7.1f}%"
             for i, (tk, m) in enumerate(scores.head(HOLD).items(), 1)]
@@ -755,13 +755,13 @@ def render_embed(bar, buys, sells, basket, scores, first: bool,
 
     if orders and prices is not None:
         rows = render_orders(orders, prices)
-        fields.append({"name": f"Orders — {len(orders)} to place",
+        fields.append({"name": f"Orders - {len(orders)} to place",
                        "value": clip("```\n" + "\n".join(rows) + "\n```"),
                        "inline": False})
 
     size = f" · {money(m['total'] / HOLD)} each" if m and m["total"] else ""
     fields += [
-        {"name": f"Portfolio — equal weight{size}",
+        {"name": f"Portfolio - equal weight{size}",
          "value": "```\n" + "\n".join(held) + "\n```", "inline": True},
         {"name": "Next in line",
          "value": "```\n" + "\n".join(bench) + "\n```", "inline": True},
@@ -780,7 +780,7 @@ def render_embed(bar, buys, sells, basket, scores, first: bool,
 
     title = "Opening position" if first else "Monthly rebalance"
     if test:
-        title = "TEST — " + title
+        title = "TEST - " + title
     footer = ("Test message · nothing saved · do not trade this" if test else
               f"Buy near the US close · next rebalance {next_month_label(bar)}")
 
@@ -807,7 +807,7 @@ def render_snapshot(bar, m, bk) -> dict:
                    f"in {money(m['deposited'])} · "
                    f"open {m['unrealised']:+,.2f} · banked {m['realised']:+,.2f}"),
          "inline": False},
-        {"name": f"Holdings — {len(m['rows'])} names · cash {money(m['cash'])}",
+        {"name": f"Holdings - {len(m['rows'])} names · cash {money(m['cash'])}",
          "value": clip("```\n" + "\n".join(rows) + "\n```"), "inline": False},
     ]
     return {"embeds": [{
@@ -815,10 +815,42 @@ def render_snapshot(bar, m, bk) -> dict:
         "description": f"**{bar.strftime('%-d %B %Y')}** · marked at the latest close",
         "color": GREEN if m["pnl"] >= 0 else 0xC0392B,
         "fields": fields,
-        "footer": {"text": f"Held since {bk.get('last_rebalance') or '—'} · "
+        "footer": {"text": f"Held since {bk.get('last_rebalance') or '-'} · "
                            f"next rebalance {next_month_label(bar)}"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }]}
+
+
+# ---------------------------------------------------- the autotrade embeds
+#
+# The batch messages -- propose, placed, skipped, expired, kill -- go out as
+# coloured Discord embeds with structured fields, matching render_embed() above.
+# One builder, one accent per kind.
+GREY = 0x6B7280
+RED = 0xC0392B
+
+
+def _nd(s) -> str:
+    """No em dashes in anything a person reads."""
+    return str(s).replace(" — ", " - ").replace("—", "-")
+
+
+def _embed(title, color, desc="", fields=None, footer="") -> dict:
+    e = {"title": _nd(title), "color": color,
+         "timestamp": datetime.now(timezone.utc).isoformat()}
+    if desc:
+        e["description"] = _nd(desc)
+    if fields:
+        e["fields"] = [{"name": _nd(f["name"]),
+                        "value": clip(_nd(f["value"])),
+                        "inline": f.get("inline", False)} for f in fields]
+    if footer:
+        e["footer"] = {"text": _nd(footer)}
+    return e
+
+
+def _block(lines) -> str:
+    return "```\n" + "\n".join(str(x) for x in lines) + "\n```"
 
 
 HISTORY_COLS = ("date", "track", "total", "invested", "cash", "deposited",
@@ -1126,7 +1158,7 @@ def resume_point(orders: list):
             continue
         if st in ("pending", "failed"):
             return i, ""
-        return None, (f"order {i + 1} ({o['ticker']}) is {st!r} — its fate is not "
+        return None, (f"order {i + 1} ({o['ticker']}) is {st!r} - its fate is not "
                       f"known, so nothing after it can be sent safely")
     return None, "every order is finished"
 
@@ -1177,21 +1209,30 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m,
              "cash": round(dc, 2), "price": round(float(prices[tk]), 4),
              "state": "pending"} for tk, sh, dc in orders]
 
-    body = [f"**{bar.date()} — {len(recs)} orders, for real money.**", ""]
-    body += [f"`{pending_line(o, state=False)}`" for o in recs]
-    body += ["", f"Sells raise about {money(raise_)}; buys spend about "
-                 f"{money(spend)}.",
-             f"Sizes were worked out from the {bar.date()} close — the market "
-             f"moves, so what fills will not match to the cent.", ""]
+    n_sell = sum(1 for o in orders if o[2] > 0)
+    n_buy = len(orders) - n_sell
+    fields = [
+        {"name": f"Orders ({len(recs)})",
+         "value": _block(pending_line(o, state=False) for o in recs)},
+        {"name": "Basket after", "value": ", ".join(basket)},
+        {"name": "Sells raise", "value": money(raise_), "inline": True},
+        {"name": "Buys spend", "value": money(spend), "inline": True},
+        {"name": "Account", "value": money(m["total"]), "inline": True},
+    ]
     if start:
-        body.append(f"Starting amount: {money(start)}, from your free funds.")
+        fields.append({"name": "Starting amount",
+                       "value": f"{money(start)}, from your free funds"})
     elif paid_in:
-        body.append(f"Includes {money(paid_in)} added this month, from free funds.")
-    body += [f"React {d.TICK} to place them, {d.CROSS} to skip this month.",
-             f"Only <@{d.OWNER_ID}> counts. Expires in {PENDING_EXPIRY_H} hours; "
-             f"ignore it and nothing happens.",
-             "Sells go first, then buys."]
-    mid = d.post("\n".join(body))
+        fields.append({"name": "This month",
+                       "value": f"{money(paid_in)} added, from your free funds"})
+    embed = _embed(
+        "Rebalance to approve", AMBER,
+        desc=f"**{bar.date()}** · {n_sell} sell, {n_buy} buy · sizes from that "
+             f"day's close, so fills will not match to the cent",
+        fields=fields,
+        footer=f"React ✅ to place, ❌ to skip. Only you count. "
+               f"Expires in {PENDING_EXPIRY_H}h. Sells go first, then buys.")
+    mid = d.post(content=f"<@{d.OWNER_ID}>", embeds=[embed])
     d.offer_tick(mid, d.TICK)
     d.offer_tick(mid, d.CROSS)
 
@@ -1211,8 +1252,9 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m,
     return 0
 
 
-def settle_batch(state, p, why: str) -> None:
-    """Write the orders that actually went to the broker into the book.
+def settle_batch(state, p, why: str):
+    """Write the orders that actually went to the broker into the book, and
+    return the marked account (or None if it was already settled).
 
     Only 'sent' orders count. An order that was never sent, or whose fate is
     unknown, must not move the book -- the book would then describe a portfolio
@@ -1229,8 +1271,8 @@ def settle_batch(state, p, why: str) -> None:
         # every fill again. --pending-abandon on a batch that already finished is
         # the way that happens.
         print(f"already settled at {p['settled_at']} ({p.get('settled_because')}) "
-              f"— not doing it again.")
-        return
+              f", not doing it again.")
+        return None
     bk = book(state, p["track"])
     # The rebalance run credited these in memory and then threw the book away
     # unsaved, so this is the first moment they are real: the starting amount on
@@ -1279,6 +1321,7 @@ def settle_batch(state, p, why: str) -> None:
         # AFTER the orders were sent and the book saved, which reads as a failed
         # rebalance when in fact the only casualty is a stale page.
         print(f"  ! the book is saved, but the dashboard cache is not: {exc}")
+    return after
 
 
 def kill_switch(state) -> int:
@@ -1302,10 +1345,11 @@ def kill_switch(state) -> int:
         print("killswitch already executed; MOMENTUM_KILL is still on. Frozen.")
         return 0
 
-    def _confirm(msg):
+    def _confirm(desc, fields=None):
         if d is not None and d.configured():
             try:
-                d.post(msg, channel=d.CONFIRM_CHANNEL_ID)
+                d.post(embeds=[_embed("KILL SWITCH", RED, desc=desc, fields=fields)],
+                       channel=d.CONFIRM_CHANNEL_ID)
             except Exception as exc:                       # noqa: BLE001
                 print(f"  ! could not post the killswitch summary ({exc})")
 
@@ -1313,9 +1357,10 @@ def kill_switch(state) -> int:
     if t212 is None or not t212.configured():
         why = _T212_IMPORT_ERROR or (t212.why_not() if t212 else "no broker")
         names = ", ".join(sorted(live.get("positions", {}))) or "(none on record)"
-        _confirm(f"🛑 **KILL SWITCH armed — but the bot cannot place orders** "
-                 f"({why}).\nSell these by hand now: {names}\nAll automatic "
-                 f"trading is frozen until the Kill switch is turned off.")
+        _confirm(f"Armed, but the bot cannot place orders ({why}). "
+                 f"Sell these by hand now, then the freeze holds until the "
+                 f"Kill switch is turned off.",
+                 fields=[{"name": "Sell by hand", "value": names}])
         live["kill_done"] = True
         save_state(state)
         print(f"killswitch: cannot trade ({why}). Posted a manual list; frozen.")
@@ -1327,9 +1372,9 @@ def kill_switch(state) -> int:
         live["kill_done"] = True
         live["basket"] = []
         save_state(state)
-        _confirm("🛑 **KILL SWITCH armed.** Trading 212 shows no strategy "
-                 "positions — nothing to sell. All automatic trading is frozen "
-                 "until the Kill switch is turned off.")
+        _confirm("Armed. Trading 212 shows no strategy positions, so there is "
+                 "nothing to sell. Trading is frozen until the Kill switch is "
+                 "turned off.")
         print("killswitch: no strategy positions at the broker. Frozen.")
         return 0
 
@@ -1385,14 +1430,16 @@ def kill_switch(state) -> int:
     except (Exception, SystemExit) as exc:                 # noqa: BLE001
         print(f"  ! book saved, dashboard cache not: {exc}")
 
-    line = (f"🛑 **KILL SWITCH — sold {len(sold)} position(s)** "
-            f"for about {money(after['cash'])}.")
+    fields = [{"name": f"Sold ({len(sold)})",
+               "value": (", ".join(t for t, _ in sold) or "-")},
+              {"name": "Account is now cash",
+               "value": money(after["cash"]), "inline": True}]
     if failed:
-        line += ("\n**Could not sell:** "
-                 + ", ".join(f"`{t}` ({e})" for t, e in failed)
-                 + "\nClose those by hand.")
-    line += "\nAll automatic trading is frozen until the Kill switch is off."
-    _confirm(line)
+        fields.append({"name": f"Could not sell ({len(failed)})",
+                       "value": ", ".join(f"{t} ({e})" for t, e in failed)
+                                + "  - close these by hand"})
+    _confirm("Sold everything at market. Trading is frozen until the Kill switch "
+             "is turned back off.", fields=fields)
     print(f"killswitch done: {len(sold)} sold, {len(failed)} failed. Frozen.")
     return 0 if not failed else 1
 
@@ -1446,7 +1493,7 @@ def execute_batch(state, p) -> int:
                               f"which is everything the buys needed")
                 save_pending(p)
                 d.post(f"⚠️ Stopped before buying anything. The sells raised "
-                       f"{money(short)} less than the plan assumed — enough that "
+                       f"{money(short)} less than the plan assumed, enough that "
                        f"there is nothing left to buy with.\nNothing further was "
                        f"sent. Check the app and `--pending-status`.")
                 d.delete_message(p.get("message_id"))
@@ -1454,7 +1501,7 @@ def execute_batch(state, p) -> int:
                 return 1
             o["shares"] = round(o["shares"] * scale, 6)
             o["cash"] = round(o["cash"] * scale, 2)
-            o["note"] = f"scaled to {scale:.3f} — the sells raised less than planned"
+            o["note"] = f"scaled to {scale:.3f} - the sells raised less than planned"
             if o["shares"] <= 0:
                 o["state"] = "skipped"
                 o["note"] = "nothing left to buy with after the sells fell short"
@@ -1474,7 +1521,7 @@ def execute_batch(state, p) -> int:
                 p["stage"] = "stuck"
                 p["error"] = f"could not read positions before selling: {exc}"
                 save_pending(p)
-                d.post(f"⚠️ Stopped before selling `{o['ticker']}` — could not "
+                d.post(f"⚠️ Stopped before selling `{o['ticker']}` - could not "
                        f"read the position back from Trading 212 ({exc}). "
                        f"Nothing further was sent.")
                 d.delete_message(p.get("message_id"))
@@ -1497,7 +1544,7 @@ def execute_batch(state, p) -> int:
                 o["cash"] = round(o["cash"] * held / abs(o["shares"]), 2)
                 short += was - o["cash"]
                 o["shares"] = -round(float(held), 6)
-                print(f"  ! {o['ticker']}: {o['note']} — selling what is there")
+                print(f"  ! {o['ticker']}: {o['note']} - selling what is there")
 
         o["state"] = "sending"
         save_pending(p)                     # BEFORE the request. Always.
@@ -1534,7 +1581,7 @@ def execute_batch(state, p) -> int:
                 fit = min(want, t212._round_qty(free * hair / price)) if price > 0 else 0.0
                 if fit <= 0:
                     o.update(state="skipped", cash=0.0,
-                             note=f"only {money(free)} free — nothing left to buy with")
+                             note=f"only {money(free)} free - nothing left to buy with")
                     save_pending(p)
                     print(f"  - {o['ticker']}: {o['note']}")
                     msg = ""
@@ -1542,7 +1589,7 @@ def execute_batch(state, p) -> int:
                 o["shares"] = fit
                 o["cash"] = -round(fit * price, 2)
                 o["note"] = f"trimmed to {fit} to fit {money(free)} free"
-                print(f"  ! {o['ticker']}: {money(free)} free — trying {fit} of {want}")
+                print(f"  ! {o['ticker']}: {money(free)} free - trying {fit} of {want}")
                 resp, msg = _send(fit)
 
         if o.get("state") == "skipped":
@@ -1576,15 +1623,27 @@ def execute_batch(state, p) -> int:
 
     p["stage"] = "done"
     save_pending(p)
-    settle_batch(state, p, "all orders sent")
+    after = settle_batch(state, p, "all orders sent") or {}
     sent = [o for o in orders if o.get("state") == "sent"]
     skipped = [o for o in orders if o.get("state") == "skipped"]
-    d.post(f"{d.TICK} **Rebalance placed — {len(sent)} orders.**\n"
-           + "\n".join(f"`{pending_line(o).rstrip()}`" for o in orders)
-           + (f"\n\n{len(skipped)} skipped (nothing held to sell)." if skipped else "")
-           + "\n\nMarket orders fill at the market, so the amounts above are what "
-             "was asked for, not what it cost. Check the app for the fills.",
-           channel=d.CONFIRM_CHANNEL_ID)
+    sold = [o["ticker"] for o in sent if o["shares"] < 0]
+    bought = [o["ticker"] for o in sent if o["shares"] > 0]
+    fields = [
+        {"name": f"Sold ({len(sold)})", "value": ", ".join(sold) or "-", "inline": True},
+        {"name": f"Bought ({len(bought)})", "value": ", ".join(bought) or "-", "inline": True},
+        {"name": "Basket", "value": ", ".join(book(state, "live").get("basket", []))},
+        {"name": "Account",
+         "value": f"{money(after.get('total', 0.0))}  "
+                  f"({after.get('pnl_pct', 0.0):+.1f}% on {money(after.get('deposited', 0.0))})"},
+    ]
+    if skipped:
+        fields.append({"name": "Skipped",
+                       "value": f"{len(skipped)} (nothing held to sell)"})
+    d.post(embeds=[_embed(
+        f"Rebalance placed - {p['month']}", GREEN,
+        desc=f"{len(sent)} orders sent. Market orders fill at the market, so "
+             f"check the app for the actual fills.",
+        fields=fields)], channel=d.CONFIRM_CHANNEL_ID)
     d.delete_message(p.get("message_id"))       # the approval is answered
     return 0
 
@@ -1640,7 +1699,7 @@ def env_source_line() -> str:
     because 'the dashboard says one thing and the bot does another' is otherwise
     invisible."""
     if not ENV_FILES_LOADED:
-        return (f"config    : no env file found ({ETC_ENV}, {USER_ENV}) — "
+        return (f"config    : no env file found ({ETC_ENV}, {USER_ENV}) - "
                 f"using defaults and whatever is exported")
     names = ", ".join(ENV_FILES_LOADED)
     return f"config    : {names}" + ("" if len(ENV_FILES_LOADED) > 1 else
@@ -1659,7 +1718,7 @@ def smoke_poll(once: bool) -> int:
     stage = s.get("stage")
 
     if stage in ("buying", "selling", "unknown"):
-        print(f"stage is {stage!r} — a previous run did not finish cleanly.\n"
+        print(f"stage is {stage!r} - a previous run did not finish cleanly.\n"
               f"Check the Trading 212 app, then delete {SMOKE} once the "
               f"position matches what you expect.")
         if s.get("error"):
@@ -1760,14 +1819,14 @@ def smoke_poll(once: bool) -> int:
         if held is None or held <= 0:
             d.post(f"⚠️ Not selling: Trading 212 shows no {SMOKE_TICKER} "
                    f"position.\nThe buy was accepted but may not have filled "
-                   f"— outside US market hours it can sit pending. Check the "
+                   f"- outside US market hours it can sit pending. Check the "
                    f"app; react {d.CROSS} again once it shows.")
             print(f"refusing to sell: broker reports no {SMOKE_TICKER} "
                   f"holding (buy may still be pending).")
             return 1
         want_qty = min(abs(float(s["qty"])), float(held))
         if abs(want_qty - abs(float(s["qty"]))) > 1e-9:
-            print(f"  ! selling {want_qty} rather than {s['qty']} — that is "
+            print(f"  ! selling {want_qty} rather than {s['qty']} - that is "
                   f"what the broker shows as held.")
         s["stage"] = "selling"
         s["sell_qty"] = want_qty
@@ -1788,7 +1847,7 @@ def smoke_poll(once: bool) -> int:
                   "closed_at": datetime.now(timezone.utc).isoformat()})
         save_smoke(s)
         d.post(f"{d.TICK} Sold {s['sell_qty']} of `{s['code']}` back. Round "
-               f"trip complete — the whole chain works end to end.\n"
+               f"trip complete - the whole chain works end to end.\n"
                f"Broker said: `{json.dumps(resp, default=str)[:400]}`")
         print(f"SOLD {s['sell_qty']} {s['code']}\n"
               f"{json.dumps(resp, indent=1, default=str)}")
@@ -1816,7 +1875,7 @@ def approval_ready() -> str:
     if fx["err"]:
         # Sizing a live rebalance without the rate would deploy the wrong amount,
         # exactly the bug this whole conversion exists to fix. Skip the month.
-        return fx["err"] + " — not sizing a live rebalance without it"
+        return fx["err"] + " - not sizing a live rebalance without it"
     return ""
 
 
@@ -1840,10 +1899,11 @@ def pending_poll(state, once: bool) -> int:
     if pending_expired(p):
         p["stage"] = "expired"
         save_pending(p)
-        d.post(f"{d.CROSS} The {p['month']} rebalance expired after "
-               f"{PENDING_EXPIRY_H} hours. Nothing was ordered, and the month is "
-               f"still open — run it again when you are ready.",
-               channel=d.CONFIRM_CHANNEL_ID)
+        d.post(embeds=[_embed(
+            f"Rebalance expired - {p['month']}", GREY,
+            desc=f"No answer in {PENDING_EXPIRY_H} hours. Nothing was ordered and "
+                 f"the book has not moved. Run it again with --force when ready.")],
+            channel=d.CONFIRM_CHANNEL_ID)
         d.delete_message(p.get("message_id"))
         print("proposal expired; nothing ordered.")
         return 0
@@ -1864,12 +1924,12 @@ def pending_poll(state, once: bool) -> int:
         p["cancelled_at"] = datetime.now(timezone.utc).isoformat()
         save_pending(p)
         skipped_in = float(p.get("start") or 0.0) or float(p.get("monthly") or 0.0)
-        d.post(f"{d.CROSS} Skipping {p['month']}. Nothing was ordered and the "
-               f"book has not moved — it still holds last month's basket.\n"
-               f"To change your mind, run the rebalance again with `--force`."
-               + (f"\n\n{money(skipped_in)} was NOT drawn from free funds or "
-                  f"recorded as paid in — no rebalance happened. It will go in "
-                  f"with the next one." if skipped_in else ""),
+        desc = ("Nothing was ordered and the book has not moved; it still holds "
+                "last month's basket. Run it again with --force to change your mind.")
+        if skipped_in:
+            desc += (f"\n\n{money(skipped_in)} was not drawn from free funds or "
+                     f"recorded as paid in, since no rebalance happened.")
+        d.post(embeds=[_embed(f"Skipped - {p['month']}", GREY, desc=desc)],
                channel=d.CONFIRM_CHANNEL_ID)
         d.delete_message(p.get("message_id"))
         print("cancelled; nothing ordered.")
@@ -1998,7 +2058,7 @@ def main() -> int:
         _fx = live_fx()
         SYM = _fx["sym"]
         if _fx["err"]:
-            print(f"  ! {_fx['err']} — live figures shown in USD for now")
+            print(f"  ! {_fx['err']} - live figures shown in USD for now")
 
     # --- the kill switch --------------------------------------------------
     # Blocks trading, not reading -- --status / --json / --t212-* still work so
@@ -2008,11 +2068,11 @@ def main() -> int:
         # Turned back off -- clear the marker so a future arm works.
         book(state, "live").pop("kill_done", None)
         save_state(state)
-        print("MOMENTUM_KILL is off — the kill switch is re-armed for next time.")
+        print("MOMENTUM_KILL is off - the kill switch is re-armed for next time.")
 
     if args.kill:
         if not KILL:
-            raise SystemExit("MOMENTUM_KILL is not on — arm it on the Settings "
+            raise SystemExit("MOMENTUM_KILL is not on - arm it on the Settings "
                              "page (or export MOMENTUM_KILL=on) first.")
         return kill_switch(state)
 
@@ -2026,7 +2086,7 @@ def main() -> int:
 
     if args.pending_poll:
         if KILL:
-            raise SystemExit("MOMENTUM_KILL is on — refusing to place orders.")
+            raise SystemExit("MOMENTUM_KILL is on - refusing to place orders.")
         why = approval_ready()
         if why:
             raise SystemExit(why)
@@ -2048,7 +2108,7 @@ def main() -> int:
 
     if args.pending_resume or args.pending_abandon:
         if KILL and args.pending_resume:
-            raise SystemExit("MOMENTUM_KILL is on — refusing to place orders.")
+            raise SystemExit("MOMENTUM_KILL is on - refusing to place orders.")
         pend = load_pending()
         if pend.get("stage") != "stuck":
             raise SystemExit(f"only a halted batch can be resumed or abandoned "
@@ -2062,7 +2122,7 @@ def main() -> int:
             settle_batch(state, pend, "abandoned by hand after a halt")
             print("\nThe month is now marked rebalanced. Anything the broker "
                   "filled that is\nnot in the list above is invisible to the "
-                  "book — put it right with --fill.")
+                  "book - put it right with --fill.")
             return 0
         # Resuming clears the halt so execute_batch will look again. It still
         # refuses if an order's fate is genuinely unknown; --pending-abandon is
@@ -2090,7 +2150,7 @@ def main() -> int:
                   f"(id {who.get('id')})")
             ch = d.channel()
             print(f"channel  : #{ch.get('name')} (id {ch.get('id')})")
-            print(f"owner    : {d.OWNER_ID}  — only a tick from this id approves\n")
+            print(f"owner    : {d.OWNER_ID}  - only a tick from this id approves\n")
             mid = d.post("**Setup check.** Tick this message to prove approval "
                          "works. Nothing is ordered either way.")
             d.offer_tick(mid)
@@ -2118,7 +2178,7 @@ def main() -> int:
             print(f"approved by {d.OWNER_ID}. Reaction approval works.")
             return 0
         print(f"ticked by {', '.join(who)}, but none of them is DISCORD_OWNER_ID "
-              f"({d.OWNER_ID}). Not approved — check the owner id is yours.")
+              f"({d.OWNER_ID}). Not approved - check the owner id is yours.")
         return 1
 
     if args.smoke_status:
@@ -2139,7 +2199,7 @@ def main() -> int:
 
     if args.smoke_offer:
         if s.get("stage") == "bought":
-            raise SystemExit("a test position is already open — close it first:\n"
+            raise SystemExit("a test position is already open - close it first:\n"
                              + smoke_describe(s))
         code = t212.resolve_universe([SMOKE_TICKER])["map"].get(SMOKE_TICKER)
         if not code:
@@ -2152,7 +2212,7 @@ def main() -> int:
         qty = t212._round_qty(target / last)
         notional = qty * last
         if qty <= 0:
-            raise SystemExit(f"{SMOKE_TICKER} at ${last:,.2f} — ${target:.2f} is "
+            raise SystemExit(f"{SMOKE_TICKER} at ${last:,.2f} - ${target:.2f} is "
                              f"below the smallest orderable quantity")
         if notional > SMOKE_MAX_USD:
             raise SystemExit(f"refusing: {notional:.2f} is over the {SMOKE_MAX_USD} cap")
@@ -2161,13 +2221,13 @@ def main() -> int:
         # same message meant reading two answers off one object and hoping you
         # meant the newer one; the sell is now asked for separately, after the
         # buy has actually happened.
-        body = (f"**Smoke test — this places a REAL order for about "
+        body = (f"**Smoke test - this places a REAL order for about "
                 f"${notional:.2f}.**\n\n"
                 f"React {d.TICK} to buy {qty} of `{code}` "
                 f"(~${notional:.2f} at the last close of ${last:,.2f}).\n"
                 f"I will ask about selling it back afterwards, in a new message.\n\n"
                 f"Only a reaction from <@{d.OWNER_ID}> counts. Expires in "
-                f"{SMOKE_EXPIRY_MIN} minutes — ignore it and nothing happens.\n"
+                f"{SMOKE_EXPIRY_MIN} minutes - ignore it and nothing happens.\n"
                 f"US market hours only; outside them the order sits unfilled.")
         mid = d.post(body)
         d.offer_tick(mid, d.TICK)
@@ -2175,7 +2235,7 @@ def main() -> int:
                     "qty": qty, "last": last, "notional": notional,
                     "offered_at": datetime.now(timezone.utc).isoformat()})
         print(f"offered in Discord (message {mid}):\n  buy {qty} {code} "
-              f"~${notional:.2f}\n\nReact {d.TICK} — the timer will do the rest.")
+              f"~${notional:.2f}\n\nReact {d.TICK} - the timer will do the rest.")
         return 0
 
     if args.smoke_poll:
@@ -2225,7 +2285,7 @@ def main() -> int:
                 note = f"   <- renamed; {info['name']}, ISIN {info['isin']}"
             print(f"  {tk:<6} -> {code}{note}" if code else f"  {tk:<6} -> ??")
         if r["ambiguous"]:
-            print("\n  AMBIGUOUS — more than one plausible code, so none was chosen:")
+            print("\n  AMBIGUOUS - more than one plausible code, so none was chosen:")
             for tk, codes in sorted(r["ambiguous"].items()):
                 print(f"    {tk}: {', '.join(codes)}")
         if r["missing"]:
@@ -2255,9 +2315,9 @@ def main() -> int:
         # broker. Paper is a simulation and has nothing to reconcile against.
         live = book(state, "live")
         scope = "non-pie holdings in the universe"
-        print(f"Trading 212 ({t212.ENV}) — {scope}")
+        print(f"Trading 212 ({t212.ENV}) - {scope}")
         print(f"  holds {len(snap['positions'])} names worth {money(snap['invested'])}")
-        print(f"  the account's free funds are {money(snap['cash'])} — that is the "
+        print(f"  the account's free funds are {money(snap['cash'])} - that is the "
               f"WHOLE account,\n  not this strategy's, and the bot never adopts it "
               f"as its own.")
         if (args.t212_sync and live["positions"] and not snap["positions"]
@@ -2296,12 +2356,12 @@ def main() -> int:
             raise SystemExit(f"--{'deposit' if sign > 0 else 'withdraw'} wants a "
                              f"positive amount")
         if sign < 0 and amount > bk["cash"] + 1e-9:
-            raise SystemExit(f"only {money(bk['cash'])} in cash on the {name} book — "
+            raise SystemExit(f"only {money(bk['cash'])} in cash on the {name} book - "
                              f"sell something first, or withdraw less")
         bk["cash"] += sign * amount
         bk["deposited"] += sign * amount
         save_state(state)
-        print(f"{verb} {money(amount)} to the {name} book — cash now "
+        print(f"{verb} {money(amount)} to the {name} book - cash now "
               f"{money(bk['cash'])}, {money(bk['deposited'])} paid in overall")
 
     # --- corrections to what the bot assumed --------------------------------
@@ -2310,7 +2370,7 @@ def main() -> int:
             tk, sh, pr = parse_fill(spec)
             apply_orders(bk, [(tk, sh, -sh * pr)], {tk: pr})
             print(f"recorded {'buy' if sh > 0 else 'sell'} of {abs(sh)} {tk} "
-                  f"@ {money(pr)} on the {name} book — cash now {money(bk['cash'])}")
+                  f"@ {money(pr)} on the {name} book - cash now {money(bk['cash'])}")
         save_state(state)
 
     if args.deposit is not None or args.withdraw is not None or args.fill:
@@ -2369,7 +2429,7 @@ def main() -> int:
 
     if KILL:
         if book(state, "live").get("kill_done"):
-            print("MOMENTUM_KILL is on — no rebalance. Turn it off to resume.")
+            print("MOMENTUM_KILL is on - no rebalance. Turn it off to resume.")
             return 0
         return kill_switch(state)
 
@@ -2390,7 +2450,7 @@ def main() -> int:
             print(f"{bar.date()}: already rebalanced this month "
                   f"({bk.get('last_rebalance')}). Nothing to do.")
         else:
-            print(f"{bar.date()}: funded but not started — the opening position "
+            print(f"{bar.date()}: funded but not started - the opening position "
                   f"waits for the first trading day of {next_month_label(bar)}.")
         if m["deposited"]:
             print(f"  account {money(m['total'])}  {m['pnl_pct']:+.1f}%")
@@ -2410,14 +2470,14 @@ def main() -> int:
     pend = load_pending()
     tag = f"{bar.year}-{bar.month:02d}"
     if pend.get("stage") in PENDING_OPEN and not (args.dry or args.test):
-        print(f"{pend.get('month')} is already out for approval — not planning it "
+        print(f"{pend.get('month')} is already out for approval - not planning it "
               f"again.\n\n{pending_describe(pend)}")
         return 0
     if (pend.get("month") == tag and pend.get("stage") in ("cancelled", "expired")
             and not (args.force or args.dry or args.test)):
         # You said no, or you let it lapse. Re-posting the same orders every day
         # until you gave in would make the checkmark meaningless.
-        print(f"{tag} was {pend['stage']} — not offering it again. Use --force if "
+        print(f"{tag} was {pend['stage']} - not offering it again. Use --force if "
               f"you have changed your mind.")
         return 0
 
@@ -2463,10 +2523,10 @@ def main() -> int:
               f"standing order bounced, correct it with --fill and set Monthly "
               f"to 0 until it is reliable.")
     if MONTHLY > 0 and first:
-        print(f"\n  ({money(MONTHLY)} monthly contribution starts next month — "
+        print(f"\n  ({money(MONTHLY)} monthly contribution starts next month - "
               f"this is the opening rebalance.)")
     if m["total"] <= 0:
-        print("\n  ! nothing to size against — set a Starting amount on the "
+        print("\n  ! nothing to size against - set a Starting amount on the "
               "Settings page, or run --deposit AMOUNT.")
 
     if args.dry:
@@ -2475,12 +2535,12 @@ def main() -> int:
 
     if args.test:
         if not args.webhook:
-            raise SystemExit("no webhook set ($DISCORD_WEBHOOK) — nothing to test")
+            raise SystemExit("no webhook set ($DISCORD_WEBHOOK) - nothing to test")
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         test=True, m=m, orders=orders,
                                         prices=book_prices))
         print("\n[--test] posted to Discord. state.json and rebalances.csv "
-              "untouched — this was not a rebalance, and the book did not move.")
+              "untouched - this was not a rebalance, and the book did not move.")
         return 0
 
     # When autotrade is armed and there is a batch to place, propose_batch() posts
@@ -2490,15 +2550,15 @@ def main() -> int:
     will_propose = AUTOTRADE and name == "live" and bool(orders)
 
     if not buys and not sells and not first and not orders:
-        print("\nbasket unchanged and nothing to trim — not posting")
+        print("\nbasket unchanged and nothing to trim - not posting")
     elif will_propose:
-        print("\n(skipping the webhook card — the approval message below covers it)")
+        print("\n(skipping the webhook card - the approval message below covers it)")
     elif args.webhook:
         post(args.webhook, render_embed(bar, buys, sells, basket, scores, first,
                                         m=m, orders=orders, prices=book_prices))
         print("\nposted to Discord")
     else:
-        print("\nno webhook set ($DISCORD_WEBHOOK) — printed only")
+        print("\nno webhook set ($DISCORD_WEBHOOK) - printed only")
 
     # AUTOMATIC EXECUTION FORKS HERE.
     #
@@ -2518,7 +2578,7 @@ def main() -> int:
         # that deliberate override, and it is a warning, not the silent
         # do-nothing it once was.
         print(f"\n  ! 'Place approved orders' is on, but this run is on the "
-              f"{name!r} book (overridden). Nothing is placed from paper — drop "
+              f"{name!r} book (overridden). Nothing is placed from paper - drop "
               f"the MOMENTUM_TRACK override / --track flag to autotrade.")
     if AUTOTRADE and name == "live" and orders:
         why = approval_ready()

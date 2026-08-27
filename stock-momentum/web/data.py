@@ -240,13 +240,13 @@ def run_bot(action: str, timeout: int = 180) -> dict:
         return {"ok": False, "out": "", "err": f"unknown action {action!r}", "code": -1}
     if not os.path.exists(PYTHON):
         return {"ok": False, "out": "",
-                "err": f"no interpreter at {PYTHON} — is the venv built?", "code": -1}
+                "err": f"no interpreter at {PYTHON}. Is the venv built?", "code": -1}
     try:
         p = subprocess.run([PYTHON, "momentum_bot.py", *args], cwd=BOT,
                            capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         return {"ok": False, "out": "",
-                "err": f"timed out after {timeout}s — the price download can hang",
+                "err": f"timed out after {timeout}s. The price download can hang",
                 "code": -1}
     except OSError as exc:
         return {"ok": False, "out": "", "err": str(exc), "code": -1}

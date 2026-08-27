@@ -90,10 +90,10 @@ def configured() -> bool:
 
 def why_not() -> str:
     if not API_KEY:
-        return (f"no key for T212_ENV={ENV!r} — set T212_API_KEY_{_SFX} "
-                f"(or a plain T212_API_KEY) — using the bot's own book")
+        return (f"no key for T212_ENV={ENV!r}, set T212_API_KEY_{_SFX} "
+                f"(or a plain T212_API_KEY). Using the bot's own book")
     if not BASE:
-        return f"T212_ENV must be 'demo' or 'live', not {ENV!r} — using the bot's own book"
+        return f"T212_ENV must be 'demo' or 'live', not {ENV!r}. Using the bot's own book"
     return ""
 
 
@@ -129,13 +129,13 @@ def _get(path: str, tries: int = 3):
         if r.status_code == 401:
             missing = ("" if API_SECRET else
                        f" T212_API_SECRET_{_SFX} (or T212_API_SECRET) is not set, "
-                       "and Trading 212 issues a key AND a secret — the key alone "
+                       "and Trading 212 issues a key AND a secret; the key alone "
                        "is rejected. That is the most likely cause.")
-            raise T212Error(f"{path}: 401 — the credentials were rejected.{missing} "
+            raise T212Error(f"{path}: 401, the credentials were rejected.{missing} "
                             f"Otherwise: a mistyped pair, or the {ENV} key pair is "
                             f"really the {'live' if ENV == 'demo' else 'demo'} one.")
         if r.status_code == 403:
-            raise T212Error(f"{path}: 403 — the key is valid but lacks this "
+            raise T212Error(f"{path}: 403, the key is valid but lacks this "
                             f"permission. Re-generate it with portfolio and "
                             f"history access ticked.")
         if r.status_code == 429:                       # rate limited: back off
@@ -145,7 +145,7 @@ def _get(path: str, tries: int = 3):
             last = "429 rate limited"
             time.sleep(20 * (attempt + 1))
             continue
-        raise T212Error(f"{path}: HTTP {r.status_code} — {r.text[:200]}")
+        raise T212Error(f"{path}: HTTP {r.status_code} - {r.text[:200]}")
     raise T212Error(f"{path}: gave up after {tries} attempts ({last})")
 
 
@@ -304,8 +304,8 @@ def positions(universe=None) -> dict:
         # `parsed_any` matters: an account that holds nothing from the universe
         # is a legitimately empty result, not a mapping failure, and raising
         # there would block the first rebalance from ever opening a position.
-        raise T212Error(f"{len(items)} positions came back but none could be read "
-                        f"— the field names differ from what this code expects. "
+        raise T212Error(f"{len(items)} positions came back but none could be read. "
+                        f"The field names differ from what this code expects. "
                         f"Run --t212-probe.")
     if skipped:
         print(f"  ! Trading 212: {skipped} of {len(items)} rows could not be read")
@@ -395,7 +395,7 @@ def probe() -> int:
               f"({len(API_SECRET)} chars)")
         print("auth     : HTTP Basic (key as username, secret as password)")
     else:
-        print("secret   : NOT SET — sending the bare key, which Trading 212 will "
+        print("secret   : NOT SET, sending the bare key, which Trading 212 will "
               "most likely reject with a 401")
         print("auth     : bare Authorization header (legacy single-key form)")
     print("scope    : non-pie holdings in the strategy universe "
@@ -490,7 +490,7 @@ def instruments(max_age: float = INSTRUMENTS_MAX_AGE, refresh: bool = False) -> 
             json.dump(rows, fh)
         os.replace(tmp, INSTRUMENTS_CACHE)
     except OSError as exc:
-        print(f"  ! could not cache the instrument list ({exc}) — it will be "
+        print(f"  ! could not cache the instrument list ({exc}); it will be "
               f"fetched again next time, which the broker may rate-limit")
     return rows
 
@@ -646,11 +646,11 @@ def _post(path: str, body: dict, tries: int = 2):
             except ValueError:
                 return {"raw_text": r.text[:400]}
         if r.status_code == 401:
-            raise T212Error(f"{path}: 401 — credentials rejected")
+            raise T212Error(f"{path}: 401, credentials rejected")
         if r.status_code == 403:
-            raise T212Error(f"{path}: 403 — this key lacks Orders-Execute, or the "
+            raise T212Error(f"{path}: 403, this key lacks Orders-Execute, or the "
                             f"account may not trade this instrument")
-        raise T212Error(f"{path}: HTTP {r.status_code} — {r.text[:300]}")
+        raise T212Error(f"{path}: HTTP {r.status_code} - {r.text[:300]}")
     raise T212Error(f"{path}: gave up")
 
 
@@ -698,7 +698,7 @@ def place_market_order(code: str, quantity: float) -> dict:
     q = _round_qty(q)
     if q == 0:
         raise T212Error(f"quantity {quantity!r} rounds to zero at "
-                        f"{QTY_DECIMALS} dp — too small to order")
+                        f"{QTY_DECIMALS} dp, too small to order")
 
     for _ in range(4):                                 # original + up to 3 shrinks
         try:

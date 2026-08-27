@@ -73,7 +73,7 @@ def _hash(password: str, salt: bytes) -> str:
 def set_password() -> int:
     pw = getpass.getpass("New dashboard password: ")
     if len(pw) < 8:
-        print("Too short — use at least 8 characters.")
+        print("Too short. Use at least 8 characters.")
         return 1
     if pw != getpass.getpass("Again: "):
         print("They did not match.")
@@ -188,10 +188,11 @@ def logout():
 
 
 def _track() -> str:
+    # The dashboard shows one book: the live one, which mirrors the connected
+    # Trading 212 account. `?track=` is still honoured for anyone hitting the
+    # API directly.
     t = request.args.get("track", "")
-    if t in data.TRACKS:
-        return t
-    return data.health().get("track") or "paper"
+    return t if t in data.TRACKS else "live"
 
 
 SPA = os.path.join(HERE, "static", "dist", "index.html")
@@ -227,10 +228,7 @@ def api_state():
     h.pop("state_age", None)
     h["hold"] = data.latest().get("hold", 8)
     return jsonify({"track": track, "summary": s, "health": h,
-                    # Per track: the live book is in the account's currency, paper
-                    # is a dollar model.
-                    "symbol": s.get("symbol") or data.latest().get("symbol") or "$",
-                    "other": data.summary("live" if track == "paper" else "paper")})
+                    "symbol": s.get("symbol") or data.latest().get("symbol") or "$"})
 
 
 @app.route("/api/history")

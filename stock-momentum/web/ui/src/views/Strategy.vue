@@ -26,7 +26,7 @@ const h = computed(() => store.state?.health || {});
 
       <h2>The part worth deciding in advance</h2>
       <p>The worst stretch in the backtest was a <b class="down">59.7% drawdown</b>
-        bottoming in March 2009 — deeper than the index fell. The account did not
+        bottoming in March 2009, deeper than the index fell. The account did not
         regain its December 2007 high until May 2013. Five and a half years of
         opening this page and seeing a number lower than one you already had.</p>
       <p>2009 is the specific weakness: the strategy made 9% while the index made
@@ -37,7 +37,7 @@ const h = computed(() => store.state?.health || {});
 
       <h2>How the money moves</h2>
       <p>Total the whole account, divide by eight, make every position that size.
-        A stock you sell at a profit does not fund its replacement — the gain
+        A stock you sell at a profit does not fund its replacement; the gain
         spreads across all eight, which is why every position grows together.</p>
 
       <h2>Paper and Trading 212</h2>
@@ -49,13 +49,12 @@ const h = computed(() => store.state?.health || {});
       <h2>What the backtest cannot tell you</h2>
       <p>The forty names were chosen in 2026, so every historical figure is
         flattered by knowing which companies survived. Holding all forty and never
-        trading beat the strategy over twenty-one years — but 41% of that was
+        trading beat the strategy over twenty-one years, but 41% of that was
         NVIDIA alone, and nobody picking a list in 2005 would have held it through
         an 85% fall. Against the index, which you could actually have bought,
         $1,000 became $36,110 versus $6,233.</p>
 
-      <p class="fine mode">Trading the
-        <b>{{ h.track === "live" ? "Trading 212" : "paper" }}</b> book.</p>
+      <p class="fine mode">Trading the <b>Trading 212</b> book.</p>
     </section>
   </div>
 </template>

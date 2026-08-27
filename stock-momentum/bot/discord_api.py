@@ -89,15 +89,15 @@ def _req(method: str, path: str, body=None, tries: int = 3):
             time.sleep(min(wait + 0.5, 30))
             continue
         if r.status_code == 401:
-            raise DiscordError("401 — the bot token was rejected. It was probably "
+            raise DiscordError("401 - the bot token was rejected. It was probably "
                                "reset; copy the current one into Settings.")
         if r.status_code == 403:
-            raise DiscordError(f"403 — the bot lacks a permission for {path}. It "
+            raise DiscordError(f"403 - the bot lacks a permission for {path}. It "
                                f"needs View Channels, Send Messages, Read Message "
                                f"History, Add Reactions and Manage Messages in "
                                f"that channel.")
         if r.status_code == 404:
-            raise DiscordError(f"404 — {path} does not exist, or the bot cannot "
+            raise DiscordError(f"404 - {path} does not exist, or the bot cannot "
                                f"see it. Check DISCORD_CHANNEL_ID and that the bot "
                                f"was invited to the server.")
         if r.status_code in (200, 201, 204):
@@ -108,7 +108,7 @@ def _req(method: str, path: str, body=None, tries: int = 3):
             except ValueError:
                 raise DiscordError(f"{path}: {r.status_code} but the body was not "
                                    f"JSON: {r.text[:200]}")
-        raise DiscordError(f"{path}: HTTP {r.status_code} — {r.text[:200]}")
+        raise DiscordError(f"{path}: HTTP {r.status_code} - {r.text[:200]}")
     raise DiscordError(f"{path}: gave up after {tries} attempts ({last})")
 
 
@@ -132,7 +132,7 @@ def post(content: str = "", embeds=None, channel: str = "") -> str:
         # disappears while the message still looks complete, so it says so.
         if len(content) > 1900:
             print(f"  ! Discord message trimmed from {len(content)} characters "
-                  f"to 1900 — the end of it was cut off.")
+                  f"to 1900 - the end of it was cut off.")
         body["content"] = content[:1900]
     if embeds:
         body["embeds"] = embeds
@@ -202,6 +202,6 @@ def owner_choice(message_id: str):
         print(f"  ! Discord: {exc}")
         return None
     if yes and no:
-        print(f"  ! both {TICK} and {CROSS} are set — remove one; doing nothing.")
+        print(f"  ! both {TICK} and {CROSS} are set. Remove one; doing nothing.")
         return None
     return "yes" if yes else ("no" if no else None)

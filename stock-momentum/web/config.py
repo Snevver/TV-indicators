@@ -86,7 +86,7 @@ def _amount(v):
 # CURRENCY is gone: the book is in dollars and relabelling it only misled.
 FIELDS = {
     "T212_ENV": (_choice("demo", "live"), "Account",
-                 "demo is the practice account — fake money, for a trial run. "
+                 "demo is the practice account (fake money, for a trial run). "
                  "live is real money. Each uses its own key pair from the env "
                  "file (T212_API_KEY_DEMO / _LIVE), so switching here needs no "
                  "re-paste."),
@@ -94,7 +94,7 @@ FIELDS = {
                               "How much of your Trading 212 free funds the "
                               "strategy begins with. The first rebalance sizes "
                               "the opening eight positions to this and draws it "
-                              "from free funds when you approve. Applied once — "
+                              "from free funds when you approve. Applied once: "
                               "after the strategy has started, growth and the "
                               "monthly contribution carry it and changing this "
                               "does nothing. Use the bot's --deposit for a later "
@@ -105,12 +105,12 @@ FIELDS = {
                          "(a bank standing order, or just the balance you already "
                          "hold) and spread over the new basket. 0 turns it off. "
                          "Do not also run a bank standing order into the account "
-                         "on top of this — the bot only deploys this amount, and "
+                         "on top of this; the bot only deploys this amount, and "
                          "anything extra piles up untouched."),
     "MOMENTUM_AUTOTRADE": (_choice("off", "on"), "Automatic trading",
                            "Off: the bot works out the month's orders, posts "
                            "them, and you place them yourself. On: it places "
-                           "them at Trading 212 — but only after you react with a "
+                           "them at Trading 212, but only after you react with a "
                            "checkmark in Discord, and it then trades the account "
                            "chosen above. No reaction within six hours skips the "
                            "month. Needs the Discord approvals row below to be "
@@ -179,10 +179,10 @@ def credentials() -> list:
         return any(e.get(n, "").strip() for n in names)
 
     return [
-        {"label": "Trading 212 — demo key",
+        {"label": "Trading 212, demo key",
          "set": has("T212_API_KEY_DEMO", "T212_API_KEY"),
          "note": "T212_API_KEY_DEMO / T212_API_SECRET_DEMO"},
-        {"label": "Trading 212 — live key",
+        {"label": "Trading 212, live key",
          "set": has("T212_API_KEY_LIVE", "T212_API_KEY"),
          "note": "T212_API_KEY_LIVE / T212_API_SECRET_LIVE"},
         {"label": "Discord webhook (monthly message)",
@@ -194,7 +194,7 @@ def credentials() -> list:
          "note": "DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID + DISCORD_OWNER_ID"},
         {"label": "Discord confirmations channel (optional)",
          "set": has("DISCORD_CONFIRM_CHANNEL_ID"),
-         "note": "DISCORD_CONFIRM_CHANNEL_ID — records go here; unset = the "
+         "note": "DISCORD_CONFIRM_CHANNEL_ID; records go here, unset = the "
                  "approvals channel"},
     ]
 

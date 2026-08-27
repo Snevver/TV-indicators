@@ -50,7 +50,7 @@ def _load():
         sp = os.path.join(DATA, "sp500_daily.csv.gz")
         et = os.path.join(DATA, "etfs_daily.csv.gz")
         if not os.path.exists(sp):
-            raise NoData(f"no price export at {sp} — it ships with the repo, so "
+            raise NoData(f"no price export at {sp}, it ships with the repo, so "
                          f"a git pull should restore it")
         s = pd.read_csv(sp, usecols=["time", "ticker", "close"])
         s["time"] = pd.to_datetime(s["time"])
@@ -174,7 +174,7 @@ def run(start: str, end: str, budget: float, monthly: float = 0.0,
     anchors = [int(a) for a in anchors
                if a >= LOOKBACK + SKIP + 1 and lo <= idx[a] <= hi]
     if not anchors:
-        raise ValueError("that window contains no rebalance date — it needs to "
+        raise ValueError("that window contains no rebalance date, it needs to "
                          "span at least one first trading day of a month")
 
     end_i = int(np.searchsorted(idx, hi, side="right") - 1)

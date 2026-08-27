@@ -30,7 +30,7 @@ const picks = computed(() => (props.h?.ranking || []).filter((r) => r.held));
       <p class="lede">
         Nothing is held yet. On the first trading day of the month the bot ranks
         the forty names, takes the top {{ h?.hold || 8 }}, and posts these orders
-        to Discord. This is that list as it stands right now — it will move
+        to Discord. This is that list as it stands right now; it will move
         before then.
       </p>
 
@@ -44,7 +44,7 @@ const picks = computed(() => (props.h?.ranking || []).filter((r) => r.held));
         </div>
       </div>
       <p v-else class="fine">
-        No ranking cached yet — press <b>Refresh prices</b> to fetch one.
+        No ranking cached yet. It fills in on the bot's next run.
       </p>
 
       <div v-if="picks.length" class="foot">

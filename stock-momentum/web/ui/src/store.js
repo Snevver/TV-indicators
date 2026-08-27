@@ -2,24 +2,22 @@ import { reactive } from "vue";
 import * as api from "./api.js";
 
 // One shared store. The dashboard reads it; the poller keeps it fresh.
+// The dashboard shows one thing now: the connected Trading 212 account.
 export const store = reactive({
-  track: new URLSearchParams(location.search).get("track") === "live"
-    ? "live" : "paper",
+  track: "live",
   state: null,
   history: null,
   rebalances: [],
   fetchedAt: null,
   loading: true,
   error: "",
-  busy: "",
 });
 
-export async function load(track = store.track) {
-  store.track = track;
+export async function load() {
   store.error = "";
   try {
     const [s, h, r] = await Promise.all([
-      api.getState(track), api.getHistory(track), api.getRebalances(),
+      api.getState("live"), api.getHistory("live"), api.getRebalances(),
     ]);
     store.state = s; store.history = h; store.rebalances = r.rows || [];
     store.fetchedAt = Date.now();
@@ -28,14 +26,6 @@ export async function load(track = store.track) {
   } finally {
     store.loading = false;
   }
-}
-
-export function setTrack(track) {
-  const u = new URL(location.href);
-  u.searchParams.set("track", track);
-  history.replaceState({}, "", u);
-  store.loading = true;
-  load(track);
 }
 
 // Poll every 30s, but never while the tab is hidden — no reason to keep the
@@ -51,14 +41,4 @@ export function startPolling(seconds = 30) {
   });
   arm();
   return stop;
-}
-
-export async function act(action) {
-  store.busy = action;
-  try {
-    return await api.runAction(action);
-  } finally {
-    store.busy = "";
-    if (action === "refresh" || action === "sync") await load();
-  }
 }

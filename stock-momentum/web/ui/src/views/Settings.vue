@@ -58,8 +58,8 @@ async function save() {
       <h1>Settings</h1>
     </div>
     <p class="lede">
-      Three things live here. Everything else — the Trading&nbsp;212 keys, the
-      Discord webhook and bot token, the channel and your user id — is set once
+      A few things live here. Everything else (the Trading&nbsp;212 keys, the
+      Discord webhook and bot token, the channel and your user id) is set once
       over SSH in <code>{{ paths.etc }}</code> and only shown below.
     </p>
 
@@ -86,7 +86,7 @@ async function save() {
       <h2>Credentials</h2>
       <p class="help">
         Set in <code>{{ paths.etc }}</code> (mode 600, over SSH). Editing that
-        file needs no restart — the next bot run reads it.
+        file needs no restart; the next bot run reads it.
       </p>
       <ul>
         <li v-for="c in creds" :key="c.label">
