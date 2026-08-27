@@ -635,15 +635,16 @@ def reconcile(bk, snap, adopt: bool) -> list:
         # The cost of that: if a fill differs from what was assumed, the cash
         # ledger drifts and only --fill corrects it. That is a small, visible
         # error. Adopting the account balance is a large, invisible one.
-        if not bk["deposited"]:
-            # Nothing was ever declared. The account total is not a safe answer
-            # here either -- it includes everything else you own -- so say so and
-            # change nothing.
+        if not bk["deposited"] and not START_BUDGET:
+            # Nothing declared and no Starting amount set. The account total is
+            # not a safe answer either -- it includes everything else you own --
+            # so say so and change nothing. (With START_BUDGET set the opening
+            # rebalance seeds it moments from now, so this would just be noise.)
             print(f"  ! nothing has been paid in on record, so there is no "
                   f"starting balance to measure against.\n"
-                  f"    Run --deposit AMOUNT with what this strategy is actually "
-                  f"funded with. The account holds {money(snap['total'])}, but "
-                  f"that is the whole account, not this strategy.")
+                  f"    Set a Starting amount on the Settings page, or run "
+                  f"--deposit AMOUNT. The account holds {money(snap['total'])}, "
+                  f"but that is the whole account, not this strategy.")
     return diffs
 
 
