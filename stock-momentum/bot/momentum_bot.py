@@ -1065,7 +1065,10 @@ def propose_batch(name, bar, basket, orders, prices, paid_in, m) -> int:
               f"account.\n    Some of these will be rejected. Move money in "
               f"first, or cancel with {d.CROSS}.")
 
-    recs = [{"ticker": tk, "code": codes[tk], "shares": round(sh, 6),
+    # Quantities are truncated to what Trading 212 will actually accept and send,
+    # so the message you approve is the trade that fills -- not a value a few
+    # decimals finer that the broker would 400.
+    recs = [{"ticker": tk, "code": codes[tk], "shares": t212._round_qty(sh),
              "cash": round(dc, 2), "price": round(float(prices[tk]), 4),
              "state": "pending"} for tk, sh, dc in orders]
 
@@ -1817,8 +1820,13 @@ def main() -> int:
         px = fetch()
         last = float(px[SMOKE_TICKER].iloc[-1])
         target = min(2.0, SMOKE_MAX_USD)      # ~1 EUR is under the broker minimum
-        qty = round(target / last, 6)
+        # Truncate to exactly what place_market_order will send, so the message,
+        # the cap check and the fill are the same number.
+        qty = t212._round_qty(target / last)
         notional = qty * last
+        if qty <= 0:
+            raise SystemExit(f"{SMOKE_TICKER} at ${last:,.2f} — ${target:.2f} is "
+                             f"below the smallest orderable quantity")
         if notional > SMOKE_MAX_USD:
             raise SystemExit(f"refusing: {notional:.2f} is over the {SMOKE_MAX_USD} cap")
 

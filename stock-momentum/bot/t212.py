@@ -621,6 +621,21 @@ def _post(path: str, body: dict, tries: int = 2):
     raise T212Error(f"{path}: gave up")
 
 
+# Trading 212 rejects an order whose quantity carries more decimal places than it
+# allows -- its demo account 400'd on 0.006404 with "invalid quantity precision
+# 4". The instrument metadata carries no precision field to read, so every
+# quantity is truncated (toward zero, so a buy never overspends and a sell never
+# tries to shed more than is held) to this many places before it is sent.
+# ponytail: 4 dp is what demo accepted; raise T212_QTY_DECIMALS, or read a
+# per-instrument field, if Trading 212 ever exposes one.
+QTY_DECIMALS = int(os.environ.get("T212_QTY_DECIMALS", "4") or 4)
+
+
+def _round_qty(q: float) -> float:
+    f = 10 ** QTY_DECIMALS
+    return int(q * f) / f          # int() truncates toward zero for either sign
+
+
 def place_market_order(code: str, quantity: float) -> dict:
     """Buy or sell at the market. A NEGATIVE quantity sells.
 
@@ -634,8 +649,12 @@ def place_market_order(code: str, quantity: float) -> dict:
     if not isinstance(code, str) or not code.strip():
         raise T212Error(f"refusing to order without an instrument code ({code!r})")
     q = float(quantity)
-    if q != q or q == 0:                               # NaN, or nothing to do
+    if q != q:                                         # NaN
         raise T212Error(f"refusing to order a quantity of {quantity!r}")
+    q = _round_qty(q)
+    if q == 0:
+        raise T212Error(f"quantity {quantity!r} rounds to zero at "
+                        f"{QTY_DECIMALS} dp — too small to order")
     d = _post("/equity/orders/market", {"ticker": code, "quantity": q})
     return d if isinstance(d, dict) else {"raw": d}
 
