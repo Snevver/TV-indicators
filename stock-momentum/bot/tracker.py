@@ -2,13 +2,16 @@
 """Hourly value snapshot for the dashboard's money-over-time chart.
 
 Every hour, systemd runs this once. For each book (demo, live) it values the
-STRATEGY's holdings -- cash plus shares times the latest price -- not the whole
-Trading 212 account, so free funds sitting in the account do not inflate the
-line. It also works out what the same deposits would be worth today if they had
-gone into a broad-market ETF instead, and appends a row per book to hourly.csv.
+STRATEGY's holdings -- cash (the bot's ledger) plus the value of the shares --
+not the whole Trading 212 account, so free funds sitting in the account do not
+inflate the line. It also works out what the same deposits would be worth today
+if they had gone into a broad-market ETF instead, and appends a row per book to
+hourly.csv.
 
-Standalone on purpose: it reads state.json and yfinance, nothing else. No broker
-call, no momentum_bot import. To run it by hand:
+Share value comes from Trading 212 itself for the account a key is configured
+for (T212_ENV), so the chart matches the app; the other book, and everything
+when there is no key, falls back to a yfinance mark. The benchmark ETF is
+always yfinance. No momentum_bot import. To run it by hand:
 
     .venv/bin/python tracker.py
 
@@ -22,6 +25,14 @@ import csv
 import json
 import os
 from datetime import datetime, timezone
+
+# Optional, exactly like in momentum_bot: a missing or broken t212.py must not
+# stop the tracker. It reads its configuration at import from the same env files
+# systemd loads for this unit.
+try:
+    import t212
+except Exception:                                    # noqa: BLE001
+    t212 = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATE = os.path.join(HERE, "state.json")
@@ -118,12 +129,41 @@ def held_prices(tickers, ccy: str) -> dict:
     return {tk: p / rate for tk, p in usd.items()}
 
 
-def strategy_total(book: dict, px: dict):
-    """Cash plus the value of the held shares, or None for a book never funded."""
+def broker_holdings() -> dict:
+    """{track: holdings value in the account currency} from Trading 212 itself,
+    for the one account a key is configured for (T212_ENV).
+
+    Trading 212 reports it as invested + ppl -- cost basis plus open P&L -- which
+    is the figure on its Investments screen. Empty when there is no key or the
+    call fails; the caller then falls back to the yfinance mark.
+    """
+    if t212 is None or not getattr(t212, "configured", lambda: False)():
+        return {}
+    env = getattr(t212, "ENV", "")
+    if env not in ("demo", "live"):
+        return {}
+    try:
+        snap = t212.snapshot()
+    except Exception as exc:                              # noqa: BLE001
+        print(f"  ! Trading 212 read failed ({type(exc).__name__}: {exc})")
+        return {}
+    ac = (snap or {}).get("account_cash") or {}
+    val = float(ac.get("invested") or 0.0) + float(ac.get("ppl") or 0.0)
+    return {env: round(val, 2)} if val > 0 else {}
+
+
+def strategy_total(book: dict, px: dict, held_value=None):
+    """Cash plus the value of the held shares, or None for a book never funded.
+
+    `held_value` (optional) is Trading 212's own figure for the shares; when
+    given it replaces the yfinance mark, so the line matches the app.
+    """
     positions = book.get("positions") or {}
     cash = float(book.get("cash") or 0.0)
     if not positions and not cash and not float(book.get("deposited") or 0.0):
         return None
+    if held_value is not None:
+        return round(cash + held_value, 2)
     total = cash
     for tk, sh in positions.items():
         p = px.get(tk)
@@ -244,18 +284,20 @@ def main() -> int:
     held = [tk for bk in trk.values() for tk in (bk.get("positions") or {})]
     px = held_prices(held, account_currency())
     closes, latest, bench_tk = bench_series(earliest)
+    brk = broker_holdings()                 # {track: value} for the keyed account
 
     rows = []
     for name in ("demo", "live"):
         bk = trk.get(name)
         if not bk:
             continue
-        total = strategy_total(bk, px)
+        total = strategy_total(bk, px, brk.get(name))
         if total is None:
             continue
         bench = bench_value(deps.get(name, []), closes, latest)
         rows.append((stamp, name, total, bench))
-        print(f"  {name}: total {total:.2f}"
+        src = "t212" if name in brk else "yfinance"
+        print(f"  {name}: total {total:.2f} ({src})"
               + (f"  bench {bench:.2f} ({bench_tk})" if bench is not None
                  else "  bench -"))
 

@@ -1,8 +1,9 @@
 # Hourly strategy-value snapshot for the dashboard's money-over-time chart.
 #
-# Values each book (cash + shares * latest price) and the benchmark ETF, and
-# appends a row per book to hourly.csv. Reads state.json and yfinance only, no
-# broker call. See tracker.py.
+# Values each book (cash + share value) and the benchmark ETF, and appends a row
+# per book to hourly.csv. Share value comes from Trading 212 for the account a
+# key is set for (so the chart matches the app) and from yfinance otherwise; the
+# benchmark is always yfinance. The env files below carry the key. See tracker.py.
 #
 # Install (edit CHANGEME first):
 #   sudo cp momentum-tracker.{service,timer} /etc/systemd/system/

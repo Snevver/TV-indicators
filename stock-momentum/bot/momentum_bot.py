@@ -634,6 +634,33 @@ def broker() -> dict | None:
         return None
 
 
+def t212_held_prices(snap) -> dict:
+    """Per-share prices in the account currency, taken from Trading 212's own
+    quotes so the dashboard's holdings value equals what the Trading 212 app
+    shows -- not a yfinance mark a few tenths of a percent away.
+
+    Trading 212 reports the holdings' value as invested + ppl (cost basis plus
+    open P&L), which is the figure on its Investments screen. That total is
+    spread back across the names by their current value, so the per-position
+    rows on the dashboard sum to it exactly. Returns {} with no snapshot, so
+    callers fall back to the yfinance mark.
+    """
+    if not snap:
+        return {}
+    ac = snap.get("account_cash") or {}
+    pos = snap.get("positions") or {}
+    eur_total = float(ac.get("invested") or 0.0) + float(ac.get("ppl") or 0.0)
+    usd_total = sum(float(p.get("value") or 0.0) for p in pos.values())
+    if eur_total <= 0 or usd_total <= 0:
+        return {}
+    out = {}
+    for tk, p in pos.items():
+        sh, val = float(p.get("shares") or 0.0), float(p.get("value") or 0.0)
+        if sh > 0 and val > 0:
+            out[tk] = val / usd_total * eur_total / sh
+    return out
+
+
 def reconcile(bk, snap, adopt: bool) -> list:
     """Compare the bot's book with the broker's. Returns the differences.
 
@@ -1001,8 +1028,15 @@ def append_deposit(track_name, when, amount) -> None:
     os.replace(tmp, DEPOSITS)
 
 
-def snapshot_payload(state, prices, scores, bar) -> dict:
-    """Everything the dashboard renders from, both tracks, no network needed."""
+def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
+    """Everything the dashboard renders from, both tracks.
+
+    `held_px` (optional) is {ticker: account-currency price/share} from Trading
+    212's own quotes -- see t212_held_prices(). When given, the account this run
+    talked to (TRACK) is marked with those instead of the yfinance prices, so
+    its holdings value matches the Trading 212 app to the cent. The other track,
+    and every track when held_px is absent, still use the yfinance mark.
+    """
     fx = live_fx()
     out = {"generated": datetime.now(timezone.utc).isoformat(),
            "bar": str(bar.date()) if hasattr(bar, "date") else str(bar),
@@ -1022,8 +1056,13 @@ def snapshot_payload(state, prices, scores, bar) -> dict:
     for name in TRACKS:
         bk = book(state, name)
         # Both books are real Trading 212 accounts in the account currency, so
-        # both are marked with the converted prices.
-        m = mark(bk, to_live(prices))
+        # both are marked with the converted prices -- except the account this
+        # run read from the broker, whose held names are marked at Trading 212's
+        # own prices so the dashboard equals the app.
+        px_live = dict(to_live(prices))
+        if held_px and name == TRACK:
+            px_live.update(held_px)
+        m = mark(bk, px_live)
         out["tracks"][name] = {
             "symbol": fx["sym"],
             "currency": fx["ccy"],
@@ -2503,12 +2542,18 @@ def main() -> int:
         px = fetch()
         prices = px.iloc[-1].to_dict()
         scores = rank(px)
-        payload = snapshot_payload(state, prices, scores, px.index[-1])
+        # Trading 212's own holdings prices for the account this run read, so the
+        # dashboard's value matches the app rather than a yfinance mark.
+        held_px = t212_held_prices(broker())
+        payload = snapshot_payload(state, prices, scores, px.index[-1],
+                                   held_px=held_px)
         payload["due"] = due(px, book(state, name))
         write_latest(payload)
         for t in TRACKS:
-            record_day(px.index[-1].date(), t,
-                       mark(book(state, t), to_live(prices)))
+            px_live = dict(to_live(prices))
+            if held_px and t == TRACK:
+                px_live.update(held_px)
+            record_day(px.index[-1].date(), t, mark(book(state, t), px_live))
         print(json.dumps(payload, indent=1, default=str))
         return 0
 

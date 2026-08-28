@@ -234,6 +234,23 @@ def test_reconcile_without_a_cash_endpoint_falls_back_to_fx():
     bot._FX.clear()
 
 
+def test_t212_held_prices_sum_to_the_brokers_own_value():
+    # Broker: invested 600, ppl +12 -> holdings worth 612 in EUR. Two names, USD
+    # current values 400 and 200. The per-share EUR prices must value the book
+    # back to 612.
+    snap = {"account_cash": {"invested": 600.0, "ppl": 12.0},
+            "positions": {"AAA": {"shares": 4.0, "value": 400.0},
+                          "BBB": {"shares": 10.0, "value": 200.0}}}
+    px = bot.t212_held_prices(snap)
+    assert abs(4.0 * px["AAA"] + 10.0 * px["BBB"] - 612.0) < 1e-6
+    assert abs(px["AAA"] / px["BBB"] - (400 / 4) / (200 / 10)) < 1e-6  # keeps ratio
+
+
+def test_t212_held_prices_empty_without_a_snapshot():
+    assert bot.t212_held_prices(None) == {}
+    assert bot.t212_held_prices({"account_cash": {}, "positions": {}}) == {}
+
+
 def test_reconcile_adopt_false_changes_nothing():
     b = _book(cash=4.97, deposited=1000.0)
     b["positions"] = {"AAA": 1.0}
