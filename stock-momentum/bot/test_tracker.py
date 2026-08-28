@@ -17,6 +17,17 @@ def test_on_or_before_picks_last_close_not_after():
     assert tracker._on_or_before(closes, "2025-12-31") is None
 
 
+def test_on_or_before_handles_hourly_keys():
+    # The series is now hourly; a deposit date is still a plain date, and must
+    # match the LAST bar of that day, not miss the day entirely.
+    closes = {"2026-01-02T14": 100.0, "2026-01-02T15": 101.0,
+              "2026-01-05T09": 110.0, "2026-01-05T10": 111.0}
+    assert tracker._on_or_before(closes, "2026-01-02") == 101.0    # last bar, 2nd
+    assert tracker._on_or_before(closes, "2026-01-03") == 101.0    # Saturday
+    assert tracker._on_or_before(closes, "2026-01-05") == 111.0
+    assert tracker._on_or_before(closes, "2025-12-31") is None
+
+
 def test_bench_value_is_money_weighted():
     # 100 in at price 100 (1 unit) + 100 in at price 50 (2 units) = 3 units.
     # Now at price 200 -> 600.

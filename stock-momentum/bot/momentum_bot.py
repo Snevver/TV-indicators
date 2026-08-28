@@ -646,27 +646,66 @@ def reconcile(bk, snap, adopt: bool) -> list:
     # Cash is deliberately NOT compared, and never adopted. See below.
 
     if adopt:
-        fx = live_fx()["rate"]                     # 1.0 unless the account is non-USD
+        ac = snap.get("account_cash") or {}
         bk["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
-        # Trading 212's averagePrice is in the instrument's currency (USD); the
-        # live book is in the account's, so the adopted cost is converted too.
-        bk["book"] = {tk: p["cost"] * fx for tk, p in theirs.items()}
-        # THE BROKER OWNS THE POSITIONS. THE BOT OWNS THE CASH.
+
+        # COST BASIS: the broker's, in the account currency, taken from the
+        # broker's own figure rather than rebuilt from an exchange rate we
+        # fetched ourselves.
         #
-        # Trading 212 reports one pool of free funds for the whole account, and
-        # the strategy is only a part of it. Adopting that number told the
-        # strategy it had every uninvested euro in the account -- on this one,
-        # 21,310 against a declared 1,000 -- and the next rebalance would have
-        # deployed the lot into eight stocks.
+        # This used to be `p["cost"] * live_fx()`, and reconcile() runs on
+        # every dashboard refresh, so it was recomputed constantly. p["cost"]
+        # is USD (quantity x averagePrice); live_fx() is an independently
+        # sourced EUR/USD -- yfinance's last daily close -- which is never
+        # quite the rate Trading 212 actually filled at. So the EUR basis
+        # drifted with that rate: on a EUR1,000 demo book it read a flat ~0.5%
+        # high across all eight names, enough to turn a small unrealised gain
+        # into a reported loss, and it moved again every hour.
         #
-        # A pie would have fenced it off, but a pie cannot be funded through the
-        # API, so the fence is this rule instead: cash is what the bot was told
-        # was paid in, plus what it sold, minus what it bought. It is a ledger,
-        # not an observation, and --deposit is the only thing that moves it.
+        # /equity/account/cash already reports `invested` -- the real cost
+        # basis of the non-pie holdings, in the account currency. Split it
+        # across the names by their USD cost weight (a ratio, so no FX guess
+        # enters) and the book sums back to exactly what the broker says, and
+        # only changes when a fill does.
+        broker_basis = float(ac.get("invested") or 0.0)
+        usd_cost = {tk: float(p.get("cost") or 0.0) for tk, p in theirs.items()}
+        total_usd = sum(usd_cost.values())
+        if broker_basis > 0 and total_usd > 0:
+            bk["book"] = {tk: round(broker_basis * usd_cost[tk] / total_usd, 6)
+                          for tk in theirs}
+        else:
+            # No cash endpoint this run: fall back to the old translation.
+            fx = live_fx()["rate"]
+            bk["book"] = {tk: round(usd_cost[tk] * fx, 6) for tk in theirs}
+
+        # CASH: re-square the ledger against that basis.
         #
-        # The cost of that: if a fill differs from what was assumed, the cash
-        # ledger drifts and only --fill corrects it. That is a small, visible
-        # error. Adopting the account balance is a large, invisible one.
+        # THE BROKER OWNS THE POSITIONS. THE BOT OWNS THE CASH. Trading 212
+        # reports one pool of free funds for the whole account, and the
+        # strategy is only a part of it -- 21,310 against a declared 1,000 on
+        # this account -- so that number is still never adopted as the
+        # strategy's cash.
+        #
+        # But cash is a LEDGER, and once the real cost basis is known the
+        # identity  cash = deposited + realised - sum(basis)  has to hold:
+        # every euro paid in is either in a position or is cash. The plan
+        # sizes orders at the assumed close; the fills land a little cheaper
+        # or dearer, and that gap has been silently missing from cash -- EUR5
+        # the demo book thought it had spent and had not. Snap it back here,
+        # on adopt only, within a sane band, and print it when it moves.
+        #
+        # (Live pays ~0.15% FX fee per order, which averagePrice does not
+        # include, so on the live book this leaves cash a few cents high per
+        # rebalance. Small, and it prints. --fill still corrects a known bad
+        # fill exactly.)
+        if bk["book"]:
+            raw = round(bk["deposited"] + bk["realised"]
+                        - sum(bk["book"].values()), 2)
+            if -1.0 <= raw <= bk["deposited"] * 1.25 and abs(raw - bk["cash"]) >= 0.01:
+                print(f"  cash re-squared to the broker's cost basis: "
+                      f"{money(bk['cash'])} -> {money(max(raw, 0.0))}")
+                bk["cash"] = max(raw, 0.0)
+
         if not bk["deposited"] and not START_BUDGET:
             # Nothing declared and no Starting amount set. The account total is
             # not a safe answer either -- it includes everything else you own --

@@ -172,6 +172,62 @@ def test_trading_creates_no_value():
     assert abs(m["pnl"]) < 1e-3
 
 
+# ------------------------------------------------------------------- reconcile
+#
+# adopt=True takes the broker's share counts AND its own cost basis, then
+# re-squares cash. The basis must not depend on an exchange rate we fetched
+# ourselves -- that was drifting the dashboard P&L by ~0.5% an hour.
+
+def _snap(positions, invested):
+    """A minimal t212.snapshot() shape."""
+    return {"positions": {tk: {"shares": sh, "cost": cost}
+                          for tk, (sh, cost) in positions.items()},
+            "account_cash": {"invested": invested}}
+
+
+def test_reconcile_basis_comes_from_the_brokers_invested_figure():
+    b = _book(cash=4.97, deposited=1000.0)
+    b["positions"] = {"AAA": 1.0, "BBB": 1.0}
+    b["book"] = {"AAA": 500.0, "BBB": 500.0}               # stale, planned-price
+    # Broker: same shares, USD cost split 60/40, real EUR basis 989.87.
+    snap = _snap({"AAA": (1.0, 600.0), "BBB": (1.0, 400.0)}, 989.87)
+    bot.reconcile(b, snap, adopt=True)
+    assert abs(sum(b["book"].values()) - 989.87) < 1e-6   # sums to the broker's
+    assert abs(b["book"]["AAA"] - 989.87 * 0.6) < 1e-4     # by USD cost weight
+    assert abs(b["book"]["BBB"] - 989.87 * 0.4) < 1e-4
+
+
+def test_reconcile_re_squares_cash_to_deposited_minus_basis():
+    b = _book(cash=4.97, deposited=1000.0)                 # bot thinks it spent 995
+    b["positions"] = {"AAA": 1.0}
+    b["book"] = {"AAA": 995.03}
+    snap = _snap({"AAA": (1.0, 1000.0)}, 989.87)           # fills were cheaper
+    bot.reconcile(b, snap, adopt=True)
+    assert abs(b["cash"] - (1000.0 - 989.87)) < 1e-6       # the ~5 comes back
+    _identity(b, {"AAA": 989.87})                          # total == cash + value
+
+
+def test_reconcile_without_a_cash_endpoint_falls_back_to_fx():
+    bot._FX.clear()
+    bot._FX.update(rate=0.5, ccy="EUR", sym="€", err="")
+    b = _book(cash=0.0, deposited=100.0)
+    snap = {"positions": {"AAA": {"shares": 1.0, "cost": 100.0}},
+            "account_cash": None}
+    bot.reconcile(b, snap, adopt=True)
+    assert abs(b["book"]["AAA"] - 50.0) < 1e-6             # 100 USD * 0.5
+    bot._FX.clear()
+
+
+def test_reconcile_adopt_false_changes_nothing():
+    b = _book(cash=4.97, deposited=1000.0)
+    b["positions"] = {"AAA": 1.0}
+    b["book"] = {"AAA": 500.0}
+    before = (dict(b["positions"]), dict(b["book"]), b["cash"])
+    diffs = bot.reconcile(b, _snap({"AAA": (2.0, 900.0)}, 900.0), adopt=False)
+    assert (dict(b["positions"]), dict(b["book"]), b["cash"]) == before
+    assert diffs == [("AAA", 1.0, 2.0)]                    # still reports the gap
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

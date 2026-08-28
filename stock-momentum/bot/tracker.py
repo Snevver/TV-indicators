@@ -29,7 +29,14 @@ LATEST = os.path.join(HERE, "latest.json")
 DEPOSITS = os.path.join(HERE, "deposits.csv")
 HOURLY = os.path.join(HERE, "hourly.csv")
 
-BENCH_TICKER = os.environ.get("MOMENTUM_BENCH_TICKER", "SXR8.DE").strip()
+# Tried in order until one returns a usable series. The first three are the same
+# S&P 500 UCITS ETF listed in EUR (Xetra, Amsterdam, Milan), so the line is in
+# the same currency as the books. ^GSPC is a last resort: it is the index in USD
+# points, so its SHAPE is right but its level drifts from a EUR account by the
+# EUR/USD move. Override the whole list with MOMENTUM_BENCH_TICKER (comma list).
+BENCH_TICKERS = [t.strip() for t in os.environ.get(
+    "MOMENTUM_BENCH_TICKER", "SXR8.DE,IUSA.AS,SXR8.MI,^GSPC").split(",")
+    if t.strip()]
 
 
 def _json(path, default):
@@ -125,32 +132,66 @@ def strategy_total(book: dict, px: dict):
     return round(total, 2)
 
 
-def bench_series(start_date: str):
-    """Daily closes for the benchmark ETF, {YYYY-MM-DD: close}, plus the latest.
-    Returns (closes, latest), or (None, None) if the download was empty."""
+def _bench_one(ticker: str, start_date: str):
+    """One ticker's price series, hourly if yfinance will give it, daily if not.
+
+    Hourly matters: this script runs every hour and the money-over-time chart
+    draws the account line hourly, so a daily benchmark can only step once a day
+    and reads as a flat line next to it -- which is exactly the bug this fixes.
+
+    Keys are 'YYYY-MM-DDTHH' for the hourly series, 'YYYY-MM-DD' for the daily
+    fallback. Returns (closes, latest) or (None, None).
+    """
     import yfinance as yf
     try:
-        raw = yf.download(BENCH_TICKER, start=start_date, progress=False,
-                          threads=False, auto_adjust=True)
-    except Exception as exc:                              # noqa: BLE001
-        print(f"  ! benchmark {BENCH_TICKER}: {type(exc).__name__}: {exc}")
-        return None, None
-    if raw is None or raw.empty:
-        print(f"  ! benchmark {BENCH_TICKER}: no data")
-        return None, None
-    close = raw["Close"]
-    if hasattr(close, "columns"):            # a 1-column frame on some versions
-        close = close.iloc[:, 0]
-    closes = {d.strftime("%Y-%m-%d"): float(v)
-              for d, v in close.dropna().items()}
-    if not closes:
-        return None, None
-    return closes, closes[max(closes)]
+        span = (datetime.now(timezone.utc).date()
+                - datetime.fromisoformat(start_date).date()).days + 5
+    except ValueError:
+        span = 400
+
+    attempts = []
+    if span <= 720:                          # yfinance caps 1h history at ~730d
+        attempts.append(("%Y-%m-%dT%H",
+                         dict(period=f"{max(span, 7)}d", interval="1h")))
+    attempts.append(("%Y-%m-%d", dict(start=start_date, interval="1d")))
+
+    for fmt, kw in attempts:
+        try:
+            raw = yf.download(ticker, progress=False, threads=False,
+                              auto_adjust=True, **kw)
+        except Exception as exc:                          # noqa: BLE001
+            print(f"  ! benchmark {ticker} {kw['interval']}: "
+                  f"{type(exc).__name__}: {exc}")
+            continue
+        if raw is None or raw.empty:
+            continue
+        close = raw["Close"]
+        if hasattr(close, "columns"):        # a 1-column frame on some versions
+            close = close.iloc[:, 0]
+        closes = {d.strftime(fmt): float(v) for d, v in close.dropna().items()}
+        if len(closes) >= 2:                 # one bar is a flat line, not a series
+            return closes, closes[max(closes)]
+    return None, None
+
+
+def bench_series(start_date: str):
+    """The first benchmark ticker that returns a usable series.
+    Returns (closes, latest, ticker), or (None, None, None)."""
+    for tk in BENCH_TICKERS:
+        closes, latest = _bench_one(tk, start_date)
+        if closes:
+            return closes, latest, tk
+    print(f"  ! no benchmark ticker returned data ({', '.join(BENCH_TICKERS)})")
+    return None, None, None
 
 
 def _on_or_before(closes: dict, day: str):
-    """The ETF close on `day`, or the last one before it (weekend / holiday)."""
-    keys = sorted(k for k in closes if k <= day)
+    """The ETF price on `day`, or the last one before it (weekend / holiday).
+
+    Keys may be 'YYYY-MM-DD' (daily) or 'YYYY-MM-DDTHH' (hourly); `day` is always
+    a plain date, so compare on the date part and take the last bar of that day.
+    """
+    keys = sorted(k for k in closes if k[:10] <= day)
     return closes[keys[-1]] if keys else None
 
 
@@ -202,7 +243,7 @@ def main() -> int:
 
     held = [tk for bk in trk.values() for tk in (bk.get("positions") or {})]
     px = held_prices(held, account_currency())
-    closes, latest = bench_series(earliest)
+    closes, latest, bench_tk = bench_series(earliest)
 
     rows = []
     for name in ("demo", "live"):
@@ -215,7 +256,8 @@ def main() -> int:
         bench = bench_value(deps.get(name, []), closes, latest)
         rows.append((stamp, name, total, bench))
         print(f"  {name}: total {total:.2f}"
-              + (f"  bench {bench:.2f}" if bench is not None else ""))
+              + (f"  bench {bench:.2f} ({bench_tk})" if bench is not None
+                 else "  bench -"))
 
     if rows:
         append_rows(rows)
