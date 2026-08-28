@@ -1,11 +1,10 @@
 <script setup>
 import { computed, ref } from "vue";
 import { store, setTrack } from "../store.js";
-import { money, pct, hoursAgo, ago } from "../format.js";
+import { money, hoursAgo, ago } from "../format.js";
 import Hero from "../components/Hero.vue";
 import MetricRail from "../components/MetricRail.vue";
 import Holdings from "../components/Holdings.vue";
-import TimeChart from "../components/TimeChart.vue";
 import MoneyChart from "../components/MoneyChart.vue";
 import RankingPanel from "../components/RankingPanel.vue";
 import HealthStrip from "../components/HealthStrip.vue";
@@ -16,29 +15,36 @@ const h = computed(() => store.state?.health || {});
 const sym = computed(() => store.state?.symbol || "$");
 const hist = computed(() => store.history || {});
 const empty = computed(() => !Object.keys(s.value.positions || {}).length);
-// Three blank charts are ~650px of dead space before the bot has ever marked
-// the book. Show one honest line instead until there is something to plot.
-const hasCurve = computed(() => (hist.value.dates || []).length > 1);
 const t212off = computed(() => !h.value?.t212?.configured);
-// "Demo" / "Live" for the account the panels are showing.
-const acct = computed(() =>
-  store.track === "demo" ? "Demo" : "Live");
+const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
-const otherHourly = computed(() =>
-  store.hourly?.[store.track === "demo" ? "live" : "demo"] || []);
 
-const equity = ref(null);
-const RANGES = [{ l: "1M", m: 1 }, { l: "3M", m: 3 }, { l: "ALL", m: 0 }];
+// The most recent benchmark mark, for the header's "vs S&P 500" line.
+const lastBench = computed(() => {
+  const r = hourly.value;
+  for (let i = r.length - 1; i >= 0; i--)
+    if (r[i].bench != null) return Number(r[i].bench);
+  return null;
+});
+// Every benchmark point identical == the stale "flat at the deposit" rows from
+// before the tracker fetched the ETF hourly. Warn once rather than leave a
+// mystery flat segment.
+const benchStale = computed(() => {
+  const b = hourly.value.map((r) => r.bench).filter((v) => v != null);
+  return b.length > 2 && b.every((v) => Math.abs(v - b[0]) < 0.005);
+});
+
+const money2 = ref(null);
+const RANGES = [{ l: "24H", h: 24 }, { l: "1M", h: 720 }, { l: "ALL", h: 0 }];
 const active = ref("ALL");
-const setRange = (r) => { active.value = r.l; equity.value?.range(r.m); };
+const setRange = (r) => { active.value = r.l; money2.value?.range(r.h); };
 
 const metrics = computed(() => [
   { k: "Positions", v: String(Object.keys(s.value.positions || {}).length),
     s: `of ${h.value.hold || 8} target` },
   { k: "Next rebalance", v: (h.value.next_rebalance || "-").split(" ")[0],
     s: (h.value.next_rebalance || "").split(" ")[1] || "unknown" },
-  { k: "Last traded", v: s.value.last_rebalance || "never",
-    s: "monthly" },
+  { k: "Last traded", v: s.value.last_rebalance || "never", s: "monthly" },
   { k: "Worst drop", v: (hist.value.maxdd ?? 0).toFixed(1) + "%",
     s: "from the high", tone: (hist.value.maxdd ?? 0) < -0.05 ? "down" : "" },
   { k: "Price feed", v: h.value.bar || "-", s: hoursAgo(h.value.latest_hours) },
@@ -49,7 +55,8 @@ const health = computed(() => [
     state: h.value.latest_hours != null && h.value.latest_hours < 36 ? "on" : "warn" },
   { label: "Trading 212", value: h.value.t212?.configured ? "on" : "off",
     state: h.value.t212?.configured ? "on" : "off" },
-  { label: "Feed", value: store.error ? "error" : "nominal", state: store.error ? "warn" : "on" },
+  { label: "Feed", value: store.error ? "error" : "nominal",
+    state: store.error ? "warn" : "on" },
 ]);
 </script>
 
@@ -78,69 +85,46 @@ const health = computed(() => [
     </section>
 
     <template v-else>
-      <Hero :s="s" :sym="sym" :series="hist.total" :label="acct" />
+      <Hero :s="s" :sym="sym" :series="hist.total" :label="acct" :bench="lastBench" />
       <MetricRail :items="metrics" />
 
       <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
 
-      <div v-if="hourly.length" class="hud">
+      <div v-if="hourly.length" class="hud wide">
         <div class="hud-head">
-          <h2>Money over time</h2>
-          <span class="tag">{{ acct }} account, hourly</span>
-        </div>
-        <div class="hud-body">
-          <MoneyChart :rows="hourly" :faint="otherHourly" :sym="sym" :height="300" />
-          <div class="key">
-            <span><i class="sw cy"></i>{{ acct }} account</span>
-            <span><i class="sw am"></i>Same money in the S&amp;P 500 ETF</span>
-            <span v-if="otherHourly.length"><i class="sw gy"></i>
-              {{ store.track === "demo" ? "Live" : "Demo" }} account</span>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="!empty" class="hud">
-        <div class="hud-head"><h2>Holdings</h2>
-          <span class="tag">{{ money(s.invested, sym) }} deployed</span></div>
-        <div class="hud-body flush">
-          <Holdings :positions="s.positions" :sym="sym" :total="s.total" />
-        </div>
-      </div>
-
-      <div v-if="hasCurve" class="hud">
-        <div class="hud-head">
-          <h2>Equity curve</h2>
+          <h2>You vs the S&amp;P 500</h2>
           <div class="seg small">
             <button v-for="r in RANGES" :key="r.l" :class="{ on: active === r.l }"
                     @click="setRange(r)">{{ r.l }}</button>
           </div>
         </div>
         <div class="hud-body">
-          <TimeChart ref="equity" kind="equity" :data="hist" :sym="sym" :height="320" />
+          <MoneyChart ref="money2" :rows="hourly" :sym="sym" :height="340" />
           <div class="key">
-            <span><i class="sw cy"></i>Account</span><span><i class="sw am"></i>Paid in</span>
+            <span><i class="sw cy"></i>{{ acct }} account · total</span>
+            <span><i class="sw am"></i>Same money in an S&amp;P 500 ETF</span>
           </div>
+          <p v-if="benchStale" class="fine flat-note">
+            The benchmark's earliest points are flat — that is data from before
+            the tracker began fetching the ETF hourly. It clears as new points
+            arrive.
+          </p>
         </div>
       </div>
 
-      <div v-if="hasCurve" class="two">
-        <div class="hud">
-          <div class="hud-head"><h2>Drawdown</h2>
-            <span class="tag">below the high-water mark</span></div>
-          <div class="hud-body"><TimeChart kind="drawdown" :data="hist" :height="190" /></div>
-        </div>
-        <div class="hud">
-          <div class="hud-head"><h2>By month</h2></div>
-          <div class="hud-body"><TimeChart kind="monthly" :data="hist" :height="190" /></div>
-        </div>
-      </div>
-
-      <section v-if="!hasCurve" class="hud waiting">
+      <section v-else-if="!empty" class="hud waiting">
         <span class="tag">Telemetry</span>
-        <p class="lede">Charts appear once the bot has marked the book on two
-          separate days. It records one point per weeknight, so the curve starts
-          filling in from its next run.</p>
+        <p class="lede">The chart fills in once the hourly tracker has run a few
+          times.</p>
       </section>
+
+      <div v-if="!empty" class="hud">
+        <div class="hud-head"><h2>Holdings</h2>
+          <span class="tag">{{ money(s.invested, sym) }} · matches T212 Investments tab</span></div>
+        <div class="hud-body flush">
+          <Holdings :positions="s.positions" :sym="sym" :total="s.total" />
+        </div>
+      </div>
 
       <div v-if="store.rebalances.length" class="hud">
         <div class="hud-head"><h2>Rebalance log</h2></div>
@@ -180,16 +164,12 @@ const health = computed(() => [
 .topbar { display: flex; align-items: center; justify-content: space-between;
   gap: 14px; flex-wrap: wrap }
 .tick { display: inline-flex; align-items: center; gap: 8px }
-.acct { color: var(--cyan); letter-spacing: .12em }
 .seg.small button { padding: 5px 12px; font-size: .68rem }
-.two { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)) }
-/* Wide screens: holdings and the equity curve sit side by side instead of
-   stacking, and the secondary charts go three across. */
+/* Wide screens: holdings and the ranking sit side by side instead of stacking. */
 @media (min-width: 1500px) {
   .page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           gap: 20px; align-items: start }
-  .topbar, .hero, .rail, .note, .block { grid-column: 1 / -1 }
-  .two { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)) }
+  .topbar, .hero, .rail, .note, .block, .wide, .waiting { grid-column: 1 / -1 }
 }
 .block { display: flex; flex-direction: column; gap: 10px }
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
@@ -197,6 +177,6 @@ const health = computed(() => [
   vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 .key .am { background: var(--amber) }
-.key .gy { background: var(--faint) }
+.flat-note { padding: 2px 4px 0; max-width: 60ch }
 .waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
 </style>

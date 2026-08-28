@@ -2,14 +2,14 @@
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { createChart, LineStyle, AreaSeries, LineSeries } from "lightweight-charts";
 
-// The hourly money-over-time curve: the real account value against what the
-// same deposits would be worth in the benchmark ETF. `rows` is
-// [{time, total, bench}] with an ISO hour string and either value possibly null.
+// Your account against what the same money would be worth in an S&P 500 ETF.
+// `rows` is [{time, total, bench}] with an ISO hour string; either value may be
+// null. The account line is `total` (holdings + cash) because that is the whole
+// of the money being compared. Range is driven from the parent via range().
 const props = defineProps({
   rows: { type: Array, default: () => [] },
-  faint: { type: Array, default: () => [] },   // the other account, shown dim
   sym: { type: String, default: "$" },
-  height: { type: Number, default: 300 },
+  height: { type: Number, default: 320 },
 });
 
 const host = ref(null);
@@ -72,22 +72,16 @@ function clear() {
   series = [];
 }
 
+// null unless every visible bench point is the same value -- that is the stale
+// "flat at the deposit" data from before the tracker fetched the ETF hourly, and
+// the parent uses this to show a one-line caveat rather than a mystery.
+const benchFlat = ref(false);
+
 function paint() {
   if (!chart) return;
   clear();
   const acctPts = points(props.rows, "total");
   if (!acctPts.length) return;
-
-  const other = points(props.faint, "total");
-  if (other.length) {
-    const o = chart.addSeries(LineSeries, {
-      color: css("--faint"), lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: false,
-      crosshairMarkerVisible: false,
-    });
-    o.setData(other);
-    series.push(o);
-  }
 
   const acct = chart.addSeries(AreaSeries, {
     lineColor: css("--cyan"), lineWidth: 2,
@@ -99,16 +93,31 @@ function paint() {
   acct.setData(acctPts);
   series.push(acct);
 
-  const bench = chart.addSeries(LineSeries, {
-    color: css("--amber"), lineWidth: 1, lineStyle: LineStyle.Dashed,
-    priceLineVisible: false, lastValueVisible: true,
-    crosshairMarkerVisible: false,
-  });
-  bench.setData(points(props.rows, "bench"));
-  series.push(bench);
+  const benchPts = points(props.rows, "bench");
+  benchFlat.value = benchPts.length > 2 &&
+    benchPts.every((p) => Math.abs(p.value - benchPts[0].value) < 0.005);
+  if (benchPts.length) {
+    const bench = chart.addSeries(LineSeries, {
+      color: css("--amber"), lineWidth: 1, lineStyle: LineStyle.Dashed,
+      priceLineVisible: false, lastValueVisible: true,
+      crosshairMarkerVisible: false,
+    });
+    bench.setData(benchPts);
+    series.push(bench);
+  }
 
   chart.timeScale().fitContent();
 }
+
+// Show the last `hours` of data, or everything when hours is 0.
+function range(hours) {
+  const rows = props.rows || [];
+  if (!chart || !rows.length) return;
+  if (!hours) return chart.timeScale().fitContent();
+  const last = at(rows[rows.length - 1]);
+  chart.timeScale().setVisibleRange({ from: last - hours * 3600, to: last });
+}
+defineExpose({ range, benchFlat });
 
 onMounted(() => {
   build();
@@ -116,7 +125,7 @@ onMounted(() => {
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => [props.rows, props.faint], paint, { deep: true });
+watch(() => props.rows, paint, { deep: true });
 </script>
 
 <template>

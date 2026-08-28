@@ -4,9 +4,22 @@ import Sparkline from "./Sparkline.vue";
 import { money, pct, signed } from "../format.js";
 import { computed } from "vue";
 
-const props = defineProps({ s: Object, sym: String, label: String, series: Array });
-const dir = computed(() => (props.s?.pnl ?? 0) >= 0 ? "up" : "down");
+// The headline is the HOLDINGS value -- the eight positions, which is the number
+// the Trading 212 Investments tab shows. Cash, total and the benchmark sit under
+// it as plainly-labelled context, because conflating them is what made the page
+// confusing: total includes uninvested cash the Investments tab never shows.
+const props = defineProps({
+  s: Object, sym: String, label: String, series: Array, bench: Number,
+});
+
 const fmt = (v) => money(v, props.sym);
+const dir = computed(() => (props.s?.unrealised ?? 0) >= 0 ? "up" : "down");
+const held = computed(() => props.s?.invested ?? 0);
+const cost = computed(() => held.value - (props.s?.unrealised ?? 0));
+const heldPct = computed(() =>
+  cost.value > 0 ? (props.s.unrealised / cost.value) * 100 : 0);
+const gap = computed(() =>
+  props.bench ? (props.s?.total ?? 0) - props.bench : null);
 </script>
 
 <template>
@@ -15,21 +28,47 @@ const fmt = (v) => money(v, props.sym);
     <div class="grid">
       <div class="lead">
         <div class="tag">{{ label }} account · Trading 212</div>
-        <NumberFlow class="big" :value="s?.total ?? 0" :format="fmt" />
+        <NumberFlow class="big" :value="held" :format="fmt" />
         <div class="row">
           <span class="delta" :class="dir">
-            {{ signed(s?.pnl ?? 0) }} <em>{{ pct(s?.pnl_pct ?? 0) }}</em>
+            {{ signed(s?.unrealised ?? 0) }} <em>{{ pct(heldPct) }}</em>
           </span>
-          <span class="fine">against {{ money(s?.deposited ?? 0, sym) }} paid in</span>
+          <span class="fine">holdings · marked from Yahoo</span>
         </div>
       </div>
-      <dl class="side">
-        <div><dt class="tag">Invested</dt><dd class="mono">{{ money(s?.invested ?? 0, sym) }}</dd></div>
-        <div><dt class="tag">Cash</dt><dd class="mono">{{ money(s?.cash ?? 0, sym) }}</dd></div>
-        <div><dt class="tag">Open</dt><dd class="mono" :class="(s?.unrealised ?? 0) >= 0 ? 'up' : 'down'">{{ signed(s?.unrealised ?? 0) }}</dd></div>
-        <div><dt class="tag">Banked</dt><dd class="mono" :class="(s?.realised ?? 0) >= 0 ? 'up' : 'down'">{{ signed(s?.realised ?? 0) }}</dd></div>
+
+      <dl class="breakdown">
+        <div>
+          <dt class="tag">Cash</dt>
+          <dd class="mono">{{ money(s?.cash ?? 0, sym) }}</dd>
+          <span class="note">in T212 free funds</span>
+        </div>
+        <div>
+          <dt class="tag">Total</dt>
+          <dd class="mono">{{ money(s?.total ?? 0, sym) }}</dd>
+          <span class="note">holdings + cash</span>
+        </div>
+        <div>
+          <dt class="tag">Paid in</dt>
+          <dd class="mono">{{ money(s?.deposited ?? 0, sym) }}</dd>
+          <span class="note">&nbsp;</span>
+        </div>
+        <div>
+          <dt class="tag">vs S&amp;P 500</dt>
+          <dd class="mono">{{ bench ? money(bench, sym) : "—" }}</dd>
+          <span class="note" :class="gap == null ? '' : gap >= 0 ? 'up' : 'down'">
+            {{ gap == null ? "no benchmark yet"
+               : signed(gap) + (gap >= 0 ? " ahead" : " behind") }}
+          </span>
+        </div>
       </dl>
     </div>
+
+    <p class="reconcile fine">
+      Holdings ≈ T212 <em>Investments</em> tab ·
+      Total ≈ account value minus funds the strategy never touched
+    </p>
+
     <Sparkline :values="series" :dir="dir" />
   </section>
 </template>
@@ -56,10 +95,16 @@ const fmt = (v) => money(v, props.sym);
 .delta.up { color: var(--up); background: var(--up-soft); border-color: rgba(110,255,123,.3) }
 .delta.down { color: var(--down); background: var(--down-soft); border-color: rgba(255,77,109,.3) }
 
-.side { display: grid; grid-template-columns: repeat(2, auto); gap: 12px 26px; margin: 0 }
-.side div { display: flex; flex-direction: column; gap: 1px }
-.side dt { line-height: 1.4 }
-.side dd { margin: 0; font-size: .95rem; color: var(--ink) }
+.breakdown { display: grid; grid-template-columns: repeat(2, auto); gap: 14px 26px; margin: 0 }
+.breakdown div { display: flex; flex-direction: column; gap: 1px }
+.breakdown dt { line-height: 1.4 }
+.breakdown dd { margin: 0; font-size: .95rem; color: var(--ink) }
+.breakdown .note { font-size: .68rem; color: var(--faint); letter-spacing: .02em }
+.breakdown .note.up { color: var(--up) }
+.breakdown .note.down { color: var(--down) }
+
+.reconcile { padding: 0 24px 4px }
+.reconcile em { font-style: normal; color: var(--ink); opacity: .85 }
 
 /* a single slow sweep across the panel — the one piece of ambient motion */
 .scan {
@@ -72,7 +117,8 @@ const fmt = (v) => money(v, props.sym);
 
 @media (max-width: 720px) {
   .grid { grid-template-columns: minmax(0,1fr); gap: 16px; padding: 18px 16px 8px }
-  .side { grid-template-columns: repeat(2, 1fr) }
+  .breakdown { grid-template-columns: repeat(2, 1fr) }
+  .reconcile { padding: 0 16px 4px }
 }
 @media (prefers-reduced-motion: reduce) { .scan { display: none } }
 </style>
