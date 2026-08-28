@@ -198,6 +198,8 @@ def test_reconcile_basis_comes_from_the_brokers_invested_figure():
 
 
 def test_reconcile_re_squares_cash_to_deposited_minus_basis():
+    bot._FX.clear()
+    bot._FX.update(rate=1.0, ccy="USD", sym="$", err="")   # USD: no conversion fee
     b = _book(cash=4.97, deposited=1000.0)                 # bot thinks it spent 995
     b["positions"] = {"AAA": 1.0}
     b["book"] = {"AAA": 995.03}
@@ -205,6 +207,20 @@ def test_reconcile_re_squares_cash_to_deposited_minus_basis():
     bot.reconcile(b, snap, adopt=True)
     assert abs(b["cash"] - (1000.0 - 989.87)) < 1e-6       # the ~5 comes back
     _identity(b, {"AAA": 989.87})                          # total == cash + value
+    bot._FX.clear()
+
+
+def test_reconcile_subtracts_the_fx_fee_on_a_non_usd_account():
+    bot._FX.clear()
+    bot._FX.update(rate=0.86, ccy="EUR", sym="€", err="")
+    b = _book(cash=4.97, deposited=1000.0)
+    b["positions"] = {"AAA": 1.0}
+    b["book"] = {"AAA": 995.03}
+    bot.reconcile(b, _snap({"AAA": (1.0, 1000.0)}, 989.87), adopt=True)
+    fee = 989.87 * bot.FX_FEE_BPS / 10_000.0               # ~1.48
+    assert abs(b["cash"] - round(1000.0 - 989.87 - fee, 2)) < 1e-9
+    assert b["cash"] < 1000.0 - 989.87                     # fee really came off
+    bot._FX.clear()
 
 
 def test_reconcile_without_a_cash_endpoint_falls_back_to_fx():

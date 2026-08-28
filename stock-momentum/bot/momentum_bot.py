@@ -483,6 +483,14 @@ def mark(bk, prices) -> dict:
 # investable cash; it carries into next month.
 CASH_BUFFER = float(os.environ.get("MOMENTUM_CASH_BUFFER", "0.005") or 0.005)
 
+# Trading 212's EUR->USD conversion fee, charged per order on a non-USD account.
+# It is real money spent and gone, but averagePrice does not include it, so the
+# broker's cost basis plus its free funds fall short of what was paid in by
+# roughly this fraction of the holdings. reconcile() subtracts an estimate when
+# it re-squares cash, so the account figure does not float a fee it already paid.
+# 0 on a USD account, or to turn the estimate off and rely on --fill.
+FX_FEE_BPS = float(os.environ.get("MOMENTUM_FX_FEE_BPS", "15") or 15)
+
 # Trading 212 reserves a market buy's cash -- plus a slippage cushion -- until it
 # fills. Fired back-to-back, eight reservations stack before any release and the
 # last order is refused even though the money is really there. So: a short pause
@@ -687,22 +695,27 @@ def reconcile(bk, snap, adopt: bool) -> list:
         # strategy's cash.
         #
         # But cash is a LEDGER, and once the real cost basis is known the
-        # identity  cash = deposited + realised - sum(basis)  has to hold:
-        # every euro paid in is either in a position or is cash. The plan
-        # sizes orders at the assumed close; the fills land a little cheaper
-        # or dearer, and that gap has been silently missing from cash -- EUR5
-        # the demo book thought it had spent and had not. Snap it back here,
-        # on adopt only, within a sane band, and print it when it moves.
+        # identity  cash = deposited + realised - sum(basis) - fees  has to
+        # hold: every euro paid in is in a position, is cash, or was a fee.
+        # The plan sizes orders at the assumed close; the fills land a little
+        # cheaper or dearer, and that gap has been silently missing from cash
+        # -- EUR5 the demo book thought it had spent and had not.
         #
-        # (Live pays ~0.15% FX fee per order, which averagePrice does not
-        # include, so on the live book this leaves cash a few cents high per
-        # rebalance. Small, and it prints. --fill still corrects a known bad
-        # fill exactly.)
+        # `fees` is Trading 212's EUR->USD conversion charge (FX_FEE_BPS,
+        # ~0.15%). averagePrice does not include it, so without this term the
+        # account figure floats a fee it already paid: on this demo book, the
+        # whole account was down EUR0.84 while the dashboard read +EUR1.43.
+        # An estimate on the current holdings, not a per-order tally -- close
+        # for a drift book that mostly bought once, and --fill still corrects
+        # a fill exactly. Zero on a USD account (no conversion happens).
         if bk["book"]:
-            raw = round(bk["deposited"] + bk["realised"]
-                        - sum(bk["book"].values()), 2)
+            basis = sum(bk["book"].values())
+            fee = (basis * FX_FEE_BPS / 10_000.0
+                   if live_fx().get("ccy", "USD") != "USD" else 0.0)
+            raw = round(bk["deposited"] + bk["realised"] - basis - fee, 2)
             if -1.0 <= raw <= bk["deposited"] * 1.25 and abs(raw - bk["cash"]) >= 0.01:
-                print(f"  cash re-squared to the broker's cost basis: "
+                print(f"  cash re-squared to the broker's cost basis"
+                      f"{f' (less ~{money(fee)} FX fee)' if fee else ''}: "
                       f"{money(bk['cash'])} -> {money(max(raw, 0.0))}")
                 bk["cash"] = max(raw, 0.0)
 
