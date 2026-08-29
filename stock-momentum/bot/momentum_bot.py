@@ -746,7 +746,7 @@ def t212_held_prices(snap) -> dict:
             for tk, v in t212_strategy_value(snap).items() if v["shares"] > 0}
 
 
-def reconcile(bk, snap, adopt: bool) -> list:
+def reconcile(bk, snap, adopt: bool, resquare_cash: bool = True) -> list:
     """Compare the bot's book with the broker's. Returns the differences.
 
     With adopt=False nothing changes — this is the report --t212-check prints.
@@ -754,6 +754,16 @@ def reconcile(bk, snap, adopt: bool) -> list:
     the shares. Money paid in is never touched: the broker cannot know what you
     funded versus what you earned, and overwriting it would turn a deposit into
     a profit.
+
+    `resquare_cash` gates the cash re-square below. It re-derives cash from a
+    cost basis built out of the broker's per-line value and its own EUR ppl/
+    fxPpl, but that value is converted through OUR fx quote (a cached, minutes-
+    stale yfinance rate), not the broker's own. Off-hours, when a held name's
+    price is frozen but EUR/USD keeps trading, that mismatch alone can move
+    cash by several euros with nothing in the account actually changing.
+    refresh_live() calls this every ~90s and passes False so that noise never
+    reaches the dashboard; the full run still re-squares once a day, when a
+    fresh fx quote is closer to whatever rate the broker used.
     """
     diffs, mine = [], bk["positions"]
     theirs = snap["positions"]
@@ -808,7 +818,7 @@ def reconcile(bk, snap, adopt: bool) -> list:
         # An estimate on the current holdings, not a per-order tally -- close
         # for a drift book that mostly bought once, and --fill still corrects
         # a fill exactly. Zero on a USD account (no conversion happens).
-        if bk["book"]:
+        if bk["book"] and resquare_cash:
             basis = sum(bk["book"].values())
             fee = (basis * FX_FEE_BPS / 10_000.0
                    if live_fx().get("ccy", "USD") != "USD" else 0.0)
@@ -1276,7 +1286,10 @@ def refresh_live(state) -> int:
         print("  no priceable Trading 212 holdings - latest.json left as is")
         return 0
     bk = book(state, TRACK)
-    reconcile(bk, snap, adopt=True)               # in memory only, no save_state
+    # In memory only, no save_state. resquare_cash=False: see reconcile()'s
+    # docstring -- a live poll's fx quote is too stale to re-derive cash from
+    # without chasing FX noise on every tick.
+    reconcile(bk, snap, adopt=True, resquare_cash=False)
     m = mark(bk, held_px)
 
     try:
