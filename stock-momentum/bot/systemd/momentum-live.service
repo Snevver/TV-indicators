@@ -1,0 +1,26 @@
+# Light dashboard value refresh, so the money figures move between the nightly
+# full runs. Trading 212 read only -- one /equity/portfolio + one
+# /equity/account/cash, no price download, no ranking, no state.json write. It
+# rewrites latest.json only when a figure actually moved. See
+# momentum_bot.py --refresh-live.
+#
+# Install (edit CHANGEME first):
+#   sudo cp momentum-live.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-live.timer
+
+[Unit]
+Description=Light dashboard value refresh (Trading 212 only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
+EnvironmentFile=-/etc/momentum-bot.env
+EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
+# One line per connected account. Add a second with --env live once a live key
+# is set.
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python momentum_bot.py --refresh-live --env demo
+TimeoutStartSec=60

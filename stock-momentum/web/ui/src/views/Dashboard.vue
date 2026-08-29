@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { store, setTrack } from "../store.js";
 import { money, hoursAgo, ago } from "../format.js";
 import Hero from "../components/Hero.vue";
@@ -39,6 +39,16 @@ const RANGES = [{ l: "24H", h: 24 }, { l: "1M", h: 720 }, { l: "ALL", h: 0 }];
 const active = ref("ALL");
 const setRange = (r) => { active.value = r.l; money2.value?.range(r.h); };
 
+// A one-second clock, only for the "next refresh in Ns" countdown in the topbar.
+const now = ref(Date.now());
+let clock = null;
+onMounted(() => { clock = setInterval(() => (now.value = Date.now()), 1000); });
+onBeforeUnmount(() => clearInterval(clock));
+const nextIn = computed(() =>
+  store.nextPollAt == null
+    ? null
+    : Math.max(0, Math.round((store.nextPollAt - now.value) / 1000)));
+
 const metrics = computed(() => [
   { k: "Positions", v: String(Object.keys(s.value.positions || {}).length),
     s: `of ${h.value.hold || 8} target` },
@@ -70,7 +80,8 @@ const health = computed(() => [
                 @click="setTrack('demo')">Demo</button>
       </div>
       <span class="tick tag">
-        <i class="led on"></i>updated {{ ago(store.fetchedAt) }}
+        <i class="led on"></i>updated {{ ago(store.fetchedAt) }}<template
+          v-if="nextIn != null"> · next in {{ nextIn }}s</template>
       </span>
     </div>
 

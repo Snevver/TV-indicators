@@ -1,0 +1,19 @@
+# Every 90 seconds while the machine is up. A missed tick is worthless -- the
+# next one carries the same information 90s later -- so this is NOT Persistent
+# and does not catch up after a sleep.
+#
+# The dashboard polls on the same 90s cadence and shows a "next refresh in Ns"
+# countdown; the two clocks are independent, so a figure can trail the countdown
+# by up to one cycle. Fine for a monthly strategy.
+
+[Unit]
+Description=Refresh the dashboard value every 90s
+
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=90
+AccuracySec=5s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

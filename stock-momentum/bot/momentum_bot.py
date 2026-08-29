@@ -1034,6 +1034,26 @@ def append_deposit(track_name, when, amount) -> None:
     os.replace(tmp, DEPOSITS)
 
 
+def _track_row(bk, m, sym, ccy) -> dict:
+    """One track's money block for latest.json. Shared by the full snapshot and
+    the light --refresh-live patch, so the two shapes never drift."""
+    return {
+        "symbol": sym, "currency": ccy,
+        "total": round(m["total"], 2), "invested": round(m["invested"], 2),
+        "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
+        "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
+        "realised": round(m["realised"], 2), "unrealised": round(m["unrealised"], 2),
+        "basket": bk["basket"], "last_rebalance": bk["last_rebalance"],
+        "equity": bk["equity"],
+        "positions": {tk: {"shares": r["shares"], "price": round(r["price"], 2),
+                           "value": round(r["value"], 2), "cost": round(r["cost"], 2),
+                           "pnl": round(r["pnl"], 2), "pnl_pct": round(r["pnl_pct"], 2),
+                           "weight_pct": round(r["value"] / m["total"] * 100, 2)
+                           if m["total"] else 0.0}
+                      for tk, r in m["rows"].items()},
+    }
+
+
 def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
     """Everything the dashboard renders from, both tracks.
 
@@ -1068,26 +1088,8 @@ def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
         px_live = dict(to_live(prices))
         if held_px and name == TRACK:
             px_live.update(held_px)
-        m = mark(bk, px_live)
-        out["tracks"][name] = {
-            "symbol": fx["sym"],
-            "currency": fx["ccy"],
-            "total": round(m["total"], 2), "invested": round(m["invested"], 2),
-            "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
-            "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
-            "realised": round(m["realised"], 2),
-            "unrealised": round(m["unrealised"], 2),
-            "basket": bk["basket"], "last_rebalance": bk["last_rebalance"],
-            "equity": bk["equity"],
-            "positions": {tk: {"shares": r["shares"], "price": round(r["price"], 2),
-                               "value": round(r["value"], 2),
-                               "cost": round(r["cost"], 2),
-                               "pnl": round(r["pnl"], 2),
-                               "pnl_pct": round(r["pnl_pct"], 2),
-                               "weight_pct": round(r["value"] / m["total"] * 100, 2)
-                               if m["total"] else 0.0}
-                          for tk, r in m["rows"].items()},
-        }
+        out["tracks"][name] = _track_row(bk, mark(bk, px_live),
+                                         fx["sym"], fx["ccy"])
     out["t212"] = {"available": t212 is not None,
                    "configured": bool(t212 is not None and t212.configured()),
                    "reason": (t212.why_not() if t212 is not None else
@@ -1102,6 +1104,47 @@ def write_latest(payload: dict) -> None:
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=1, default=str)
     os.replace(tmp, LATEST)
+
+
+def refresh_live(state) -> int:
+    """A cheap latest.json refresh: Trading 212's holdings value only -- no price
+    download, no ranking, no state.json write. A frequent systemd timer runs this
+    so the dashboard's money figures move between the nightly full --json runs.
+
+    It patches only the track this run read (TRACK), keeps ranking / bar /
+    next-rebalance from the last full run, and does NOT rewrite latest.json when
+    nothing moved by a cent -- so a closed market costs one broker read and no
+    disk write.
+    """
+    snap = broker()
+    held_px = t212_held_prices(snap)
+    if not held_px:
+        print("  no priceable Trading 212 holdings - latest.json left as is")
+        return 0
+    bk = book(state, TRACK)
+    reconcile(bk, snap, adopt=True)               # in memory only, no save_state
+    m = mark(bk, held_px)
+
+    try:
+        with open(LATEST, encoding="utf-8") as fh:
+            payload = json.load(fh)
+        row = payload["tracks"][TRACK]
+    except (OSError, json.JSONDecodeError, KeyError):
+        print("  latest.json not ready - run --json once first")
+        return 0
+
+    fx = live_fx()
+    fresh = _track_row(bk, m, fx["sym"], fx["ccy"])
+    moved = any(abs(fresh[k] - float(row.get(k) or 0)) >= 0.01
+                for k in ("total", "invested", "cash", "pnl", "unrealised"))
+    if not moved:
+        print(f"  {TRACK}: {money(m['total'])} unchanged - latest.json left as is")
+        return 0
+    payload["tracks"][TRACK] = fresh
+    payload["generated"] = datetime.now(timezone.utc).isoformat()
+    write_latest(payload)
+    print(f"  {TRACK}: {money(m['total'])} ({m['pnl']:+.2f}) - latest.json refreshed")
+    return 0
 
 
 # ------------------------------------------------------------- the smoke test
@@ -2147,6 +2190,9 @@ def main() -> int:
     p.add_argument("--status", action="store_true", help="show the account and exit")
     p.add_argument("--json", action="store_true",
                    help="machine-readable status for the dashboard; posts nothing")
+    p.add_argument("--refresh-live", action="store_true",
+                   help="cheap latest.json money refresh: Trading 212 read only, "
+                        "no price download or ranking. For a frequent timer.")
     p.add_argument("--report", action="store_true",
                    help="post the account to Discord without rebalancing")
     p.add_argument("--test", action="store_true",
@@ -2541,6 +2587,10 @@ def main() -> int:
     if args.deposit is not None or args.withdraw is not None or args.fill:
         if not (args.status or args.report or args.json):
             return 0
+
+    # --- light money-only refresh, for a frequent timer --------------------
+    if args.refresh_live:
+        return refresh_live(state)
 
     # --- machine-readable, for the dashboard --------------------------------
     if args.json:

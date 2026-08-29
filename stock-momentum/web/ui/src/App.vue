@@ -25,7 +25,7 @@ let stop = null;
 onMounted(() => {
   window.addEventListener("popstate", onPop);
   load();
-  stop = startPolling(30);
+  stop = startPolling();
 });
 onBeforeUnmount(() => { window.removeEventListener("popstate", onPop); stop?.(); });
 
