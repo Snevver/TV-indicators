@@ -279,6 +279,17 @@ def test_model_curve_empty_before_the_lookback_window():
     assert bot.model_curve(px, str(dates[0].date()), 1000.0) == []
 
 
+def test_model_curve_seeds_on_a_mid_month_funding_date():
+    import pandas as pd
+    dates = pd.bdate_range("2025-01-01", periods=400)
+    px = pd.DataFrame(100.0, index=dates, columns=[f"T{i}" for i in range(40)])
+    # A start date well past the lookback window but NOT a month boundary: the
+    # curve must still begin there, not wait for the next month-start.
+    start = str(dates[200].date())
+    curve = bot.model_curve(px, start, 1000.0)
+    assert curve and curve[0][0] == start
+
+
 def test_t212_held_prices_sum_to_the_brokers_own_value():
     # Broker: invested 600, ppl +12 -> holdings worth 612 in EUR. Two names, USD
     # current values 400 and 200. The per-share EUR prices must value the book

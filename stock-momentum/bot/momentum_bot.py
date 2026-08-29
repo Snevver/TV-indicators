@@ -440,6 +440,13 @@ def model_curve(px, start, budget: float, cost_bps: float = 10.0) -> list:
     lo = pd.Timestamp(start)
     anchors = [int(a) for a in anchors
                if a >= LOOKBACK + SKIP + 1 and idx[a] >= lo]
+    # The live book opened on `start`, which is almost never the first trading
+    # day of its month. Seed the model there too, then let the monthly anchors
+    # take over -- otherwise a book funded mid-month has no anchor at all until
+    # the next month-start and the line is empty.
+    start_i = int(idx.searchsorted(lo))
+    if start_i >= LOOKBACK + SKIP + 1 and start_i < len(idx):
+        anchors = [start_i] + [a for a in anchors if a > start_i]
     if not anchors:
         return []
 
