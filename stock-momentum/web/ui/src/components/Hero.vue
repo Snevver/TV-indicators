@@ -29,6 +29,8 @@ const held = computed(() => props.s?.total ?? 0);
           {{ signed(s?.pnl ?? 0, sym) }} <em>{{ pct(s?.pnl_pct ?? 0) }}</em>
         </span>
       </div>
+      <p class="fine breakdown">{{ money(s?.invested ?? 0, sym) }} invested ·
+        {{ money(s?.cash ?? 0, sym) }} free funds</p>
     </div>
 
     <dl class="cells">
@@ -59,6 +61,7 @@ const held = computed(() => props.s?.total ?? 0);
 .delta em { font-style: normal; opacity: .8; margin-left: 4px }
 .delta.up { color: var(--up); background: var(--up-soft); border-color: rgba(110,255,123,.3) }
 .delta.down { color: var(--down); background: var(--down-soft); border-color: rgba(255,77,109,.3) }
+.breakdown { margin-top: 2px }
 
 .cells { display: grid; gap: 12px 22px; margin: 0; grid-template-columns: repeat(2, minmax(100px, auto)) }
 .cells div { display: flex; flex-direction: column; gap: 1px }
