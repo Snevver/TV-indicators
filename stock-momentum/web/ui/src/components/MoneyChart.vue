@@ -109,11 +109,14 @@ function paint() {
 
   // The frozen backtest, run forward from the funding date. Daily, so it steps
   // where the live line is smooth -- deliberately a quiet reference line.
+  // Daily, and it only says something once a rebalance or two have passed --
+  // before that it is a 2-point stub next to two smooth hourly lines. Hold it
+  // back until it is a real line.
   const modelPts = points(props.model, "value");
-  if (modelPts.length) {
+  if (modelPts.length >= 8) {
     const bt = chart.addSeries(LineSeries, {
       color: css("--faint"), lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: true,
+      priceLineVisible: false, lastValueVisible: false,
       crosshairMarkerVisible: false,
     });
     bt.setData(modelPts);

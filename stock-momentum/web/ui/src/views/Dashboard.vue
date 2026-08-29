@@ -101,7 +101,8 @@ const health = computed(() => [
               <div class="key">
                 <span><i class="sw cy"></i>{{ acct }} · total</span>
                 <span><i class="sw am"></i>S&amp;P 500 ETF</span>
-                <span v-if="modelRows.length"><i class="sw fn"></i>Strategy · backtested</span>
+                <span v-if="modelRows.length >= 8"><i class="sw fn"></i>Strategy · backtested</span>
+                <span v-else class="fine">· backtest line appears after ~2 weeks</span>
               </div>
             </div>
           </div>
