@@ -79,72 +79,77 @@ const health = computed(() => [
     </section>
 
     <template v-else>
-      <Hero class="a-bar" :s="s" :sym="sym" :label="acct" :bench="lastBench"
+      <Hero :s="s" :sym="sym" :label="acct" :bench="lastBench"
             :positions="nPos" :target="h.hold || 8"
             :nextRebalance="h.next_rebalance" />
 
-      <LaunchPreview v-if="empty" class="bar-span" :s="s" :h="h" :sym="sym" />
+      <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
 
-      <div v-if="hourly.length" class="hud a-chart">
-        <div class="hud-head">
-          <h2>You vs the S&amp;P 500</h2>
-          <div class="seg small">
-            <button v-for="r in RANGES" :key="r.l" :class="{ on: active === r.l }"
-                    @click="setRange(r)">{{ r.l }}</button>
+      <div class="cols">
+        <div class="focus">
+          <div v-if="hourly.length" class="hud">
+            <div class="hud-head">
+              <h2>You vs the S&amp;P 500</h2>
+              <div class="seg small">
+                <button v-for="r in RANGES" :key="r.l" :class="{ on: active === r.l }"
+                        @click="setRange(r)">{{ r.l }}</button>
+              </div>
+            </div>
+            <div class="hud-body">
+              <MoneyChart ref="money2" :rows="hourly" :model="modelRows"
+                          :sym="sym" :height="360" />
+              <div class="key">
+                <span><i class="sw cy"></i>{{ acct }} · total</span>
+                <span><i class="sw am"></i>S&amp;P 500 ETF</span>
+                <span v-if="modelRows.length"><i class="sw fn"></i>Strategy · backtested</span>
+              </div>
+            </div>
+          </div>
+          <section v-else-if="!empty" class="hud waiting">
+            <span class="tag">Telemetry</span>
+            <p class="lede">The chart fills in once the hourly tracker has run a few times.</p>
+          </section>
+
+          <div v-if="!empty" class="hud">
+            <div class="hud-head"><h2>Holdings</h2>
+              <span class="tag">{{ money(s.invested, sym) }} · = T212 Investments tab</span></div>
+            <div class="hud-body flush">
+              <Holdings :positions="s.positions" :sym="sym" :total="s.total" />
+            </div>
+          </div>
+
+          <div v-if="store.rebalances.length" class="hud">
+            <div class="hud-head"><h2>Rebalance log</h2></div>
+            <div class="hud-body flush"><div class="scroll"><table>
+              <thead><tr><th>Date</th><th>Bought</th><th>Sold</th><th>Account</th></tr></thead>
+              <tbody>
+                <tr v-for="r in store.rebalances" :key="r.date">
+                  <td class="mono">{{ r.date }}</td>
+                  <td><span v-for="t in r.buys" :key="t" class="pill up">{{ t }}</span>
+                      <span v-if="!r.buys.length" class="dim">-</span></td>
+                  <td><span v-for="t in r.sells" :key="t" class="pill down">{{ t }}</span>
+                      <span v-if="!r.sells.length" class="dim">-</span></td>
+                  <td class="mono">{{ r.account == null ? "-" : money(r.account, sym) }}</td>
+                </tr>
+              </tbody>
+            </table></div></div>
           </div>
         </div>
-        <div class="hud-body">
-          <MoneyChart ref="money2" :rows="hourly" :model="modelRows"
-                      :sym="sym" :height="360" />
-          <div class="key">
-            <span><i class="sw cy"></i>{{ acct }} · total</span>
-            <span><i class="sw am"></i>S&amp;P 500 ETF</span>
-            <span v-if="modelRows.length"><i class="sw fn"></i>Strategy · backtested</span>
+
+        <div class="rail">
+          <RegimeGauge :regime="h.regime" />
+          <Scoreboard :board="s.scoreboard" />
+          <div class="hud" v-if="h.ranking?.length">
+            <div class="hud-head"><h2>Live ranking</h2>
+              <span class="tag">6-month momentum · skip last month</span></div>
+            <div class="hud-body flush">
+              <RankingPanel :ranking="h.ranking.slice(0, 14)" :hold="h.hold || 8" />
+            </div>
           </div>
         </div>
       </div>
-      <section v-else-if="!empty" class="hud a-chart waiting">
-        <span class="tag">Telemetry</span>
-        <p class="lede">The chart fills in once the hourly tracker has run a few times.</p>
-      </section>
 
-      <RegimeGauge class="a-regime" :regime="h.regime" />
-      <Scoreboard class="a-score" :board="s.scoreboard" />
-
-      <div v-if="!empty" class="hud a-hold">
-        <div class="hud-head"><h2>Holdings</h2>
-          <span class="tag">{{ money(s.invested, sym) }} · = T212 Investments tab</span></div>
-        <div class="hud-body flush">
-          <Holdings :positions="s.positions" :sym="sym" :total="s.total" />
-        </div>
-      </div>
-
-      <div class="hud a-rank" v-if="h.ranking?.length">
-        <div class="hud-head"><h2>Live ranking</h2>
-          <span class="tag">6-month momentum, skipping the last month</span></div>
-        <div class="hud-body flush">
-          <RankingPanel :ranking="h.ranking.slice(0, 14)" :hold="h.hold || 8" />
-        </div>
-      </div>
-
-      <div v-if="store.rebalances.length" class="hud a-log">
-        <div class="hud-head"><h2>Rebalance log</h2></div>
-        <div class="hud-body flush"><div class="scroll"><table>
-          <thead><tr><th>Date</th><th>Bought</th><th>Sold</th><th>Account</th></tr></thead>
-          <tbody>
-            <tr v-for="r in store.rebalances" :key="r.date">
-              <td class="mono">{{ r.date }}</td>
-              <td><span v-for="t in r.buys" :key="t" class="pill up">{{ t }}</span>
-                  <span v-if="!r.buys.length" class="dim">-</span></td>
-              <td><span v-for="t in r.sells" :key="t" class="pill down">{{ t }}</span>
-                  <span v-if="!r.sells.length" class="dim">-</span></td>
-              <td class="mono">{{ r.account == null ? "-" : money(r.account, sym) }}</td>
-            </tr>
-          </tbody>
-        </table></div></div>
-      </div>
-
-      <section class="block a-health">
+      <section class="block">
         <span class="tag">System</span>
         <HealthStrip :items="health" />
       </section>
@@ -166,27 +171,16 @@ const health = computed(() => [
 .key .fn { background: var(--faint) }
 .block { display: flex; flex-direction: column; gap: 10px }
 
-/* The command-centre grid: a wide focus column (command bar + chart + tables)
-   and a narrower instrument column (regime + scoreboard). Collapses to one
-   column below 1300px. */
+/* Two instrument columns: a wide focus stack (chart, holdings, log) and a
+   narrower rail (regime, scoreboard, ranking). Each column is its own flex
+   stack so panels of very different heights still pack tight. One column
+   below 1300px. */
+.cols { display: flex; flex-direction: column; gap: 16px }
+.focus, .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
 @media (min-width: 1300px) {
-  .deck {
-    display: grid; gap: 16px; align-items: start;
-    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
-    grid-template-areas:
-      "topbar topbar"
-      "bar    bar"
-      "chart  regime"
-      "chart  score"
-      "hold   rank"
-      "log    log"
-      "health health";
+  .cols {
+    display: grid; align-items: start;
+    grid-template-columns: minmax(0, 1.55fr) minmax(330px, 1fr);
   }
-  .topbar { grid-area: topbar }
-  .a-bar { grid-area: bar } .a-chart { grid-area: chart }
-  .a-regime { grid-area: regime } .a-score { grid-area: score }
-  .a-hold { grid-area: hold } .a-rank { grid-area: rank }
-  .a-log { grid-area: log } .a-health { grid-area: health }
-  .bar-span { grid-column: 1 / -1 }
 }
 </style>

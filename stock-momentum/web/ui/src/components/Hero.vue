@@ -39,14 +39,13 @@ const gap = computed(() =>
 
     <dl class="cells">
       <div><dt class="tag">Cash</dt><dd class="mono">{{ money(s?.cash ?? 0, sym) }}</dd>
-        <span class="note">T212 free funds</span></div>
+        <span class="sub">T212 free funds</span></div>
       <div><dt class="tag">Total</dt><dd class="mono">{{ money(s?.total ?? 0, sym) }}</dd>
-        <span class="note">holdings + cash</span></div>
-      <div><dt class="tag">Paid in</dt><dd class="mono">{{ money(s?.deposited ?? 0, sym) }}</dd>
-        <span class="note">&nbsp;</span></div>
+        <span class="sub">holdings + cash</span></div>
+      <div><dt class="tag">Paid in</dt><dd class="mono">{{ money(s?.deposited ?? 0, sym) }}</dd></div>
       <div><dt class="tag">vs S&amp;P 500</dt>
         <dd class="mono">{{ bench ? money(bench, sym) : "—" }}</dd>
-        <span class="note" :class="gap == null ? '' : gap >= 0 ? 'up' : 'down'">
+        <span class="sub" :class="gap == null ? '' : gap >= 0 ? 'up' : 'down'">
           {{ gap == null ? "no benchmark yet"
              : signed(gap) + (gap >= 0 ? " ahead" : " behind") }}</span></div>
     </dl>
@@ -56,7 +55,7 @@ const gap = computed(() =>
         <dd class="mono">{{ positions ?? 0 }}<span class="of">/ {{ target ?? 8 }}</span></dd></div>
       <div><dt class="tag">Next rebalance</dt>
         <dd class="mono">{{ (nextRebalance || "—").split(" ")[0] }}</dd>
-        <span class="note">{{ (nextRebalance || "").split(" ")[1] || "" }}</span></div>
+        <span class="sub">{{ (nextRebalance || "").split(" ")[1] || "" }}</span></div>
     </div>
 
     <p class="reconcile fine">
@@ -99,8 +98,8 @@ const gap = computed(() =>
 dd { margin: 0; font-size: .95rem; color: var(--ink) }
 .meta dd { font-size: 1.1rem }
 .of { color: var(--faint); font-size: .8rem; margin-left: 3px }
-.note { font-size: .64rem; color: var(--faint); letter-spacing: .02em }
-.note.up { color: var(--up) } .note.down { color: var(--down) }
+.sub { font-size: .64rem; color: var(--faint); letter-spacing: .02em }
+.sub.up { color: var(--up) } .sub.down { color: var(--down) }
 
 .scan {
   position: absolute; inset: 0; pointer-events: none; opacity: .5;
