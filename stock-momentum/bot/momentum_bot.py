@@ -587,15 +587,21 @@ def parse_fill(spec: str):
         raise SystemExit(f"--fill wants TICKER=SHARES@PRICE, got {spec!r}")
 
 
-def refresh(state) -> bool:
+def refresh(state, snap=None) -> bool:
     """Mirror the broker into this run's book (demo or live). Returns True if
     anything was read.
 
     Each run talks to one Trading 212 account (t212.ENV / --env) and mirrors it
     into the matching book. Silent when there is no key — that is the normal
     case and not a problem.
+
+    `snap` lets a caller that has ALREADY fetched a broker snapshot pass it in
+    rather than have this fetch a second one -- /equity/portfolio is rate
+    limited to one call every few seconds, so two back to back is asking for a
+    429.
     """
-    snap = broker()
+    if snap is None:
+        snap = broker()
     if snap is None:
         return False
     live = book(state, TRACK)
@@ -2538,13 +2544,14 @@ def main() -> int:
 
     # --- machine-readable, for the dashboard --------------------------------
     if args.json:
-        refresh(state)
+        snap = broker()                 # one fetch, shared with refresh() below
+        refresh(state, snap)
         px = fetch()
         prices = px.iloc[-1].to_dict()
         scores = rank(px)
         # Trading 212's own holdings prices for the account this run read, so the
         # dashboard's value matches the app rather than a yfinance mark.
-        held_px = t212_held_prices(broker())
+        held_px = t212_held_prices(snap)
         payload = snapshot_payload(state, prices, scores, px.index[-1],
                                    held_px=held_px)
         payload["due"] = due(px, book(state, name))
