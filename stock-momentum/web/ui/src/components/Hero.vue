@@ -33,7 +33,8 @@ const gap = computed(() =>
           <span class="delta" :class="dir">
             {{ signed(s?.unrealised ?? 0) }} <em>{{ pct(heldPct) }}</em>
           </span>
-          <span class="fine">holdings · marked from Yahoo</span>
+          <span class="fine">holdings · {{ s?.marked === "t212"
+            ? "live from Trading 212" : "marked from Yahoo" }}</span>
         </div>
       </div>
 

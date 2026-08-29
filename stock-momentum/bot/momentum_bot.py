@@ -1034,11 +1034,16 @@ def append_deposit(track_name, when, amount) -> None:
     os.replace(tmp, DEPOSITS)
 
 
-def _track_row(bk, m, sym, ccy) -> dict:
+def _track_row(bk, m, sym, ccy, marked="yahoo") -> dict:
     """One track's money block for latest.json. Shared by the full snapshot and
-    the light --refresh-live patch, so the two shapes never drift."""
+    the light --refresh-live patch, so the two shapes never drift.
+
+    `marked` is where the held-share prices came from -- "t212" for the account
+    that was read from the broker, "yahoo" otherwise -- so the dashboard can say
+    which without guessing.
+    """
     return {
-        "symbol": sym, "currency": ccy,
+        "symbol": sym, "currency": ccy, "marked": marked,
         "total": round(m["total"], 2), "invested": round(m["invested"], 2),
         "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
         "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
@@ -1086,10 +1091,11 @@ def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
         # run read from the broker, whose held names are marked at Trading 212's
         # own prices so the dashboard equals the app.
         px_live = dict(to_live(prices))
-        if held_px and name == TRACK:
+        from_t212 = bool(held_px and name == TRACK)
+        if from_t212:
             px_live.update(held_px)
-        out["tracks"][name] = _track_row(bk, mark(bk, px_live),
-                                         fx["sym"], fx["ccy"])
+        out["tracks"][name] = _track_row(bk, mark(bk, px_live), fx["sym"],
+                                         fx["ccy"], "t212" if from_t212 else "yahoo")
     out["t212"] = {"available": t212 is not None,
                    "configured": bool(t212 is not None and t212.configured()),
                    "reason": (t212.why_not() if t212 is not None else
@@ -1134,7 +1140,7 @@ def refresh_live(state) -> int:
         return 0
 
     fx = live_fx()
-    fresh = _track_row(bk, m, fx["sym"], fx["ccy"])
+    fresh = _track_row(bk, m, fx["sym"], fx["ccy"], "t212")
     moved = any(abs(fresh[k] - float(row.get(k) or 0)) >= 0.01
                 for k in ("total", "invested", "cash", "pnl", "unrealised"))
     if not moved:
