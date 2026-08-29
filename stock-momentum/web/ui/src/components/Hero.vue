@@ -3,19 +3,18 @@ import NumberFlow from "./NumberFlow.vue";
 import { money, pct, signed } from "../format.js";
 import { computed } from "vue";
 
-// The command bar. Headline is the HOLDINGS value -- own money plus what the
-// strategy earned. The two cells below are what was put in and what the same
-// money would be worth in the S&P 500 instead.
+// The command bar. Headline is TOTAL (holdings + cash) -- own money plus what
+// the strategy earned -- the same field the chart and rebalance log use, so
+// this figure never disagrees with the rest of the page. The two cells below
+// are what was put in and what the same money would be worth in the S&P 500
+// instead.
 const props = defineProps({
   s: Object, sym: String, label: String, bench: Number,
 });
 
 const fmt = (v) => money(v, props.sym);
-const dir = computed(() => (props.s?.unrealised ?? 0) >= 0 ? "up" : "down");
-const held = computed(() => props.s?.invested ?? 0);
-const cost = computed(() => held.value - (props.s?.unrealised ?? 0));
-const heldPct = computed(() =>
-  cost.value > 0 ? (props.s.unrealised / cost.value) * 100 : 0);
+const dir = computed(() => (props.s?.pnl ?? 0) >= 0 ? "up" : "down");
+const held = computed(() => props.s?.total ?? 0);
 </script>
 
 <template>
@@ -27,7 +26,7 @@ const heldPct = computed(() =>
       <NumberFlow class="big" :value="held" :format="fmt" />
       <div class="row">
         <span class="delta" :class="dir">
-          {{ signed(s?.unrealised ?? 0, sym) }} <em>{{ pct(heldPct) }}</em>
+          {{ signed(s?.pnl ?? 0, sym) }} <em>{{ pct(s?.pnl_pct ?? 0) }}</em>
         </span>
       </div>
     </div>
