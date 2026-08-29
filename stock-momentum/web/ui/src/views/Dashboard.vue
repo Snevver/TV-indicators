@@ -19,7 +19,6 @@ const t212off = computed(() => !h.value?.t212?.configured);
 const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
 const modelRows = computed(() => store.model?.[store.track] || []);
-const nPos = computed(() => Object.keys(s.value.positions || {}).length);
 
 // Most recent benchmark mark, for the command bar's vs-S&P line.
 const lastBench = computed(() => {
@@ -79,9 +78,7 @@ const health = computed(() => [
     </section>
 
     <template v-else>
-      <Hero :s="s" :sym="sym" :label="acct" :bench="lastBench"
-            :positions="nPos" :target="h.hold || 8"
-            :nextRebalance="h.next_rebalance" />
+      <Hero :s="s" :sym="sym" :label="acct" :bench="lastBench" />
 
       <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
 

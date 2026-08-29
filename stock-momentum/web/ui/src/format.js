@@ -6,8 +6,8 @@ export const money = (v, s = "$", dp = 2) =>
   s + (v ?? 0).toLocaleString("en-US",
     { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
-export const signed = (v, dp = 2) =>
-  (v >= 0 ? "+" : "−") + Math.abs(v ?? 0).toLocaleString("en-US",
+export const signed = (v, s = "", dp = 2) =>
+  (v >= 0 ? "+" : "−") + s + Math.abs(v ?? 0).toLocaleString("en-US",
     { minimumFractionDigits: dp, maximumFractionDigits: dp });
 
 export const pct = (v, dp = 2) =>
