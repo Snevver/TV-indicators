@@ -246,6 +246,32 @@ def test_model_curve_flat_prices_hold_value():
     assert all(abs(v - 999.0) < 1.0 for _, v in curve), curve[:3]
 
 
+def test_regime_gauge_spread_and_label():
+    import numpy as np, pandas as pd
+    wide = pd.Series(np.linspace(0.5, -0.3, 40))          # top mean >> bottom mean
+    g = bot.regime_gauge(wide)
+    assert g["spread_pct"] > 25 and g["label"] == "wide"
+    flat = pd.Series([0.1] * 40)
+    assert bot.regime_gauge(flat)["label"] == "compressed"
+    assert bot.regime_gauge(pd.Series([0.1] * 4)) == {}   # too few names
+
+
+def test_scoreboard_compares_live_to_model_per_month():
+    bk = {"equity": [["2026-08-27", 1000.0], ["2026-09-01", 1030.0],
+                     ["2026-10-01", 1010.0]]}
+    model = [("2026-08-27", 1000.0), ("2026-09-01", 1025.0), ("2026-10-01", 1005.0)]
+    sb = bot._scoreboard(bk, model)
+    assert [r["month"] for r in sb["rows"]] == ["2026-09", "2026-10"]
+    assert sb["rows"][0]["live_pct"] == 3.0 and sb["rows"][0]["model_pct"] == 2.5
+    assert sb["rows"][0]["gap_pct"] == 0.5
+    assert sb["total"]["gap_pct"] == 0.5                  # 1.0% live vs 0.5% model
+
+
+def test_scoreboard_empty_until_the_second_rebalance():
+    assert bot._scoreboard({"equity": [["2026-08-27", 1000.0]]}, []) == \
+        {"rows": [], "total": {}}
+
+
 def test_model_curve_empty_before_the_lookback_window():
     import pandas as pd
     dates = pd.bdate_range("2025-01-01", periods=100)      # < LOOKBACK + SKIP + 1

@@ -1,11 +1,12 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { store, setTrack } from "../store.js";
-import { money, hoursAgo, ago } from "../format.js";
+import { money, ago } from "../format.js";
 import Hero from "../components/Hero.vue";
-import MetricRail from "../components/MetricRail.vue";
 import Holdings from "../components/Holdings.vue";
 import MoneyChart from "../components/MoneyChart.vue";
+import RegimeGauge from "../components/RegimeGauge.vue";
+import Scoreboard from "../components/Scoreboard.vue";
 import RankingPanel from "../components/RankingPanel.vue";
 import HealthStrip from "../components/HealthStrip.vue";
 import LaunchPreview from "../components/LaunchPreview.vue";
@@ -13,34 +14,22 @@ import LaunchPreview from "../components/LaunchPreview.vue";
 const s = computed(() => store.state?.summary || {});
 const h = computed(() => store.state?.health || {});
 const sym = computed(() => store.state?.symbol || "$");
-const hist = computed(() => store.history || {});
 const empty = computed(() => !Object.keys(s.value.positions || {}).length);
 const t212off = computed(() => !h.value?.t212?.configured);
 const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
 const modelRows = computed(() => store.model?.[store.track] || []);
+const nPos = computed(() => Object.keys(s.value.positions || {}).length);
 
-// The most recent benchmark mark, for the header's "vs S&P 500" line.
+// Most recent benchmark mark, for the command bar's vs-S&P line.
 const lastBench = computed(() => {
   const r = hourly.value;
   for (let i = r.length - 1; i >= 0; i--)
     if (r[i].bench != null) return Number(r[i].bench);
   return null;
 });
-// Every benchmark point identical == the stale "flat at the deposit" rows from
-// before the tracker fetched the ETF hourly. Warn once rather than leave a
-// mystery flat segment.
-const benchStale = computed(() => {
-  const b = hourly.value.map((r) => r.bench).filter((v) => v != null);
-  return b.length > 2 && b.every((v) => Math.abs(v - b[0]) < 0.005);
-});
 
-const money2 = ref(null);
-const RANGES = [{ l: "24H", h: 24 }, { l: "1M", h: 720 }, { l: "ALL", h: 0 }];
-const active = ref("ALL");
-const setRange = (r) => { active.value = r.l; money2.value?.range(r.h); };
-
-// A one-second clock, only for the "next refresh in Ns" countdown in the topbar.
+// One-second clock for the "next refresh in Ns" countdown.
 const now = ref(Date.now());
 let clock = null;
 onMounted(() => { clock = setInterval(() => (now.value = Date.now()), 1000); });
@@ -50,35 +39,28 @@ const nextIn = computed(() =>
     ? null
     : Math.max(0, Math.round((store.nextPollAt - now.value) / 1000)));
 
-const metrics = computed(() => [
-  { k: "Positions", v: String(Object.keys(s.value.positions || {}).length),
-    s: `of ${h.value.hold || 8} target` },
-  { k: "Next rebalance", v: (h.value.next_rebalance || "-").split(" ")[0],
-    s: (h.value.next_rebalance || "").split(" ")[1] || "unknown" },
-  { k: "Last traded", v: s.value.last_rebalance || "never", s: "monthly" },
-  { k: "Worst drop", v: (hist.value.maxdd ?? 0).toFixed(1) + "%",
-    s: "from the high", tone: (hist.value.maxdd ?? 0) < -0.05 ? "down" : "" },
-  { k: "Price feed", v: h.value.bar || "-", s: hoursAgo(h.value.latest_hours) },
-]);
+const money2 = ref(null);
+const RANGES = [{ l: "24H", h: 24 }, { l: "1M", h: 720 }, { l: "ALL", h: 0 }];
+const active = ref("ALL");
+const setRange = (r) => { active.value = r.l; money2.value?.range(r.h); };
 
 const health = computed(() => [
-  { label: "Bot", value: hoursAgo(h.value.latest_hours),
+  { label: "Bot", value: h.value.bar || "—",
     state: h.value.latest_hours != null && h.value.latest_hours < 36 ? "on" : "warn" },
-  { label: "Trading 212", value: h.value.t212?.configured ? "on" : "off",
+  { label: "Trading 212", value: h.value.t212?.configured ? "linked" : "off",
     state: h.value.t212?.configured ? "on" : "off" },
+  { label: "Last traded", value: s.value.last_rebalance || "never", state: "on" },
   { label: "Feed", value: store.error ? "error" : "nominal",
     state: store.error ? "warn" : "on" },
 ]);
 </script>
 
 <template>
-  <div class="page">
+  <div class="deck">
     <div class="topbar">
       <div class="seg">
-        <button :class="{ on: store.track === 'live' }"
-                @click="setTrack('live')">Live</button>
-        <button :class="{ on: store.track === 'demo' }"
-                @click="setTrack('demo')">Demo</button>
+        <button :class="{ on: store.track === 'live' }" @click="setTrack('live')">Live</button>
+        <button :class="{ on: store.track === 'demo' }" @click="setTrack('demo')">Demo</button>
       </div>
       <span class="tick tag">
         <i class="led on"></i>updated {{ ago(store.fetchedAt) }}<template
@@ -86,9 +68,9 @@ const health = computed(() => [
       </span>
     </div>
 
-    <p v-if="store.error" class="err">Feed error: {{ store.error }}</p>
+    <p v-if="store.error" class="err bar-span">Feed error: {{ store.error }}</p>
 
-    <section v-if="t212off" class="note">
+    <section v-if="t212off" class="note bar-span">
       <h2>Trading 212 is not connected</h2>
       <p class="lede">{{ h.t212?.reason || "No API key is set." }} Set one on the
         Settings page. Until then the bot works out the orders and you place them
@@ -97,12 +79,13 @@ const health = computed(() => [
     </section>
 
     <template v-else>
-      <Hero :s="s" :sym="sym" :series="hist.total" :label="acct" :bench="lastBench" />
-      <MetricRail :items="metrics" />
+      <Hero class="a-bar" :s="s" :sym="sym" :label="acct" :bench="lastBench"
+            :positions="nPos" :target="h.hold || 8"
+            :nextRebalance="h.next_rebalance" />
 
-      <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
+      <LaunchPreview v-if="empty" class="bar-span" :s="s" :h="h" :sym="sym" />
 
-      <div v-if="hourly.length" class="hud wide">
+      <div v-if="hourly.length" class="hud a-chart">
         <div class="hud-head">
           <h2>You vs the S&amp;P 500</h2>
           <div class="seg small">
@@ -112,35 +95,39 @@ const health = computed(() => [
         </div>
         <div class="hud-body">
           <MoneyChart ref="money2" :rows="hourly" :model="modelRows"
-                      :sym="sym" :height="340" />
+                      :sym="sym" :height="360" />
           <div class="key">
-            <span><i class="sw cy"></i>{{ acct }} account · total</span>
-            <span><i class="sw am"></i>Same money in an S&amp;P 500 ETF</span>
+            <span><i class="sw cy"></i>{{ acct }} · total</span>
+            <span><i class="sw am"></i>S&amp;P 500 ETF</span>
             <span v-if="modelRows.length"><i class="sw fn"></i>Strategy · backtested</span>
           </div>
-          <p v-if="benchStale" class="fine flat-note">
-            The benchmark's earliest points are flat — that is data from before
-            the tracker began fetching the ETF hourly. It clears as new points
-            arrive.
-          </p>
         </div>
       </div>
-
-      <section v-else-if="!empty" class="hud waiting">
+      <section v-else-if="!empty" class="hud a-chart waiting">
         <span class="tag">Telemetry</span>
-        <p class="lede">The chart fills in once the hourly tracker has run a few
-          times.</p>
+        <p class="lede">The chart fills in once the hourly tracker has run a few times.</p>
       </section>
 
-      <div v-if="!empty" class="hud">
+      <RegimeGauge class="a-regime" :regime="h.regime" />
+      <Scoreboard class="a-score" :board="s.scoreboard" />
+
+      <div v-if="!empty" class="hud a-hold">
         <div class="hud-head"><h2>Holdings</h2>
-          <span class="tag">{{ money(s.invested, sym) }} · matches T212 Investments tab</span></div>
+          <span class="tag">{{ money(s.invested, sym) }} · = T212 Investments tab</span></div>
         <div class="hud-body flush">
           <Holdings :positions="s.positions" :sym="sym" :total="s.total" />
         </div>
       </div>
 
-      <div v-if="store.rebalances.length" class="hud">
+      <div class="hud a-rank" v-if="h.ranking?.length">
+        <div class="hud-head"><h2>Live ranking</h2>
+          <span class="tag">6-month momentum, skipping the last month</span></div>
+        <div class="hud-body flush">
+          <RankingPanel :ranking="h.ranking.slice(0, 14)" :hold="h.hold || 8" />
+        </div>
+      </div>
+
+      <div v-if="store.rebalances.length" class="hud a-log">
         <div class="hud-head"><h2>Rebalance log</h2></div>
         <div class="hud-body flush"><div class="scroll"><table>
           <thead><tr><th>Date</th><th>Bought</th><th>Sold</th><th>Account</th></tr></thead>
@@ -157,15 +144,7 @@ const health = computed(() => [
         </table></div></div>
       </div>
 
-      <div class="hud" v-if="h.ranking?.length">
-        <div class="hud-head"><h2>Live ranking</h2>
-          <span class="tag">six-month momentum, skipping the last month</span></div>
-        <div class="hud-body flush">
-          <RankingPanel :ranking="h.ranking.slice(0, 14)" :hold="h.hold || 8" />
-        </div>
-      </div>
-
-      <section class="block">
+      <section class="block a-health">
         <span class="tag">System</span>
         <HealthStrip :items="health" />
       </section>
@@ -174,24 +153,40 @@ const health = computed(() => [
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: 20px }
+.deck { display: flex; flex-direction: column; gap: 16px }
 .topbar { display: flex; align-items: center; justify-content: space-between;
   gap: 14px; flex-wrap: wrap }
 .tick { display: inline-flex; align-items: center; gap: 8px }
 .seg.small button { padding: 5px 12px; font-size: .68rem }
-/* Wide screens: holdings and the ranking sit side by side instead of stacking. */
-@media (min-width: 1500px) {
-  .page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 20px; align-items: start }
-  .topbar, .hero, .rail, .note, .block, .wide, .waiting { grid-column: 1 / -1 }
-}
-.block { display: flex; flex-direction: column; gap: 10px }
+.waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
-.key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px;
-  vertical-align: middle }
+.key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px; vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 .key .am { background: var(--amber) }
 .key .fn { background: var(--faint) }
-.flat-note { padding: 2px 4px 0; max-width: 60ch }
-.waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
+.block { display: flex; flex-direction: column; gap: 10px }
+
+/* The command-centre grid: a wide focus column (command bar + chart + tables)
+   and a narrower instrument column (regime + scoreboard). Collapses to one
+   column below 1300px. */
+@media (min-width: 1300px) {
+  .deck {
+    display: grid; gap: 16px; align-items: start;
+    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
+    grid-template-areas:
+      "topbar topbar"
+      "bar    bar"
+      "chart  regime"
+      "chart  score"
+      "hold   rank"
+      "log    log"
+      "health health";
+  }
+  .topbar { grid-area: topbar }
+  .a-bar { grid-area: bar } .a-chart { grid-area: chart }
+  .a-regime { grid-area: regime } .a-score { grid-area: score }
+  .a-hold { grid-area: hold } .a-rank { grid-area: rank }
+  .a-log { grid-area: log } .a-health { grid-area: health }
+  .bar-span { grid-column: 1 / -1 }
+}
 </style>

@@ -238,6 +238,7 @@ def health() -> dict:
             # about it in either direction is the worst kind of surprise.
             "autotrade": bool(lat.get("autotrade")),
             "t212": lat.get("t212") or {},
+            "regime": lat.get("regime") or {},
             "python_ok": os.path.exists(PYTHON)}
 
 

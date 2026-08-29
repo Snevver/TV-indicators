@@ -1122,7 +1122,57 @@ def _track_row(bk, m, sym, ccy, marked="yahoo") -> dict:
     }
 
 
-def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
+def regime_gauge(scores) -> dict:
+    """How much dispersion there is in the universe's momentum right now: the
+    mean 6-month return of the top HOLD names minus the mean of the bottom HOLD.
+
+    Wide = momentum has something to sort on and the strategy has a tailwind.
+    Compressed = winners and losers are barely distinguishable, so expect the
+    strategy to track the index. Informational only -- it changes nothing.
+    """
+    if scores is None or len(scores) < 2 * HOLD:
+        return {}
+    top = float(scores.head(HOLD).mean())
+    bot = float(scores.tail(HOLD).mean())
+    spread = top - bot
+    label = ("wide" if spread >= 0.25 else
+             "compressed" if spread < 0.12 else "neutral")
+    return {"spread_pct": round(spread * 100, 1),
+            "top_pct": round(top * 100, 1),
+            "bottom_pct": round(bot * 100, 1), "label": label}
+
+
+def _scoreboard(bk, model: list) -> dict:
+    """Live vs backtest, month by month. `bk["equity"]` is [date, value] at each
+    rebalance; `model` is the daily backtest curve [(date, value)]. For every
+    completed month we compare the realised book return with what the frozen
+    model returned over the same span -- a live out-of-sample record that grows
+    one row per rebalance.
+    """
+    eq = bk.get("equity") or []
+    md = dict(model)
+    rows = []
+    cl = cm = 1.0
+    for i in range(1, len(eq)):
+        (d0, v0), (d1, v1) = eq[i - 1], eq[i]
+        lret = (v1 / v0 - 1.0) if v0 else 0.0
+        m0, m1 = md.get(d0), md.get(d1)
+        mret = (m1 / m0 - 1.0) if (m0 and m1) else None
+        cl *= (1.0 + lret)
+        if mret is not None:
+            cm *= (1.0 + mret)
+        rows.append({"month": str(d1)[:7],
+                     "live_pct": round(lret * 100, 2),
+                     "model_pct": round(mret * 100, 2) if mret is not None else None,
+                     "gap_pct": round((lret - mret) * 100, 2)
+                     if mret is not None else None})
+    total = {"live_pct": round((cl - 1.0) * 100, 2),
+             "model_pct": round((cm - 1.0) * 100, 2),
+             "gap_pct": round((cl - cm) * 100, 2)} if rows else {}
+    return {"rows": rows, "total": total}
+
+
+def snapshot_payload(state, prices, scores, bar, held_px=None, models=None) -> dict:
     """Everything the dashboard renders from, both tracks.
 
     `held_px` (optional) is {ticker: account-currency price/share} from Trading
@@ -1146,7 +1196,9 @@ def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
            "ranking": [{"ticker": tk, "momentum_pct": round(float(v) * 100, 2),
                         "held": i < HOLD}
                        for i, (tk, v) in enumerate(scores.items())][:20],
+           "regime": regime_gauge(scores),
            "tracks": {}}
+    models = models or {}
     for name in TRACKS:
         bk = book(state, name)
         # Both books are real Trading 212 accounts in the account currency, so
@@ -1157,8 +1209,10 @@ def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
         from_t212 = bool(held_px and name == TRACK)
         if from_t212:
             px_live.update(held_px)
-        out["tracks"][name] = _track_row(bk, mark(bk, px_live), fx["sym"],
-                                         fx["ccy"], "t212" if from_t212 else "yahoo")
+        row = _track_row(bk, mark(bk, px_live), fx["sym"], fx["ccy"],
+                         "t212" if from_t212 else "yahoo")
+        row["scoreboard"] = _scoreboard(bk, models.get(name) or [])
+        out["tracks"][name] = row
     out["t212"] = {"available": t212 is not None,
                    "configured": bool(t212 is not None and t212.configured()),
                    "reason": (t212.why_not() if t212 is not None else
@@ -1175,20 +1229,25 @@ def write_latest(payload: dict) -> None:
     os.replace(tmp, LATEST)
 
 
-def write_model(state, px) -> None:
-    """Rewrite model.csv: the frozen backtest (model_curve) run forward from each
-    funded book's start date, seeded with what was paid in. Recomputed whole
-    each run so it always tracks the latest prices. One row per day per track:
-    date, track, value."""
-    import csv
-    rows = []
+def build_models(state, px) -> dict:
+    """{track: [(date, value)]} -- the frozen backtest run forward from each
+    funded book's start date, seeded with what was paid in, on the daily closes
+    the nightly run already has. Feeds both model.csv and the scoreboard."""
+    out = {}
     for name in TRACKS:
         bk = book(state, name)
         eq = bk.get("equity") or []
-        if not eq or not bk.get("deposited"):
-            continue
-        for d, v in model_curve(px, eq[0][0], float(bk["deposited"])):
-            rows.append({"date": d, "track": name, "value": f"{v:.2f}"})
+        if eq and bk.get("deposited"):
+            out[name] = model_curve(px, eq[0][0], float(bk["deposited"]))
+    return out
+
+
+def write_model(models: dict) -> None:
+    """Rewrite model.csv whole from build_models() output, so it always tracks
+    the latest prices. One row per day per track: date, track, value."""
+    import csv
+    rows = [{"date": d, "track": name, "value": f"{v:.2f}"}
+            for name, curve in models.items() for d, v in curve]
     tmp = MODEL + ".tmp"
     with open(tmp, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=("date", "track", "value"))
@@ -1231,7 +1290,9 @@ def refresh_live(state) -> int:
     if not moved:
         print(f"  {TRACK}: {money(m['total'])} unchanged - latest.json left as is")
         return 0
-    payload["tracks"][TRACK] = fresh
+    # Merge, not replace: keep scoreboard (and anything else the full run added
+    # that this light path does not recompute).
+    row.update(fresh)
     payload["generated"] = datetime.now(timezone.utc).isoformat()
     write_latest(payload)
     print(f"  {TRACK}: {money(m['total'])} ({m['pnl']:+.2f}) - latest.json refreshed")
@@ -2704,19 +2765,22 @@ def main() -> int:
         # Trading 212's own holdings prices for the account this run read, so the
         # dashboard's value matches the app rather than a yfinance mark.
         held_px = t212_held_prices(snap)
+        try:
+            models = build_models(state, px)      # backtest line + scoreboard
+        except Exception as exc:                  # noqa: BLE001 -- never fatal
+            print(f"  ! model curve skipped ({type(exc).__name__}: {exc})")
+            models = {}
         payload = snapshot_payload(state, prices, scores, px.index[-1],
-                                   held_px=held_px)
+                                   held_px=held_px, models=models)
         payload["due"] = due(px, book(state, name))
         write_latest(payload)
+        if models:
+            write_model(models)
         for t in TRACKS:
             px_live = dict(to_live(prices))
             if held_px and t == TRACK:
                 px_live.update(held_px)
             record_day(px.index[-1].date(), t, mark(book(state, t), px_live))
-        try:
-            write_model(state, px)               # the "backtested" chart line
-        except Exception as exc:                  # noqa: BLE001 -- never fatal
-            print(f"  ! model curve skipped ({type(exc).__name__}: {exc})")
         print(json.dumps(payload, indent=1, default=str))
         return 0
 
