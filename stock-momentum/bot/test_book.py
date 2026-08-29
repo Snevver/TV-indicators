@@ -234,6 +234,25 @@ def test_reconcile_without_a_cash_endpoint_falls_back_to_fx():
     bot._FX.clear()
 
 
+def test_model_curve_flat_prices_hold_value():
+    import pandas as pd
+    dates = pd.bdate_range("2025-01-01", periods=400)
+    px = pd.DataFrame(100.0, index=dates,
+                      columns=[f"T{i}" for i in range(40)])   # all flat -> no churn
+    curve = bot.model_curve(px, str(dates[200].date()), 1000.0)
+    assert curve, "should produce daily points once past the lookback window"
+    assert curve[0][0] >= str(dates[200].date())
+    # opening buy costs 10bps; nothing moves or rebalances after that
+    assert all(abs(v - 999.0) < 1.0 for _, v in curve), curve[:3]
+
+
+def test_model_curve_empty_before_the_lookback_window():
+    import pandas as pd
+    dates = pd.bdate_range("2025-01-01", periods=100)      # < LOOKBACK + SKIP + 1
+    px = pd.DataFrame(100.0, index=dates, columns=[f"T{i}" for i in range(40)])
+    assert bot.model_curve(px, str(dates[0].date()), 1000.0) == []
+
+
 def test_t212_held_prices_sum_to_the_brokers_own_value():
     # Broker: invested 600, ppl +12 -> holdings worth 612 in EUR. Two names, USD
     # current values 400 and 200. The per-share EUR prices must value the book

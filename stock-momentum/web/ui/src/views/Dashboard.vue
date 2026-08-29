@@ -18,6 +18,7 @@ const empty = computed(() => !Object.keys(s.value.positions || {}).length);
 const t212off = computed(() => !h.value?.t212?.configured);
 const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
+const modelRows = computed(() => store.model?.[store.track] || []);
 
 // The most recent benchmark mark, for the header's "vs S&P 500" line.
 const lastBench = computed(() => {
@@ -110,10 +111,12 @@ const health = computed(() => [
           </div>
         </div>
         <div class="hud-body">
-          <MoneyChart ref="money2" :rows="hourly" :sym="sym" :height="340" />
+          <MoneyChart ref="money2" :rows="hourly" :model="modelRows"
+                      :sym="sym" :height="340" />
           <div class="key">
             <span><i class="sw cy"></i>{{ acct }} account · total</span>
             <span><i class="sw am"></i>Same money in an S&amp;P 500 ETF</span>
+            <span v-if="modelRows.length"><i class="sw fn"></i>Strategy · backtested</span>
           </div>
           <p v-if="benchStale" class="fine flat-note">
             The benchmark's earliest points are flat — that is data from before
@@ -188,6 +191,7 @@ const health = computed(() => [
   vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 .key .am { background: var(--amber) }
+.key .fn { background: var(--faint) }
 .flat-note { padding: 2px 4px 0; max-width: 60ch }
 .waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
 </style>

@@ -25,6 +25,7 @@ LATEST = os.path.join(BOT, "latest.json")
 HISTORY = os.path.join(BOT, "history.csv")
 REBALANCES = os.path.join(BOT, "rebalances.csv")
 HOURLY = os.path.join(BOT, "hourly.csv")
+MODEL = os.path.join(BOT, "model.csv")
 PYTHON = os.environ.get("MOMENTUM_PYTHON") or os.path.join(BOT, ".venv", "bin", "python")
 
 TRACKS = ("demo", "live")
@@ -102,6 +103,22 @@ def hourly(series: str) -> list:
         out.append({"time": r.get("time", ""),
                     "total": _maybe(r.get("total")),
                     "bench": _maybe(r.get("bench"))})
+    out.sort(key=lambda r: r["time"])
+    return out
+
+
+def model(track: str) -> list:
+    """[{time, value}] oldest first: the frozen backtest run forward from this
+    book's funding date, seeded with what was paid in. Written by the bot's
+    --json run (model.csv). Missing file -> empty list, and the chart just
+    omits the line."""
+    out = []
+    for r in _rows(MODEL):
+        if r.get("track") != track:
+            continue
+        v = _maybe(r.get("value"))
+        if v is not None:
+            out.append({"time": r.get("date", ""), "value": v})
     out.sort(key=lambda r: r["time"])
     return out
 

@@ -26,3 +26,8 @@ deposits.csv
 deposits.csv.tmp
 hourly.csv
 hourly.csv.tmp
+
+# The frozen backtest run forward from the funding date, for the chart. Derived
+# from prices + state, rewritten every --json run.
+model.csv
+model.csv.tmp

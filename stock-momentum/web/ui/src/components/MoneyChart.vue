@@ -8,6 +8,7 @@ import { createChart, LineStyle, AreaSeries, LineSeries } from "lightweight-char
 // of the money being compared. Range is driven from the parent via range().
 const props = defineProps({
   rows: { type: Array, default: () => [] },
+  model: { type: Array, default: () => [] },   // [{time, value}] daily backtest
   sym: { type: String, default: "$" },
   height: { type: Number, default: 320 },
 });
@@ -106,6 +107,19 @@ function paint() {
     series.push(bench);
   }
 
+  // The frozen backtest, run forward from the funding date. Daily, so it steps
+  // where the live line is smooth -- deliberately a quiet reference line.
+  const modelPts = points(props.model, "value");
+  if (modelPts.length) {
+    const bt = chart.addSeries(LineSeries, {
+      color: css("--faint"), lineWidth: 1,
+      priceLineVisible: false, lastValueVisible: true,
+      crosshairMarkerVisible: false,
+    });
+    bt.setData(modelPts);
+    series.push(bt);
+  }
+
   chart.timeScale().fitContent();
 }
 
@@ -125,7 +139,7 @@ onMounted(() => {
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => props.rows, paint, { deep: true });
+watch(() => [props.rows, props.model], paint, { deep: true });
 </script>
 
 <template>

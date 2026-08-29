@@ -166,6 +166,8 @@ HISTORY = os.path.join(HERE, "history.csv")     # one row per day per track
 LATEST = os.path.join(HERE, "latest.json")      # the dashboard's render cache
 DEPOSITS = os.path.join(HERE, "deposits.csv")   # dated cash-in events, for the
 #                                                 ETF benchmark (see tracker.py)
+MODEL = os.path.join(HERE, "model.csv")         # the frozen backtest, forward
+#                                                 from each book's funding date
 
 # Frozen at validation time. Changing this changes the strategy — if you edit it,
 # the measured results no longer describe what you are running.
@@ -416,6 +418,67 @@ def rank(px):
     past = px.iloc[-1 - SKIP - LOOKBACK]
     ok = recent.notna() & past.notna() & (past > 0)
     return ((recent / past - 1.0)[ok]).sort_values(ascending=False)
+
+
+def model_curve(px, start, budget: float, cost_bps: float = 10.0) -> list:
+    """The frozen strategy, backtested from `start` to the end of `px`, seeded
+    with `budget`. Returns [(YYYY-MM-DD, value)] daily.
+
+    This is the arithmetic from web/simulate.py::run and research/drift.py --
+    drift with fractional shares, first-trading-day-of-month anchors, cost_bps on
+    the money that moves -- run forward on the SAME daily closes the bot already
+    downloads each night. Its only job is the dashboard's "backtested" line: how
+    far the live account has drifted from the model it was validated on (fills,
+    fees, the day's timing). Nothing here feeds the book or a decision.
+    """
+    import numpy as np
+    import pandas as pd
+
+    idx = px.index
+    anchors = (pd.Series(np.arange(len(idx)), index=idx)
+               .groupby([idx.year, idx.month]).first().to_numpy())
+    lo = pd.Timestamp(start)
+    anchors = [int(a) for a in anchors
+               if a >= LOOKBACK + SKIP + 1 and idx[a] >= lo]
+    if not anchors:
+        return []
+
+    fee = cost_bps / 10_000.0
+    end_i = len(idx) - 1
+    shares: dict = {}
+    curve = []
+    for k, a in enumerate(anchors):
+        past, recent, now = px.iloc[a - LOOKBACK - SKIP], px.iloc[a - SKIP], px.iloc[a]
+        ok = past.notna() & recent.notna() & now.notna() & (past > 0)
+        top = list(((recent / past - 1.0)[ok]).sort_values(ascending=False)
+                   .index[:HOLD])
+        if len(top) < HOLD:
+            continue
+        value = (budget if not shares
+                 else sum(n * now[t] for t, n in shares.items()))
+        if not shares:
+            value *= (1.0 - fee)
+            shares = {t: (value / HOLD) / now[t] for t in top}
+        else:
+            leaving = [t for t in shares if t not in top]
+            arriving = [t for t in top if t not in shares]
+            cash = sum(shares[t] * now[t] for t in leaving)
+            value -= cash * (2 if arriving else 1) * fee
+            cash -= cash * fee
+            for t in leaving:
+                del shares[t]
+            if arriving:
+                each = cash / len(arriving)
+                for t in arriving:
+                    shares[t] = each / now[t]
+        held_cash = value - sum(n * now[t] for t, n in shares.items())
+        nxt = anchors[k + 1] if k + 1 < len(anchors) else end_i + 1
+        for i in range(a, min(nxt, end_i + 1)):
+            row = px.iloc[i]
+            curve.append((str(idx[i].date()),
+                          round(sum(n * row[t] for t, n in shares.items())
+                                + held_cash, 2)))
+    return curve
 
 
 def due(px, bk) -> bool:
@@ -1110,6 +1173,28 @@ def write_latest(payload: dict) -> None:
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, indent=1, default=str)
     os.replace(tmp, LATEST)
+
+
+def write_model(state, px) -> None:
+    """Rewrite model.csv: the frozen backtest (model_curve) run forward from each
+    funded book's start date, seeded with what was paid in. Recomputed whole
+    each run so it always tracks the latest prices. One row per day per track:
+    date, track, value."""
+    import csv
+    rows = []
+    for name in TRACKS:
+        bk = book(state, name)
+        eq = bk.get("equity") or []
+        if not eq or not bk.get("deposited"):
+            continue
+        for d, v in model_curve(px, eq[0][0], float(bk["deposited"])):
+            rows.append({"date": d, "track": name, "value": f"{v:.2f}"})
+    tmp = MODEL + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=("date", "track", "value"))
+        w.writeheader()
+        w.writerows(rows)
+    os.replace(tmp, MODEL)
 
 
 def refresh_live(state) -> int:
@@ -2617,6 +2702,10 @@ def main() -> int:
             if held_px and t == TRACK:
                 px_live.update(held_px)
             record_day(px.index[-1].date(), t, mark(book(state, t), px_live))
+        try:
+            write_model(state, px)               # the "backtested" chart line
+        except Exception as exc:                  # noqa: BLE001 -- never fatal
+            print(f"  ! model curve skipped ({type(exc).__name__}: {exc})")
         print(json.dumps(payload, indent=1, default=str))
         return 0
 

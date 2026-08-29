@@ -15,6 +15,7 @@ export const store = reactive({
   history: null,
   rebalances: [],
   hourly: { demo: [], live: [] },
+  model: { demo: [], live: [] },      // the frozen backtest, per track
   fetchedAt: null,
   nextPollAt: null,          // epoch ms of the next scheduled fetch, for the countdown
   loading: true,
@@ -38,6 +39,7 @@ export async function load() {
     ]);
     store.state = s; store.history = h; store.rebalances = r.rows || [];
     store.hourly = { demo: hd.rows || [], live: hl.rows || [] };
+    store.model = { demo: hd.model || [], live: hl.model || [] };
     store.fetchedAt = Date.now();
   } catch (e) {
     if (e.message !== "signed out") store.error = e.message;
