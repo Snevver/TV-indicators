@@ -2340,6 +2340,9 @@ def main() -> int:
     p.add_argument("--t212-instruments", action="store_true",
                    help="resolve the universe to Trading 212 instrument codes; "
                         "read-only, and required before any order can be placed")
+    p.add_argument("--transactions", type=int, metavar="N", nargs="?", const=50,
+                   help="print the last N Trading 212 cash transactions (deposits, "
+                        "fees, interest) as JSON, then exit. Read-only.")
     p.add_argument("--t212-probe", action="store_true",
                    help="print what Trading 212 returns; read-only, changes nothing")
     p.add_argument("--t212-check", action="store_true",
@@ -2595,6 +2598,14 @@ def main() -> int:
         print(f"\n  {len(r['map'])}/{len(UNIVERSE)} resolved."
               + ("" if clean else "  Orders cannot be placed until every name resolves."))
         return 0 if clean else 1
+
+    if args.transactions is not None:
+        if t212 is None:
+            raise SystemExit(f"t212.py did not load: {_T212_IMPORT_ERROR}")
+        if not t212.configured():
+            raise SystemExit(t212.why_not())
+        print(json.dumps(t212.fees(args.transactions), indent=1, default=str))
+        return 0
 
     if args.t212_probe:
         if t212 is None:
