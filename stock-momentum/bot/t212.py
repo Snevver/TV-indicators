@@ -281,10 +281,10 @@ def positions(universe=None) -> dict:
         avg = _pick(it, "averagePrice", "avgPrice", "averageEntryPrice", "price")
         cur = _pick(it, "currentPrice", "currentValue", "lastPrice")
         val = _pick(it, "value", "currentValue", "marketValue")
-        qty = float(qty)
+        raw_qty = float(qty)
         # Subtract whatever a pie owns; only the loose part is the strategy's.
         pie_qty = _pick(it, "pieQuantity", default=0.0) or 0.0
-        qty = qty - float(pie_qty)
+        qty = raw_qty - float(pie_qty)
         if qty <= 1e-9:
             continue
         tk = symbol(raw)
@@ -294,8 +294,15 @@ def positions(universe=None) -> dict:
         # Recompute from the non-pie quantity: a reported value covers the whole
         # holding, pie share included, which would overstate what is ours.
         val = qty * float(cur) if cur is not None else (float(val or 0.0))
+        # ppl / fxPpl are in the ACCOUNT currency and cover the whole holding, so
+        # scale them to the loose part the same way. They are the only per-line
+        # figures Trading 212 gives in EUR, so they are what the book values
+        # against -- see momentum_bot.t212_strategy_value.
+        scale = (qty / raw_qty) if raw_qty else 0.0
         out[tk] = {"shares": qty, "avg_price": avg, "value": float(val),
-                   "cost": qty * avg, "raw_ticker": str(raw)}
+                   "cost": qty * avg, "raw_ticker": str(raw),
+                   "ppl_eur": float(_pick(it, "ppl", default=0.0) or 0.0) * scale,
+                   "fxppl_eur": float(_pick(it, "fxPpl", default=0.0) or 0.0) * scale}
 
     if items and not out and not parsed_any:
         # The broker sent rows and not one of them parsed. That is a mapping

@@ -174,61 +174,75 @@ def test_trading_creates_no_value():
 
 # ------------------------------------------------------------------- reconcile
 #
-# adopt=True takes the broker's share counts AND its own cost basis, then
-# re-squares cash. The basis must not depend on an exchange rate we fetched
-# ourselves -- that was drifting the dashboard P&L by ~0.5% an hour.
+# adopt=True takes the broker's share counts AND a cost basis derived per
+# position from Trading 212's own ppl/fxPpl -- SCOPED to the non-pie universe
+# names, so a pie or a manual buy on the same account cannot leak in.
 
-def _snap(positions, invested):
-    """A minimal t212.snapshot() shape."""
-    return {"positions": {tk: {"shares": sh, "cost": cost}
-                          for tk, (sh, cost) in positions.items()},
-            "account_cash": {"invested": invested}}
+def _fx(rate=0.9, ccy="EUR"):
+    bot._FX.clear()
+    bot._FX.update(rate=rate, ccy=ccy, sym="€" if ccy == "EUR" else "$", err="")
 
 
-def test_reconcile_basis_comes_from_the_brokers_invested_figure():
+def _snap(positions):
+    """positions: {ticker: (shares, usd_market_value, unrealised_eur)}."""
+    return {"positions": {tk: {"shares": sh, "value": val, "cost": val,
+                               "ppl_eur": unrl, "fxppl_eur": 0.0}
+                          for tk, (sh, val, unrl) in positions.items()}}
+
+
+def test_reconcile_basis_is_value_minus_the_brokers_own_unrealised():
+    _fx(rate=0.9)
     b = _book(cash=4.97, deposited=1000.0)
     b["positions"] = {"AAA": 1.0, "BBB": 1.0}
     b["book"] = {"AAA": 500.0, "BBB": 500.0}               # stale, planned-price
-    # Broker: same shares, USD cost split 60/40, real EUR basis 989.87.
-    snap = _snap({"AAA": (1.0, 600.0), "BBB": (1.0, 400.0)}, 989.87)
-    bot.reconcile(b, snap, adopt=True)
-    assert abs(sum(b["book"].values()) - 989.87) < 1e-6   # sums to the broker's
-    assert abs(b["book"]["AAA"] - 989.87 * 0.6) < 1e-4     # by USD cost weight
-    assert abs(b["book"]["BBB"] - 989.87 * 0.4) < 1e-4
+    # Broker: AAA worth $660 with +€6 open; BBB $440 with -€2 open.
+    bot.reconcile(b, _snap({"AAA": (1.0, 660.0, 6.0),
+                            "BBB": (1.0, 440.0, -2.0)}), adopt=True)
+    assert abs(b["book"]["AAA"] - (660 * 0.9 - 6.0)) < 1e-6
+    assert abs(b["book"]["BBB"] - (440 * 0.9 - -2.0)) < 1e-6
+    bot._FX.clear()
+
+
+def test_reconcile_ignores_a_pie_on_the_same_account():
+    # t212.positions() already drops pie holdings, so the snapshot the bot sees
+    # only carries the strategy's names -- the basis must not reach for an
+    # account-wide figure that would include the pie.
+    _fx(rate=1.0, ccy="USD")
+    b = _book(cash=5.0, deposited=1000.0)
+    b["positions"] = {"AAA": 1.0}
+    bot.reconcile(b, _snap({"AAA": (1.0, 990.0, 3.0)}), adopt=True)
+    assert abs(sum(b["book"].values()) - (990.0 - 3.0)) < 1e-6   # nothing extra
+    bot._FX.clear()
 
 
 def test_reconcile_re_squares_cash_to_deposited_minus_basis():
-    bot._FX.clear()
-    bot._FX.update(rate=1.0, ccy="USD", sym="$", err="")   # USD: no conversion fee
+    _fx(rate=1.0, ccy="USD")                               # USD: no conversion fee
     b = _book(cash=4.97, deposited=1000.0)                 # bot thinks it spent 995
     b["positions"] = {"AAA": 1.0}
     b["book"] = {"AAA": 995.03}
-    snap = _snap({"AAA": (1.0, 1000.0)}, 989.87)           # fills were cheaper
-    bot.reconcile(b, snap, adopt=True)
+    bot.reconcile(b, _snap({"AAA": (1.0, 989.87, 0.0)}), adopt=True)
     assert abs(b["cash"] - (1000.0 - 989.87)) < 1e-6       # the ~5 comes back
     _identity(b, {"AAA": 989.87})                          # total == cash + value
     bot._FX.clear()
 
 
 def test_reconcile_subtracts_the_fx_fee_on_a_non_usd_account():
-    bot._FX.clear()
-    bot._FX.update(rate=0.86, ccy="EUR", sym="€", err="")
+    _fx(rate=1.0, ccy="EUR")
     b = _book(cash=4.97, deposited=1000.0)
     b["positions"] = {"AAA": 1.0}
     b["book"] = {"AAA": 995.03}
-    bot.reconcile(b, _snap({"AAA": (1.0, 1000.0)}, 989.87), adopt=True)
+    bot.reconcile(b, _snap({"AAA": (1.0, 989.87, 0.0)}), adopt=True)
     fee = 989.87 * bot.FX_FEE_BPS / 10_000.0               # ~1.48
     assert abs(b["cash"] - round(1000.0 - 989.87 - fee, 2)) < 1e-9
     assert b["cash"] < 1000.0 - 989.87                     # fee really came off
     bot._FX.clear()
 
 
-def test_reconcile_without_a_cash_endpoint_falls_back_to_fx():
-    bot._FX.clear()
-    bot._FX.update(rate=0.5, ccy="EUR", sym="€", err="")
+def test_reconcile_without_priceable_positions_falls_back_to_fx():
+    _fx(rate=0.5, ccy="EUR")
     b = _book(cash=0.0, deposited=100.0)
-    snap = {"positions": {"AAA": {"shares": 1.0, "cost": 100.0}},
-            "account_cash": None}
+    # value 0 -> t212_strategy_value skips it -> fall back to USD cost * fx
+    snap = {"positions": {"AAA": {"shares": 1.0, "cost": 100.0, "value": 0.0}}}
     bot.reconcile(b, snap, adopt=True)
     assert abs(b["book"]["AAA"] - 50.0) < 1e-6             # 100 USD * 0.5
     bot._FX.clear()
@@ -290,21 +304,20 @@ def test_model_curve_seeds_on_a_mid_month_funding_date():
     assert curve and curve[0][0] == start
 
 
-def test_t212_held_prices_sum_to_the_brokers_own_value():
-    # Broker: invested 600, ppl +12 -> holdings worth 612 in EUR. Two names, USD
-    # current values 400 and 200. The per-share EUR prices must value the book
-    # back to 612.
-    snap = {"account_cash": {"invested": 600.0, "ppl": 12.0},
-            "positions": {"AAA": {"shares": 4.0, "value": 400.0},
-                          "BBB": {"shares": 10.0, "value": 200.0}}}
-    px = bot.t212_held_prices(snap)
-    assert abs(4.0 * px["AAA"] + 10.0 * px["BBB"] - 612.0) < 1e-6
-    assert abs(px["AAA"] / px["BBB"] - (400 / 4) / (200 / 10)) < 1e-6  # keeps ratio
+def test_t212_held_prices_value_each_name_at_the_current_rate():
+    _fx(rate=0.9)
+    # AAA: $400 market value; BBB: $200. Per-share EUR price = USD value * rate
+    # / shares. Open P&L does not enter the price, only the cost basis.
+    px = bot.t212_held_prices(_snap({"AAA": (4.0, 400.0, 12.0),
+                                     "BBB": (10.0, 200.0, 0.0)}))
+    assert abs(px["AAA"] - 400 * 0.9 / 4) < 1e-6
+    assert abs(px["BBB"] - 200 * 0.9 / 10) < 1e-6
+    bot._FX.clear()
 
 
 def test_t212_held_prices_empty_without_a_snapshot():
     assert bot.t212_held_prices(None) == {}
-    assert bot.t212_held_prices({"account_cash": {}, "positions": {}}) == {}
+    assert bot.t212_held_prices({"positions": {}}) == {}
 
 
 def test_reconcile_adopt_false_changes_nothing():
@@ -312,7 +325,7 @@ def test_reconcile_adopt_false_changes_nothing():
     b["positions"] = {"AAA": 1.0}
     b["book"] = {"AAA": 500.0}
     before = (dict(b["positions"]), dict(b["book"]), b["cash"])
-    diffs = bot.reconcile(b, _snap({"AAA": (2.0, 900.0)}, 900.0), adopt=False)
+    diffs = bot.reconcile(b, _snap({"AAA": (2.0, 900.0, 0.0)}), adopt=False)
     assert (dict(b["positions"]), dict(b["book"]), b["cash"]) == before
     assert diffs == [("AAA", 1.0, 2.0)]                    # still reports the gap
 

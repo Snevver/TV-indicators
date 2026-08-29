@@ -710,31 +710,40 @@ def broker() -> dict | None:
         return None
 
 
-def t212_held_prices(snap) -> dict:
-    """Per-share prices in the account currency, taken from Trading 212's own
-    quotes so the dashboard's holdings value equals what the Trading 212 app
-    shows -- not a yfinance mark a few tenths of a percent away.
+def t212_strategy_value(snap) -> dict:
+    """The strategy's holdings from a broker snapshot, valued in the account
+    currency and SCOPED to the non-pie universe positions -- so a pie, or a
+    manual buy elsewhere on the same account, cannot leak into the strategy's
+    numbers.
 
-    Trading 212 reports the holdings' value as invested + ppl (cost basis plus
-    open P&L), which is the figure on its Investments screen. That total is
-    spread back across the names by their current value, so the per-position
-    rows on the dashboard sum to it exactly. Returns {} with no snapshot, so
-    callers fall back to the yfinance mark.
+    Per position: EUR value = the USD market value at today's rate; EUR
+    unrealised = Trading 212's own ppl + fxPpl (exact, per line); EUR cost =
+    value - unrealised. Only the value carries the small yfinance-rate
+    approximation, and it cancels out of unrealised. Returns
+    {ticker: {"value": eur, "cost": eur, "shares": n}}, or {} with no snapshot.
     """
-    if not snap:
+    pos = (snap or {}).get("positions") or {}
+    if not pos:
         return {}
-    ac = snap.get("account_cash") or {}
-    pos = snap.get("positions") or {}
-    eur_total = float(ac.get("invested") or 0.0) + float(ac.get("ppl") or 0.0)
-    usd_total = sum(float(p.get("value") or 0.0) for p in pos.values())
-    if eur_total <= 0 or usd_total <= 0:
-        return {}
+    fx = live_fx()["rate"]
     out = {}
     for tk, p in pos.items():
-        sh, val = float(p.get("shares") or 0.0), float(p.get("value") or 0.0)
-        if sh > 0 and val > 0:
-            out[tk] = val / usd_total * eur_total / sh
+        sh = float(p.get("shares") or 0.0)
+        val_usd = float(p.get("value") or 0.0)
+        if sh <= 0 or val_usd <= 0:
+            continue
+        value_eur = val_usd * fx
+        unrl = float(p.get("ppl_eur") or 0.0) + float(p.get("fxppl_eur") or 0.0)
+        out[tk] = {"value": value_eur, "cost": value_eur - unrl, "shares": sh}
     return out
+
+
+def t212_held_prices(snap) -> dict:
+    """Per-share prices in the account currency from Trading 212's own quotes,
+    so the dashboard's holdings value matches the app rather than a yfinance
+    mark. {} with no snapshot, so callers fall back to the yfinance mark."""
+    return {tk: v["value"] / v["shares"]
+            for tk, v in t212_strategy_value(snap).items() if v["shares"] > 0}
 
 
 def reconcile(bk, snap, adopt: bool) -> list:
@@ -757,44 +766,32 @@ def reconcile(bk, snap, adopt: bool) -> list:
     # Cash is deliberately NOT compared, and never adopted. See below.
 
     if adopt:
-        ac = snap.get("account_cash") or {}
         bk["positions"] = {tk: p["shares"] for tk, p in theirs.items()}
 
-        # COST BASIS: the broker's, in the account currency, taken from the
-        # broker's own figure rather than rebuilt from an exchange rate we
-        # fetched ourselves.
+        # COST BASIS: from Trading 212's own per-line figures, SCOPED to the
+        # non-pie universe positions.
         #
-        # This used to be `p["cost"] * live_fx()`, and reconcile() runs on
-        # every dashboard refresh, so it was recomputed constantly. p["cost"]
-        # is USD (quantity x averagePrice); live_fx() is an independently
-        # sourced EUR/USD -- yfinance's last daily close -- which is never
-        # quite the rate Trading 212 actually filled at. So the EUR basis
-        # drifted with that rate: on a EUR1,000 demo book it read a flat ~0.5%
-        # high across all eight names, enough to turn a small unrealised gain
-        # into a reported loss, and it moved again every hour.
-        #
-        # /equity/account/cash already reports `invested` -- the real cost
-        # basis of the non-pie holdings, in the account currency. Split it
-        # across the names by their USD cost weight (a ratio, so no FX guess
-        # enters) and the book sums back to exactly what the broker says, and
-        # only changes when a fill does.
-        broker_basis = float(ac.get("invested") or 0.0)
-        usd_cost = {tk: float(p.get("cost") or 0.0) for tk, p in theirs.items()}
-        total_usd = sum(usd_cost.values())
-        if broker_basis > 0 and total_usd > 0:
-            bk["book"] = {tk: round(broker_basis * usd_cost[tk] / total_usd, 6)
-                          for tk in theirs}
+        # This used to spread /equity/account/cash's `invested` across the
+        # names. That figure is account-WIDE: on a live account that also holds
+        # a Vanguard pie it is the strategy's basis PLUS EUR2,080 of pie, and
+        # every strategy name would inherit a slice of the pie. t212_strategy_
+        # value() instead values each non-pie position on its own -- USD market
+        # value at today's rate, minus Trading 212's exact per-line ppl+fxPpl
+        # -- so a pie or a manual buy elsewhere cannot leak in, and the basis
+        # only moves when a fill does.
+        sv = t212_strategy_value(snap)
+        if sv:
+            bk["book"] = {tk: round(sv[tk]["cost"], 6) for tk in sv}
         else:
-            # No cash endpoint this run: fall back to the old translation.
             fx = live_fx()["rate"]
-            bk["book"] = {tk: round(usd_cost[tk] * fx, 6) for tk in theirs}
+            bk["book"] = {tk: round(float(p.get("cost") or 0.0) * fx, 6)
+                          for tk, p in theirs.items()}
 
         # CASH: re-square the ledger against that basis.
         #
         # THE BROKER OWNS THE POSITIONS. THE BOT OWNS THE CASH. Trading 212
         # reports one pool of free funds for the whole account, and the
-        # strategy is only a part of it -- 21,310 against a declared 1,000 on
-        # this account -- so that number is still never adopted as the
+        # strategy is only a part of it, so that number is never adopted as the
         # strategy's cash.
         #
         # But cash is a LEDGER, and once the real cost basis is known the
@@ -806,7 +803,7 @@ def reconcile(bk, snap, adopt: bool) -> list:
         #
         # `fees` is Trading 212's EUR->USD conversion charge (FX_FEE_BPS,
         # ~0.15%). averagePrice does not include it, so without this term the
-        # account figure floats a fee it already paid: on this demo book, the
+        # account figure floats a fee it already paid: on the demo book, the
         # whole account was down EUR0.84 while the dashboard read +EUR1.43.
         # An estimate on the current holdings, not a per-order tally -- close
         # for a drift book that mostly bought once, and --fill still corrects
