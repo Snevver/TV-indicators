@@ -103,7 +103,8 @@ const health = computed(() => [
 
       <div class="cols">
         <div class="focus">
-          <div v-if="hourly.length || candles.length" ref="chartHud" class="hud chartpanel">
+          <div v-if="candles.length || (store.track === 'demo' && hourly.length)"
+               ref="chartHud" class="hud chartpanel">
             <div class="hud-head">
               <h2>{{ acct }} · portfolio</h2>
               <div class="seg small">
@@ -114,6 +115,7 @@ const health = computed(() => [
             </div>
             <div class="hud-body">
               <MoneyChart :candles="candles" :paid-in="paidIn" :rows="hourly"
+                          :fallback="store.track === 'demo'"
                           :sym="sym" :height="chartHeight" />
               <div class="key">
                 <span><i class="sw cy"></i>{{ acct }} · account</span>

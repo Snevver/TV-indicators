@@ -185,24 +185,20 @@ def test_candles_month_bucket():
         assert bars[0]["open"] == 10.0 and bars[0]["high"] == 15.0 and bars[0]["close"] == 14.0
 
 
-def test_candles_folds_in_hourly_history_for_hour_plus_tfs():
+def test_candles_ignores_hourly_history_entirely():
     with tempfile.TemporaryDirectory() as d:
         data.HOURLY = os.path.join(d, "hourly.csv")
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.HOURLY,
                "time,series,total,bench\n"
                "2026-09-01T20:00Z,live,1990,2000\n"
-               "2026-09-01T21:00Z,live,1995,2000\n"
-               "2026-09-03T14:00Z,live,9999,2000\n")   # overlaps the samples -> dropped
-        _write(data.SAMPLES_1M, _BARS)                  # samples start 2026-09-03 14:00
-        bars = data.candles("live", "60m")
-        by_t = {b["time"]: b for b in bars}
-        assert data._epoch("2026-09-01T20:00Z") in by_t       # pre-pulse history kept
-        hour = by_t[data._epoch("2026-09-03T14:00Z")]         # the samples' hour
-        assert hour["high"] == 110.0 and hour["close"] == 108.0   # 9999 hourly row dropped
-        # 1m/5m stay samples-only
-        assert all(b["time"] >= data._epoch("2026-09-03T14:00Z")
-                   for b in data.candles("live", "5m"))
+               "2026-09-01T21:00Z,live,1995,2000\n")
+        _write(data.SAMPLES_1M, _BARS)                  # samples start 2026-09-03
+        sep3 = data._epoch("2026-09-03")               # bucket floors land on/after this
+        for tf in ("5m", "60m", "1d"):
+            bars = data.candles("live", tf)
+            assert bars and all(b["time"] >= sep3 for b in bars), tf
+            assert all(b["high"] < 200 for b in bars), tf   # no 1990/1995 hourly rows
 
 
 def test_candles_unknown_tf_and_missing_file_are_empty():

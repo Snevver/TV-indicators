@@ -35,13 +35,10 @@ TRACKS = ("demo", "live")
 TRACK_LABEL = {"demo": "Demo", "live": "Live"}
 
 # Candlestick timeframes. Values are bucket size in seconds; "1M" is a calendar
-# month and handled specially. The chart buckets samples_1m.csv up into these;
-# hour-and-up timeframes also fold in hourly.csv so the line keeps its full
-# history from before pulse.py existed.
+# month and handled specially. The chart buckets samples_1m.csv up into these.
 TF_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600,
               "4h": 14400, "1d": 86400}
 TFS = set(TF_SECONDS) | {"1M"}
-FINE_TFS = {"1m", "5m"}            # samples_1m.csv only -- no hourly history
 MAX_BARS = 1000                    # most recent N bars per response
 
 
@@ -155,13 +152,11 @@ def _month_start(ts: int) -> int:
 
 
 def candles(track: str, tf: str) -> list:
-    """[{time, open, high, low, close}] oldest first, for one track. `time` is
-    int UTC seconds (what lightweight-charts wants). Unknown tf -> [].
-
-    1m/5m come from pulse.py's 1-minute bars (samples_1m.csv) only. Every
-    hour-and-up timeframe also folds in hourly.csv (one degenerate bar per
-    hourly `total`) for the stretch before samples_1m.csv starts, so the chart
-    keeps its full history. Most recent MAX_BARS bars only."""
+    """[{time, open, high, low, close}] oldest first, for one track, bucketed
+    from pulse.py's 1-minute bars (samples_1m.csv). `time` is int UTC seconds
+    (what lightweight-charts wants). Unknown tf -> []. Most recent MAX_BARS bars
+    only. Nothing older than samples_1m.csv is folded in -- the chart starts
+    where clean 1-minute sampling started."""
     if tf not in TFS:
         return []
 
@@ -173,16 +168,6 @@ def candles(track: str, tf: str) -> list:
         o, h, l, c = (_maybe(r.get(k)) for k in ("open", "high", "low", "close"))
         if ts and None not in (o, h, l, c):
             rows.append((ts, o, h, l, c))
-    first_fine = min((t for t, *_ in rows), default=None)
-
-    if tf not in FINE_TFS:
-        for r in _rows(HOURLY):
-            if r.get("series") != track:
-                continue
-            ts = _epoch(r.get("time"))
-            v = _maybe(r.get("total"))
-            if ts and v is not None and (first_fine is None or ts < first_fine):
-                rows.append((ts, v, v, v, v))       # flat bar, no intra-hour detail
     rows.sort()
 
     if tf == "1m":

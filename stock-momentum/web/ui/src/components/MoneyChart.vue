@@ -6,19 +6,20 @@ import { money } from "../format.js";
 
 // The account as candlesticks (OHLC bars from samples_1m.csv, bucketed to the
 // chosen timeframe), plus a dashed step line at what's been paid in so it's
-// clear when the account is above or below cost. `rows` is only a fallback
-// account line for the moment before any bars exist.
+// clear when the account is above or below cost. `rows` is a fallback account
+// line, used only when `fallback` is set (the demo track, which has no sampler).
 const props = defineProps({
   candles: { type: Array, default: () => [] },   // [{time, open, high, low, close}]
   paidIn: { type: Array, default: () => [] },    // [{time, value}]
   rows: { type: Array, default: () => [] },      // [{time, total}] hourly, fallback only
+  fallback: { type: Boolean, default: false },   // draw the hourly line when no bars
   sym: { type: String, default: "$" },
   height: { type: Number, default: 380 },
 });
 
 const host = ref(null);
 const legend = ref(null);          // {o,h,l,c,up} under the cursor, or the last bar
-let chart = null, candleSeries = null, series = [];
+let chart = null, candleSeries = null, series = [], ro = null;
 let lastBar = null, framedCount = -99;
 
 const css = (n) =>
@@ -90,8 +91,8 @@ function setLegend(bar, t) {
 function build() {
   if (!host.value) return;
   chart = createChart(host.value, {
-    height: props.height,
-    autoSize: true,
+    width: host.value.clientWidth || 600,
+    height: host.value.clientHeight || props.height,
     layout: {
       background: { color: "transparent" },
       textColor: css("--faint"),
@@ -155,7 +156,7 @@ function paint() {
     lastBar = bars[bars.length - 1];
     setLegend(lastBar, lastBar.time);
   } else {
-    const line = rowLine(props.rows);
+    const line = props.fallback ? rowLine(props.rows) : [];
     if (line.length) {
       const acct = chart.addSeries(AreaSeries, {
         lineColor: css("--cyan"), lineWidth: 2,
@@ -201,12 +202,20 @@ function paint() {
   }
 }
 
-// autoSize:true already tracks the container via its own ResizeObserver; a
-// second observer calling applyOptions() fights it and, in a flex/fullscreen
-// container, feeds back into a runaway grow. The container's height comes from
-// the `height` prop (see the inline style), so changing that is all it takes.
-onMounted(build);
-onBeforeUnmount(() => { chart?.remove(); chart = null; });
+// Explicit resize, not autoSize. The observed element (.host) is sized by
+// .chartbox, whose height is a definite pixel value from the `height` prop --
+// never `auto`, never dependent on the chart's own size -- so resize() can't
+// feed back into a grow loop (the fullscreen-stretch bug).
+onMounted(() => {
+  build();
+  ro = new ResizeObserver(() => {
+    if (chart && host.value) {
+      chart.resize(host.value.clientWidth, host.value.clientHeight);
+    }
+  });
+  ro.observe(host.value);
+});
+onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
 watch(() => [props.candles, props.paidIn, props.rows], paint, { deep: true });
 </script>
 
