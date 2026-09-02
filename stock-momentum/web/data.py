@@ -28,17 +28,21 @@ REBALANCES = os.path.join(BOT, "rebalances.csv")
 HOURLY = os.path.join(BOT, "hourly.csv")
 MODEL = os.path.join(BOT, "model.csv")
 SAMPLES_1M = os.path.join(BOT, "samples_1m.csv")
+DEPOSITS = os.path.join(BOT, "deposits.csv")
 PYTHON = os.environ.get("MOMENTUM_PYTHON") or os.path.join(BOT, ".venv", "bin", "python")
 
 TRACKS = ("demo", "live")
 TRACK_LABEL = {"demo": "Demo", "live": "Live"}
 
 # Candlestick timeframes. Values are bucket size in seconds; "1M" is a calendar
-# month and handled specially. The chart buckets samples_1m.csv up into these.
+# month and handled specially. The chart buckets samples_1m.csv up into these;
+# hour-and-up timeframes also fold in hourly.csv so the line keeps its full
+# history from before pulse.py existed.
 TF_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600,
               "4h": 14400, "1d": 86400}
 TFS = set(TF_SECONDS) | {"1M"}
-MAX_BARS = 1000                     # most recent N bars per response
+FINE_TFS = {"1m", "5m"}            # samples_1m.csv only -- no hourly history
+MAX_BARS = 1000                    # most recent N bars per response
 
 
 def _json(path, default):
@@ -133,9 +137,10 @@ def model(track: str) -> list:
 
 
 def _epoch(s) -> int:
-    """Parse pulse.py's 'YYYY-MM-DDTHH:MMZ' (or a ':SS' variant) to int UTC
-    seconds. 0 on anything unparseable -- the caller drops the row."""
-    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:00Z"):
+    """Parse pulse.py's 'YYYY-MM-DDTHH:MMZ' (or a ':SS' / plain-date variant) to
+    int UTC seconds. 0 on anything unparseable -- the caller drops the row."""
+    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:00Z",
+                "%Y-%m-%d"):
         try:
             return int(datetime.strptime(str(s), fmt)
                        .replace(tzinfo=timezone.utc).timestamp())
@@ -150,12 +155,16 @@ def _month_start(ts: int) -> int:
 
 
 def candles(track: str, tf: str) -> list:
-    """[{time, open, high, low, close}] oldest first, for one track, bucketed
-    from the 1-minute bars pulse.py writes (samples_1m.csv). `time` is int UTC
-    seconds (what lightweight-charts wants). Unknown tf or missing file -> [].
-    Only the most recent MAX_BARS bars are returned."""
+    """[{time, open, high, low, close}] oldest first, for one track. `time` is
+    int UTC seconds (what lightweight-charts wants). Unknown tf -> [].
+
+    1m/5m come from pulse.py's 1-minute bars (samples_1m.csv) only. Every
+    hour-and-up timeframe also folds in hourly.csv (one degenerate bar per
+    hourly `total`) for the stretch before samples_1m.csv starts, so the chart
+    keeps its full history. Most recent MAX_BARS bars only."""
     if tf not in TFS:
         return []
+
     rows = []
     for r in _rows(SAMPLES_1M):
         if r.get("track") != track:
@@ -164,6 +173,16 @@ def candles(track: str, tf: str) -> list:
         o, h, l, c = (_maybe(r.get(k)) for k in ("open", "high", "low", "close"))
         if ts and None not in (o, h, l, c):
             rows.append((ts, o, h, l, c))
+    first_fine = min((t for t, *_ in rows), default=None)
+
+    if tf not in FINE_TFS:
+        for r in _rows(HOURLY):
+            if r.get("series") != track:
+                continue
+            ts = _epoch(r.get("time"))
+            v = _maybe(r.get("total"))
+            if ts and v is not None and (first_fine is None or ts < first_fine):
+                rows.append((ts, v, v, v, v))       # flat bar, no intra-hour detail
     rows.sort()
 
     if tf == "1m":
@@ -185,6 +204,32 @@ def candles(track: str, tf: str) -> list:
     bars = [{"time": b, "open": v[0], "high": v[1], "low": v[2], "close": v[3]}
             for b, v in sorted(buckets.items())]
     return bars[-MAX_BARS:]
+
+
+def paid_in(track: str) -> list:
+    """[{time, value}] -- the running total paid into `track`, a step line the
+    chart draws so you can see when the account is above or below cost. From
+    deposits.csv; extended to now so the step reaches the right edge. [] if
+    nothing was ever deposited."""
+    events = []
+    for r in _rows(DEPOSITS):
+        if r.get("track") != track:
+            continue
+        ts = _epoch(r.get("time"))
+        amt = _maybe(r.get("amount"))
+        if ts and amt is not None:
+            events.append((ts, amt))
+    if not events:
+        return []
+    events.sort()
+    total, pts = 0.0, []
+    for ts, amt in events:
+        total += amt
+        pts.append({"time": ts, "value": round(total, 2)})
+    now = int(datetime.now(timezone.utc).timestamp())
+    if now > pts[-1]["time"]:
+        pts.append({"time": now, "value": pts[-1]["value"]})
+    return pts
 
 
 def _maybe(v):

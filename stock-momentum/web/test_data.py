@@ -141,8 +141,13 @@ _BARS = ("time,track,open,high,low,close\n"
          "2026-09-03T14:00Z,demo,50,50,50,50\n")
 
 
+def _no_hourly(d):
+    data.HOURLY = os.path.join(d, "no-hourly.csv")
+
+
 def test_candles_passthrough_1m_filters_track_and_sorts():
     with tempfile.TemporaryDirectory() as d:
+        _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.SAMPLES_1M, _BARS)
         bars = data.candles("live", "1m")
@@ -154,6 +159,7 @@ def test_candles_passthrough_1m_filters_track_and_sorts():
 
 def test_candles_buckets_5m_ohlc():
     with tempfile.TemporaryDirectory() as d:
+        _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.SAMPLES_1M, _BARS)
         bars = data.candles("live", "5m")
@@ -167,6 +173,7 @@ def test_candles_buckets_5m_ohlc():
 
 def test_candles_month_bucket():
     with tempfile.TemporaryDirectory() as d:
+        _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.SAMPLES_1M,
                "time,track,open,high,low,close\n"
@@ -178,14 +185,50 @@ def test_candles_month_bucket():
         assert bars[0]["open"] == 10.0 and bars[0]["high"] == 15.0 and bars[0]["close"] == 14.0
 
 
+def test_candles_folds_in_hourly_history_for_hour_plus_tfs():
+    with tempfile.TemporaryDirectory() as d:
+        data.HOURLY = os.path.join(d, "hourly.csv")
+        data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
+        _write(data.HOURLY,
+               "time,series,total,bench\n"
+               "2026-09-01T20:00Z,live,1990,2000\n"
+               "2026-09-01T21:00Z,live,1995,2000\n"
+               "2026-09-03T14:00Z,live,9999,2000\n")   # overlaps the samples -> dropped
+        _write(data.SAMPLES_1M, _BARS)                  # samples start 2026-09-03 14:00
+        bars = data.candles("live", "60m")
+        by_t = {b["time"]: b for b in bars}
+        assert data._epoch("2026-09-01T20:00Z") in by_t       # pre-pulse history kept
+        hour = by_t[data._epoch("2026-09-03T14:00Z")]         # the samples' hour
+        assert hour["high"] == 110.0 and hour["close"] == 108.0   # 9999 hourly row dropped
+        # 1m/5m stay samples-only
+        assert all(b["time"] >= data._epoch("2026-09-03T14:00Z")
+                   for b in data.candles("live", "5m"))
+
+
 def test_candles_unknown_tf_and_missing_file_are_empty():
     with tempfile.TemporaryDirectory() as d:
+        _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "nope.csv")
         assert data.candles("live", "1d") == []
         _write(os.path.join(d, "s.csv"), "time,track,open,high,low,close\n")
         data.SAMPLES_1M = os.path.join(d, "s.csv")
         assert data.candles("live", "7h") == []       # not a real tf
         assert data.candles("live", "1m") == []       # header only
+
+
+def test_paid_in_cumulates_and_extends_to_now():
+    with tempfile.TemporaryDirectory() as d:
+        data.DEPOSITS = os.path.join(d, "deposits.csv")
+        _write(data.DEPOSITS,
+               "time,track,amount\n"
+               "2020-01-01,live,2000.00\n"
+               "2020-06-01,live,100.00\n"
+               "2020-01-01,demo,500.00\n")
+        pts = data.paid_in("live")
+        assert [p["value"] for p in pts[:2]] == [2000.0, 2100.0]
+        assert len(pts) == 3 and pts[-1]["value"] == 2100.0   # extended to now
+        assert pts[-1]["time"] > pts[-2]["time"]
+        assert data.paid_in("nope") == []
 
 
 # -------------------------------------------------------------------- run_bot

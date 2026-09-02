@@ -21,6 +21,7 @@ const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
 const modelRows = computed(() => store.model?.[store.track] || []);
 const candles = computed(() => store.candles?.[store.track] || []);
+const paidIn = computed(() => store.paidIn?.[store.track] || []);
 const rangeHours = computed(() => ({ "24H": 24, "1M": 720, ALL: 0 }[store.range] ?? 0));
 
 // Most recent benchmark mark, for the command bar's vs-S&P line.
@@ -106,13 +107,14 @@ const health = computed(() => [
             </div>
             <div class="hud-body">
               <MoneyChart :rows="hourly" :model="modelRows" :candles="candles"
-                          :mode="store.mode" :range-hours="rangeHours"
+                          :paid-in="paidIn" :mode="store.mode" :range-hours="rangeHours"
                           :sym="sym" :height="360" />
               <div class="key">
                 <span><i class="sw cy"></i>{{ acct }} · total</span>
-                <span><i class="sw am"></i>S&amp;P 500 ETF</span>
-                <span v-if="modelRows.length >= 8"><i class="sw fn"></i>Strategy · backtested</span>
-                <span v-else class="fine">· backtest line appears after ~2 weeks</span>
+                <span v-if="paidIn.length"><i class="sw pi"></i>Paid in</span>
+                <span v-if="store.mode !== 'candle'"><i class="sw am"></i>S&amp;P 500 ETF</span>
+                <span v-if="store.mode !== 'candle' && modelRows.length >= 8"><i class="sw fn"></i>Strategy · backtested</span>
+                <span v-else-if="store.mode !== 'candle'" class="fine">· backtest line appears after ~2 weeks</span>
               </div>
             </div>
           </div>
@@ -182,6 +184,7 @@ const health = computed(() => [
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 .key .am { background: var(--amber) }
 .key .fn { background: var(--faint) }
+.key .pi { background: var(--faint); height: 0; border-top: 2px dashed var(--faint) }
 .block { display: flex; flex-direction: column; gap: 10px }
 
 /* Two instrument columns: a wide focus stack (chart, holdings, log) and a

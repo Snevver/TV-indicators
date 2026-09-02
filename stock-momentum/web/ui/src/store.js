@@ -10,9 +10,9 @@ export const POLL_SECONDS = 60;
 // Candle timeframes the chart offers; must match data.py TF_SECONDS + "1M".
 export const TIMEFRAMES = ["1m", "5m", "15m", "30m", "60m", "4h", "1d", "1M"];
 export const RANGES = ["24H", "1M", "ALL"];
-// In line mode the range button also picks the bucket size, so a full-history
-// line stays small.
-const RANGE_TF = { "24H": "1m", "1M": "15m", ALL: "1d" };
+// In line mode the range button also picks the bucket size. All three are
+// hour-or-up so the line keeps its pre-pulse history (see data.candles).
+const RANGE_TF = { "24H": "15m", "1M": "60m", ALL: "1d" };
 
 const ls = (k, ok, dflt) => (ok.includes(localStorage.getItem(k))
   ? localStorage.getItem(k) : dflt);
@@ -30,6 +30,7 @@ export const store = reactive({
   rebalances: [],
   hourly: { demo: [], live: [] },
   model: { demo: [], live: [] },      // the frozen backtest, per track
+  paidIn: { demo: [], live: [] },     // running total paid in, per track
   candles: { demo: [], live: [] },    // OHLC bars for the account, per track
   fetchedAt: null,
   nextPollAt: null,          // epoch ms of the next scheduled fetch, for the countdown
@@ -91,6 +92,7 @@ export async function load() {
     store.state = s; store.history = h; store.rebalances = r.rows || [];
     store.hourly = { demo: hd.rows || [], live: hl.rows || [] };
     store.model = { demo: hd.model || [], live: hl.model || [] };
+    store.paidIn = { demo: hd.paid_in || [], live: hl.paid_in || [] };
     store.candles = { ...store.candles, [track]: (cd && cd.bars) || [] };
     store.fetchedAt = Date.now();
   } catch (e) {

@@ -245,7 +245,8 @@ def api_rebalances():
 @login_required
 def api_hourly():
     s = _track()
-    return jsonify({"series": s, "rows": data.hourly(s), "model": data.model(s)})
+    return jsonify({"series": s, "rows": data.hourly(s), "model": data.model(s),
+                    "paid_in": data.paid_in(s)})
 
 
 @app.route("/api/candles")

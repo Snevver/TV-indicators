@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
-import { createChart, LineStyle, AreaSeries, LineSeries, CandlestickSeries }
-  from "lightweight-charts";
+import { createChart, LineStyle, LineType, AreaSeries, LineSeries,
+         CandlestickSeries } from "lightweight-charts";
 
 // Your account against what the same money would be worth in an S&P 500 ETF.
 // The account series is `candles` (OHLC bars from samples_1m.csv, bucketed to
@@ -13,6 +13,7 @@ const props = defineProps({
   rows: { type: Array, default: () => [] },
   model: { type: Array, default: () => [] },
   candles: { type: Array, default: () => [] },   // [{time, open, high, low, close}]
+  paidIn: { type: Array, default: () => [] },    // [{time, value}] running total paid in
   mode: { type: String, default: "line" },       // "line" | "candle"
   rangeHours: { type: Number, default: 0 },      // line mode: visible window; 0 = all
   sym: { type: String, default: "$" },
@@ -140,17 +141,37 @@ function paint() {
     return;
   }
 
-  const benchPts = points(props.rows, "bench");
-  benchFlat.value = benchPts.length > 2 &&
-    benchPts.every((p) => Math.abs(p.value - benchPts[0].value) < 0.005);
-  if (benchPts.length) {
-    const bench = chart.addSeries(LineSeries, {
-      color: css("--amber"), lineWidth: 1, lineStyle: LineStyle.Dashed,
+  // Paid-in: a flat step line at cost, so it's obvious when the account is in
+  // profit (above) or down (below). Both modes.
+  const paid = props.paidIn
+    .map((p) => ({ time: Number(p.time), value: +p.value }))
+    .filter((p, i, a) => p.time && (i === 0 || p.time > a[i - 1].time));
+  if (paid.length) {
+    const pi = chart.addSeries(LineSeries, {
+      color: css("--faint"), lineWidth: 1, lineStyle: LineStyle.Dashed,
+      lineType: LineType.WithSteps,
       priceLineVisible: false, lastValueVisible: true,
       crosshairMarkerVisible: false,
     });
-    bench.setData(benchPts);
-    series.push(bench);
+    pi.setData(paid);
+    series.push(pi);
+  }
+
+  // The S&P benchmark -- what the same deposits would be worth in an ETF. A
+  // coarse hourly line; it reads oddly under fine candles, so line mode only.
+  if (props.mode !== "candle") {
+    const benchPts = points(props.rows, "bench");
+    benchFlat.value = benchPts.length > 2 &&
+      benchPts.every((p) => Math.abs(p.value - benchPts[0].value) < 0.005);
+    if (benchPts.length) {
+      const bench = chart.addSeries(LineSeries, {
+        color: css("--amber"), lineWidth: 1, lineStyle: LineStyle.Dashed,
+        priceLineVisible: false, lastValueVisible: true,
+        crosshairMarkerVisible: false,
+      });
+      bench.setData(benchPts);
+      series.push(bench);
+    }
   }
 
   // The frozen backtest, run forward from the funding date. Daily -- too coarse
@@ -194,8 +215,8 @@ onMounted(() => {
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => [props.rows, props.model, props.candles, props.mode, props.rangeHours],
-      paint, { deep: true });
+watch(() => [props.rows, props.model, props.candles, props.paidIn, props.mode,
+             props.rangeHours], paint, { deep: true });
 </script>
 
 <template>
