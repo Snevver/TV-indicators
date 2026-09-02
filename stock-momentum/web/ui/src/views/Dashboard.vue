@@ -39,12 +39,27 @@ const nextIn = computed(() =>
     ? null
     : Math.max(0, Math.round((store.nextPollAt - now.value) / 1000)));
 
-// Fullscreen the chart panel (native Fullscreen API; the chart auto-resizes).
+// Fullscreen the chart panel. The chart's height is an explicit prop (a flex
+// "fill" container feeds back into a runaway resize), so on entering/leaving
+// fullscreen we just recompute that number.
 const chartHud = ref(null);
+const chartHeight = ref(400);
+function syncChartHeight() {
+  const fs = document.fullscreenElement === chartHud.value;
+  chartHeight.value = fs ? Math.max(320, window.innerHeight - 96) : 400;
+}
 function toggleFs() {
   if (document.fullscreenElement) document.exitFullscreen?.();
   else chartHud.value?.requestFullscreen?.();
 }
+onMounted(() => {
+  document.addEventListener("fullscreenchange", syncChartHeight);
+  window.addEventListener("resize", syncChartHeight);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("fullscreenchange", syncChartHeight);
+  window.removeEventListener("resize", syncChartHeight);
+});
 
 
 const health = computed(() => [
@@ -99,7 +114,7 @@ const health = computed(() => [
             </div>
             <div class="hud-body">
               <MoneyChart :candles="candles" :paid-in="paidIn" :rows="hourly"
-                          :sym="sym" :height="400" />
+                          :sym="sym" :height="chartHeight" />
               <div class="key">
                 <span><i class="sw cy"></i>{{ acct }} · account</span>
                 <span v-if="paidIn.length"><i class="sw pi"></i>Paid in</span>
@@ -168,11 +183,11 @@ const health = computed(() => [
 .fs { padding: 5px 9px; font-size: .72rem; line-height: 1 }
 .waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
 
-/* Native fullscreen: fill the screen, let the chart grow into it. */
-.chartpanel:fullscreen { background: var(--void); padding: 14px 18px;
-  clip-path: none; display: flex; flex-direction: column }
-.chartpanel:fullscreen .hud-body { flex: 1; display: flex; flex-direction: column }
-.chartpanel:fullscreen :deep(.chartbox) { flex: 1; height: auto !important }
+/* Native fullscreen: solid backdrop, square corners. The chart's own height
+   (chartHeight prop) is bumped to the viewport on fullscreenchange -- no flex
+   "fill", which would feed back into a runaway resize. */
+.chartpanel:fullscreen { background: var(--void); padding: 14px 18px; clip-path: none }
+.chartpanel:fullscreen :deep(.chartbox) { max-width: 1400px; margin: 0 auto }
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
 .key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px; vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }

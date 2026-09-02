@@ -18,7 +18,7 @@ const props = defineProps({
 
 const host = ref(null);
 const legend = ref(null);          // {o,h,l,c,up} under the cursor, or the last bar
-let chart = null, candleSeries = null, series = [], ro = null;
+let chart = null, candleSeries = null, series = [];
 let lastBar = null, framedCount = -99;
 
 const css = (n) =>
@@ -201,12 +201,12 @@ function paint() {
   }
 }
 
-onMounted(() => {
-  build();
-  ro = new ResizeObserver(() => chart && chart.applyOptions({}));
-  ro.observe(host.value);
-});
-onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
+// autoSize:true already tracks the container via its own ResizeObserver; a
+// second observer calling applyOptions() fights it and, in a flex/fullscreen
+// container, feeds back into a runaway grow. The container's height comes from
+// the `height` prop (see the inline style), so changing that is all it takes.
+onMounted(build);
+onBeforeUnmount(() => { chart?.remove(); chart = null; });
 watch(() => [props.candles, props.paidIn, props.rows], paint, { deep: true });
 </script>
 
