@@ -4,7 +4,10 @@ The valuation must be cash + shares*price -- the STRATEGY's slice -- not the
 whole Trading 212 account, or free funds sitting in the account inflate the
 money-over-time line.
 """
+import json
+import os
 import sys
+from datetime import datetime, timedelta, timezone
 import tracker
 
 
@@ -57,6 +60,34 @@ def test_strategy_total_tolerates_a_missing_price():
 def test_strategy_total_none_for_an_unfunded_book():
     assert tracker.strategy_total({"cash": 0.0, "positions": {}}, {}) is None
     assert tracker.strategy_total({}, {}) is None
+
+
+def test_fresh_latest_totals_is_per_track_and_time_boxed():
+    import tempfile
+    now = datetime.now(timezone.utc)
+    stamp = lambda mins: (now - timedelta(minutes=mins)).isoformat()
+    d = tempfile.mkdtemp()
+    p = os.path.join(d, "latest.json")
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump({"tracks": {
+            "live": {"total": 2000.65, "as_of": stamp(2)},      # just refreshed
+            "demo": {"total": 1102.0, "as_of": stamp(600)},     # hours stale
+        }}, fh)
+    old = tracker.LATEST
+    tracker.LATEST = p
+    try:
+        # Only the recently-refreshed track is trusted; the stale one is left
+        # for tracker's own mark.
+        assert tracker.fresh_latest_totals(max_age_s=3600) == {"live": 2000.65}
+        # No as_of at all -> not trusted.
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump({"tracks": {"live": {"total": 2000.65}}}, fh)
+        assert tracker.fresh_latest_totals() == {}
+        # Missing file -> {}.
+        tracker.LATEST = os.path.join(d, "gone.json")
+        assert tracker.fresh_latest_totals() == {}
+    finally:
+        tracker.LATEST = old
 
 
 if __name__ == "__main__":

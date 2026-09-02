@@ -404,9 +404,11 @@ rebalancing is part of what was tested; rebalancing on impulse is not.
   cost basis, cash, everything paid in, and profit already banked. Deleting it
   starts over — the next run treats every position as a fresh buy and the P&L
   history is gone. Back it up rather than deleting it.
-- `rebalances.csv` — one row per rebalance: date, buys, sells, resulting basket,
-  account value, cash, paid in, profit and loss. This is your audit trail. Keep
-  it — it is how you will later tell whether live results match the backtest.
+- `rebalances.csv` — one row per rebalance per track: date, buys, sells,
+  resulting basket, account value, cash, paid in, profit and loss, track
+  (`demo`/`live`; blank on rows written before the column existed — read as
+  `live`). This is your audit trail. Keep it — it is how you will later tell
+  whether live results match the backtest.
 
 Both are gitignored.
 

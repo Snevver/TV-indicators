@@ -86,6 +86,29 @@ def deposits_by_track() -> dict:
     return out
 
 
+def fresh_latest_totals(max_age_s: int = 3600) -> dict:
+    """{track: total} from latest.json, per track, but only for a track whose
+    `as_of` stamp is within the last max_age_s seconds (~one tracker cycle).
+    That total is the exact figure the dashboard header shows (the bot's mark()
+    via refresh_live / --json), so the chart's last live point lands on the same
+    number instead of tracker's own slightly different holdings scope and FX. A
+    track the bot has not refreshed recently -> absent, and the caller keeps its
+    own mark for it."""
+    trk = (_json(LATEST, {}).get("tracks") or {})
+    now = datetime.now(timezone.utc)
+    out = {}
+    for name, v in trk.items():
+        if not isinstance(v, dict) or v.get("total") is None:
+            continue
+        try:
+            age = (now - datetime.fromisoformat(v["as_of"])).total_seconds()
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 0 <= age <= max_age_s:
+            out[name] = float(v["total"])
+    return out
+
+
 def _last_close(raw, sym, multi):
     try:
         col = raw[sym]["Close"] if multi else raw["Close"]
@@ -278,6 +301,7 @@ def main() -> int:
 
     trk = books()
     deps = deposits_by_track()
+    fresh = fresh_latest_totals()          # {track: total} the header is showing
     earliest = min((d for rs in deps.values() for d, _ in rs),
                    default=now.strftime("%Y-%m-%d"))
 
@@ -293,10 +317,12 @@ def main() -> int:
             continue
         total = strategy_total(bk, px, brk.get(name))
         if total is None:
-            continue
+            continue                       # book never funded -> no row
+        if name in fresh:
+            total = round(fresh[name], 2)  # match the dashboard header exactly
         bench = bench_value(deps.get(name, []), closes, latest)
         rows.append((stamp, name, total, bench))
-        src = "t212" if name in brk else "yfinance"
+        src = "latest" if name in fresh else ("t212" if name in brk else "yfinance")
         print(f"  {name}: total {total:.2f} ({src})"
               + (f"  bench {bench:.2f} ({bench_tk})" if bench is not None
                  else "  bench -"))

@@ -119,7 +119,7 @@ const health = computed(() => [
           <div v-if="store.rebalances.length" class="hud">
             <div class="hud-head"><h2>Rebalance log</h2></div>
             <div class="hud-body flush"><div class="scroll"><table>
-              <thead><tr><th>Date</th><th>Bought</th><th>Sold</th><th>Account</th></tr></thead>
+              <thead><tr><th>Date</th><th>Bought</th><th>Sold</th><th>Value at close</th></tr></thead>
               <tbody>
                 <tr v-for="r in store.rebalances" :key="r.date">
                   <td class="mono">{{ r.date }}</td>

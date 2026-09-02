@@ -36,7 +36,7 @@ def test_missing_files_give_empty_results():
         data.REBALANCES = os.path.join(d, "nope3.csv")
         assert data.hourly("live") == []
         assert data.history("live") == []
-        assert data.rebalances() == []
+        assert data.rebalances("live") == []
         assert data.curve("live")["dates"] == []
 
 
@@ -119,14 +119,16 @@ def test_rebalances_splits_lists_and_sorts_newest_first():
     with tempfile.TemporaryDirectory() as d:
         data.REBALANCES = os.path.join(d, "rebalances.csv")
         _write(data.REBALANCES,
-               "date,buys,sells,basket,account,cash,deposited,pnl\n"
-               "2026-08-01,AAA BBB,,AAA BBB,1000,10,1000,0\n"
-               "2026-09-01,CCC,AAA,BBB CCC,1100,5,1100,100\n")
-        rows = data.rebalances()
-        assert rows[0]["date"] == "2026-09-01"             # newest first
+               "date,buys,sells,basket,account,cash,deposited,pnl,track\n"
+               "2026-08-01,AAA BBB,,AAA BBB,1000,10,1000,0,\n"        # legacy blank -> live
+               "2026-09-01,CCC,AAA,BBB CCC,1100,5,1100,100,live\n"
+               "2026-09-01,ZZZ,,ZZZ,50,1,50,0,demo\n")               # other track, filtered out
+        rows = data.rebalances("live")
+        assert [r["date"] for r in rows] == ["2026-09-01", "2026-08-01"]   # newest first, demo dropped
         assert rows[0]["buys"] == ["CCC"] and rows[0]["sells"] == ["AAA"]
         assert rows[1]["buys"] == ["AAA", "BBB"]
         assert rows[0]["account"] == 1100.0
+        assert [r["buys"] for r in data.rebalances("demo")] == [["ZZZ"]]
 
 
 # -------------------------------------------------------------------- run_bot

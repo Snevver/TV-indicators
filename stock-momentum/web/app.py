@@ -238,7 +238,7 @@ def api_history():
 @app.route("/api/rebalances")
 @login_required
 def api_rebalances():
-    return jsonify({"rows": data.rebalances()[:40]})
+    return jsonify({"rows": data.rebalances(_track())[:40]})
 
 
 @app.route("/api/hourly")

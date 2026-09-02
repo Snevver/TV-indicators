@@ -34,7 +34,7 @@ export async function load() {
   store.error = "";
   try {
     const [s, h, r, hd, hl] = await Promise.all([
-      api.getState(store.track), api.getHistory(store.track), api.getRebalances(),
+      api.getState(store.track), api.getHistory(store.track), api.getRebalances(store.track),
       api.getHourly("demo"), api.getHourly("live"),
     ]);
     store.state = s; store.history = h; store.rebalances = r.rows || [];

@@ -138,10 +138,14 @@ def _maybe(v):
         return None
 
 
-def rebalances() -> list:
-    """Newest first — the dashboard shows the most recent month at the top."""
+def rebalances(track: str) -> list:
+    """Newest first, for one account — the dashboard shows the most recent month
+    at the top. Rows written before the track column existed have a blank track
+    and are treated as live (the log was a live-only view then)."""
     out = []
     for r in _rows(REBALANCES):
+        if (r.get("track") or "live") != track:
+            continue
         out.append({"date": r.get("date", ""),
                     "buys": [t for t in (r.get("buys") or "").split() if t],
                     "sells": [t for t in (r.get("sells") or "").split() if t],

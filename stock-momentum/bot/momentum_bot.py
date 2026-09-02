@@ -1121,6 +1121,9 @@ def _track_row(bk, m, sym, ccy, marked="yahoo") -> dict:
     """
     return {
         "symbol": sym, "currency": ccy, "marked": marked,
+        "as_of": datetime.now(timezone.utc).isoformat(),   # per-track staleness;
+        # latest.json's top-level `generated` moves on every track's refresh, so
+        # it cannot tell you whether THIS track's figures are fresh.
         "total": round(m["total"], 2), "invested": round(m["invested"], 2),
         "cash": round(m["cash"], 2), "deposited": round(m["deposited"], 2),
         "pnl": round(m["pnl"], 2), "pnl_pct": round(m["pnl_pct"], 2),
@@ -1671,7 +1674,7 @@ def settle_batch(state, p, why: str):
     buys = [o["ticker"] for o in done if o["shares"] > 0]
     sells = [o["ticker"] for o in done if o["shares"] < 0]
     log_row(bar, buys, sells, p["basket"], after["total"], after["cash"],
-            after["deposited"], after["pnl"])
+            after["deposited"], after["pnl"], p["track"])
     p["settled_at"] = datetime.now(timezone.utc).isoformat()
     p["settled_because"] = why
     save_pending(p)
@@ -1794,7 +1797,7 @@ def kill_switch(state) -> int:
                            round(after["total"], 2)])
     save_state(state)
     log_row(str(datetime.now(timezone.utc).date()), [], [t for t, _ in sold], [],
-            after["total"], after["cash"], after["deposited"], after["pnl"])
+            after["total"], after["cash"], after["deposited"], after["pnl"], "live")
     try:
         px = fetch()
         for t in TRACKS:
@@ -2023,12 +2026,15 @@ def execute_batch(state, p) -> int:
     return 0
 
 
-LOG_COLS = ("date", "buys", "sells", "basket", "account", "cash", "deposited", "pnl")
+LOG_COLS = ("date", "buys", "sells", "basket", "account", "cash", "deposited", "pnl", "track")
 
 
 def log_row(when, buys, sells, basket, total=0.0, cash=0.0,
-            deposited=0.0, pnl=0.0) -> None:
-    """Record one rebalance, replacing any row already logged for that date.
+            deposited=0.0, pnl=0.0, track="") -> None:
+    """Record one rebalance, replacing any row already logged for that date on
+    the same track. Demo and live share this file, so the key is (date, track) —
+    without the track the two accounts' same-day rebalances overwrite each other
+    and the dashboard cannot tell them apart.
 
     Two things this has to survive.
 
@@ -2049,7 +2055,7 @@ def log_row(when, buys, sells, basket, total=0.0, cash=0.0,
             with open(LOG, newline="", encoding="utf-8") as fh:
                 for r in csv.DictReader(fh):
                     r.pop(None, None)               # extra fields under a short header
-                    if r.get("date") != str(when):
+                    if (r.get("date"), r.get("track") or "") != (str(when), track):
                         rows.append(r)
         except (OSError, csv.Error):
             rows = []
@@ -2057,8 +2063,8 @@ def log_row(when, buys, sells, basket, total=0.0, cash=0.0,
     rows.append({"date": str(when), "buys": " ".join(buys), "sells": " ".join(sells),
                  "basket": " ".join(basket), "account": f"{total:.2f}",
                  "cash": f"{cash:.2f}", "deposited": f"{deposited:.2f}",
-                 "pnl": f"{pnl:.2f}"})
-    rows.sort(key=lambda r: r.get("date") or "")
+                 "pnl": f"{pnl:.2f}", "track": track})
+    rows.sort(key=lambda r: (r.get("date") or "", r.get("track") or ""))
 
     tmp = LOG + ".tmp"
     with open(tmp, "w", newline="", encoding="utf-8") as fh:
@@ -3011,7 +3017,7 @@ def main() -> int:
                "last_rebalance_month": f"{bar.year}-{bar.month:02d}"})
     save_state(state)
     log_row(bar.date(), buys, sells, basket, after["total"], after["cash"],
-            after["deposited"], after["pnl"])
+            after["deposited"], after["pnl"], name)
     for t in TRACKS:
         record_day(bar.date(), t, mark(book(state, t), to_live(prices)))
     write_latest(snapshot_payload(state, prices, scores, bar))
