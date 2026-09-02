@@ -19,8 +19,11 @@ const props = defineProps({
 
 const host = ref(null);
 const legend = ref(null);          // {o,h,l,c,up} under the cursor, or the last bar
-let chart = null, candleSeries = null, series = [], ro = null;
-let lastBar = null, framedCount = -99;
+// Series are created once and kept across polls -- tearing them down and
+// re-adding every refresh is what reset the view. On a refresh we only
+// setData().
+let chart = null, candleS = null, lineS = null, paidS = null, ro = null;
+let lastBar = null, framedCount = -99, hovering = false;
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -125,67 +128,73 @@ function build() {
   });
 
   chart.subscribeCrosshairMove((param) => {
-    const bar = candleSeries && param.seriesData.get(candleSeries);
+    hovering = param.time != null;
+    const bar = candleS && param.seriesData.get(candleS);
     if (bar) setLegend(bar, param.time);
     else setLegend(lastBar, lastBar?.time);   // cursor off chart -> last bar
   });
 
-  paint();
+  render();
 }
 
-function clear() {
-  series.forEach((s) => { try { chart.removeSeries(s); } catch (_) {} });
-  series = [];
-  candleSeries = null;
-}
+function drop(s) { if (s) { try { chart.removeSeries(s); } catch (_) {} } return null; }
 
-function paint() {
+function render() {
   if (!chart) return;
-  clear();
 
   const bars = ohlc(props.candles);
+  const line = !bars.length && props.fallback ? rowLine(props.rows) : [];
+
   if (bars.length) {
-    candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: css("--up"), downColor: css("--down"),
-      borderUpColor: css("--up"), borderDownColor: css("--down"),
-      wickUpColor: css("--up"), wickDownColor: css("--down"),
-      priceLineVisible: false, lastValueVisible: true,
-    });
-    candleSeries.setData(bars);
-    series.push(candleSeries);
-    lastBar = bars[bars.length - 1];
-    setLegend(lastBar, lastBar.time);
-  } else {
-    const line = props.fallback ? rowLine(props.rows) : [];
-    if (line.length) {
-      const acct = chart.addSeries(AreaSeries, {
-        lineColor: css("--cyan"), lineWidth: 2,
-        topColor: "rgba(0,240,255,.26)", bottomColor: "rgba(0,240,255,0)",
+    lineS = drop(lineS);
+    if (!candleS) {
+      candleS = chart.addSeries(CandlestickSeries, {
+        upColor: css("--up"), downColor: css("--down"),
+        borderUpColor: css("--up"), borderDownColor: css("--down"),
+        wickUpColor: css("--up"), wickDownColor: css("--down"),
         priceLineVisible: false, lastValueVisible: true,
       });
-      acct.setData(line);
-      series.push(acct);
     }
+    candleS.setData(bars);
+    lastBar = bars[bars.length - 1];
+    if (!hovering) setLegend(lastBar, lastBar.time);
+  } else {
+    candleS = drop(candleS);
     lastBar = null;
-    setLegend(null);
+    if (line.length) {
+      if (!lineS) {
+        lineS = chart.addSeries(AreaSeries, {
+          lineColor: css("--cyan"), lineWidth: 2,
+          topColor: "rgba(0,240,255,.26)", bottomColor: "rgba(0,240,255,0)",
+          priceLineVisible: false, lastValueVisible: true,
+        });
+      }
+      lineS.setData(line);
+    } else {
+      lineS = drop(lineS);
+    }
+    if (!hovering) setLegend(null);
   }
 
   const paid = stepline(props.paidIn);
   if (paid.length) {
-    const pi = chart.addSeries(LineSeries, {
-      color: css("--faint"), lineWidth: 1, lineStyle: LineStyle.Dashed,
-      lineType: LineType.WithSteps,
-      priceLineVisible: false, lastValueVisible: true,
-      crosshairMarkerVisible: false,
-    });
-    pi.setData(paid);
-    series.push(pi);
+    if (!paidS) {
+      paidS = chart.addSeries(LineSeries, {
+        color: css("--faint"), lineWidth: 1, lineStyle: LineStyle.Dashed,
+        lineType: LineType.WithSteps,
+        priceLineVisible: false, lastValueVisible: true,
+        crosshairMarkerVisible: false,
+      });
+    }
+    paidS.setData(paid);
+  } else {
+    paidS = drop(paidS);
   }
 
-  // Frame the candles. The paid-in step line can span weeks; fitContent() would
-  // squash the bars into a sliver, so zoom to the bars' own extent (with a
-  // little pad). Only on the first load or a big change (timeframe / track
-  // switch) -- a routine poll must not yank back a manual zoom or pan.
+  // Frame the candles to their own extent (the weeks-long paid-in line would
+  // otherwise squash them). Only on the first load or a big change -- timeframe
+  // or track switch, where the bar count jumps. A routine poll adds one bar and
+  // must not touch the user's zoom/pan.
   const ts = chart.timeScale();
   if (bars.length) {
     if (Math.abs(bars.length - framedCount) > 3) {
@@ -196,9 +205,10 @@ function paint() {
       });
       framedCount = bars.length;
     }
+  } else if (line.length) {
+    if (framedCount !== -1) { ts.fitContent(); framedCount = -1; }
   } else {
     framedCount = -99;
-    ts.fitContent();
   }
 }
 
@@ -216,7 +226,7 @@ onMounted(() => {
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => [props.candles, props.paidIn, props.rows], paint, { deep: true });
+watch(() => [props.candles, props.paidIn, props.rows], render, { deep: true });
 </script>
 
 <template>
