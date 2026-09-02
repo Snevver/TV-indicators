@@ -1327,17 +1327,16 @@ def refresh_live(state) -> int:
         fresh["unrealised"] = round(ppl, 2)
         fresh["pnl_pct"] = round(ppl / basis * 100, 2) if basis else 0.0
 
-    moved = any(abs(fresh[k] - float(row.get(k) or 0)) >= 0.01
-                for k in ("total", "invested", "cash", "pnl", "unrealised"))
-    if not moved:
-        print(f"  {TRACK}: {money(m['total'])} unchanged - latest.json left as is")
-        return 0
-    # Merge, not replace: keep scoreboard (and anything else the full run added
-    # that this light path does not recompute).
+    # Always write. This used to skip when no money figure had moved a cent, to
+    # save a disk write on a dead market -- but pulse.py now patches the money
+    # fields every ~10s, so this run's job is really to keep the per-position
+    # rows (which pulse does not touch) ~90s fresh. Merge, not replace: keep the
+    # scoreboard and anything else the full --json run added.
     row.update(fresh)
     payload["generated"] = datetime.now(timezone.utc).isoformat()
     write_latest(payload)
-    print(f"  {TRACK}: {money(m['total'])} ({m['pnl']:+.2f}) - latest.json refreshed")
+    print(f"  {TRACK}: {money(fresh['total'])} ({fresh['pnl']:+.2f}) - "
+          f"latest.json refreshed")
     return 0
 
 

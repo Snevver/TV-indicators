@@ -311,9 +311,9 @@ sudo systemctl enable --now \
 |---|---|---|
 | `momentum-bot` | Mon–Fri 21:00 & 22:30 | The monthly rebalance, `--env demo` then `--env live`. A no-op on days with nothing to do. |
 | `momentum-smoke` | every minute | `--poll --env live` — acts on your ✅ / ❌, and on the smoke test. Reads two small files and exits when nothing is pending. |
-| `momentum-live` | every ~90s | `--refresh-live` for demo and live — a cheap `latest.json` refresh (Trading 212 read only, no price download) so the dashboard's header figure moves between nightly runs. |
+| `momentum-live` | every ~90s | `--refresh-live` — refreshes `latest.json` (demo, and live's per-position rows). The live *header* figure is kept current every ~10s by `momentum-pulse`. |
 | `momentum-tracker` | hourly | `tracker.py` — values each book (cash + shares × latest price, the strategy's slice, not the whole account) and the benchmark ETF (`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`) into `hourly.csv`. yfinance only, no broker call. |
-| `momentum-pulse` | every minute | `pulse.py` — samples the **live** account's open profit/loss (Trading 212 `ppl`, in euros) every ~10s and writes one 1-minute OHLC bar to `samples_1m.csv` for the candlestick chart. Live only. |
+| `momentum-pulse` | every minute | `pulse.py` — every ~10s reads the **live** account's open P/L (Trading 212 `ppl`, euros): patches `latest.json` so the header's big number tracks the market, and writes one 1-minute OHLC bar to `samples_1m.csv` for the candlestick chart. Live only. |
 
 Edit the copies in `/etc`, not the checkout, or the next `git pull` conflicts.
 The shipped `momentum-live.service` runs `--refresh-live --env demo` only — add
@@ -410,7 +410,7 @@ ranking from `research/timelines.py` rather than re-deriving them.
 
 | Shown | Source |
 |---|---|
-| Account, holdings, ranking, header total | `bot/latest.json`, rewritten every bot run (and every ~90s by `--refresh-live`) |
+| Account, holdings, ranking, header total | `bot/latest.json` — full rewrite every bot run, per-position rows every ~90s (`--refresh-live`), the live header money fields every ~10s (`pulse.py`) |
 | Daily curves | `bot/history.csv`, one row per day per funded track |
 | "You vs the S&P 500" line context | `bot/hourly.csv`, one row per account per hour (`tracker.py`) |
 | Candlestick chart (P/L) | `bot/samples_1m.csv` — 1-min OHLC bars of the live account's open profit/loss (`pulse.py`, ~10s samples), bucketed to the chosen timeframe. It is P/L not capital, so a monthly contribution doesn't put a step in it. No older data folded in: the chart starts where clean sampling started. |

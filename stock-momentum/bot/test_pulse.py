@@ -1,8 +1,8 @@
-"""pulse.py: the 1-minute OHLC writer and the value formula. `python test_pulse.py`.
-
-No network -- t212.cash is monkeypatched.
+"""pulse.py: the 1-minute OHLC writer, the sample, and the latest.json patch.
+`python test_pulse.py`. No network -- t212.cash is monkeypatched.
 """
 import csv
+import json
 import os
 import sys
 import tempfile
@@ -31,7 +31,7 @@ def test_append_bar_writes_header_once_then_rows():
         pulse.SAMPLES_1M = old
 
 
-def test_value_is_ppl_only():
+def test_sample_returns_ppl_and_cost_basis():
     if pulse.t212 is None:
         print("   (skip: t212 did not import)")
         return
@@ -39,21 +39,48 @@ def test_value_is_ppl_only():
     pulse.t212.cash = lambda: {"free": 25000.0, "invested": 1980.10,
                                "ppl": 12.65, "total": 26992.75}
     try:
-        assert pulse.value() == 12.65        # profit only, not capital
+        assert pulse.sample() == (12.65, 1980.10)   # profit + basis, free funds ignored
     finally:
         pulse.t212.cash = old_cash
 
 
-def test_value_is_none_when_the_api_raises():
+def test_sample_is_none_when_the_api_raises():
     if pulse.t212 is None:
         print("   (skip: t212 did not import)")
         return
     old_cash = pulse.t212.cash
     pulse.t212.cash = lambda: (_ for _ in ()).throw(RuntimeError("429"))
     try:
-        assert pulse.value() is None
+        assert pulse.sample() == (None, None)
     finally:
         pulse.t212.cash = old_cash
+
+
+def test_patch_latest_updates_only_the_live_money_fields():
+    d = tempfile.mkdtemp()
+    p = os.path.join(d, "latest.json")
+    with open(p, "w", encoding="utf-8") as fh:
+        json.dump({"generated": "old", "tracks": {
+            "live": {"total": 1.0, "pnl": 1.0, "positions": {"MU": {"shares": 1}},
+                     "basket": ["MU"]},
+            "demo": {"total": 99.0}}}, fh)
+    old = pulse.LATEST
+    pulse.LATEST = p
+    try:
+        pulse.patch_latest(16.40, 1991.00)          # ppl, cost basis
+        got = json.load(open(p, encoding="utf-8"))
+        live = got["tracks"]["live"]
+        assert live["total"] == round(1991.00 + 16.40, 2)
+        assert live["pnl"] == 16.40 and live["cash"] == 0.0
+        assert live["pnl_pct"] == round(16.40 / 1991.00 * 100, 2)
+        assert live["positions"] == {"MU": {"shares": 1}}   # left alone
+        assert got["tracks"]["demo"]["total"] == 99.0       # left alone
+        assert got["generated"] != "old"
+        # No file -> no-op, no raise.
+        pulse.LATEST = os.path.join(d, "gone.json")
+        pulse.patch_latest(5.0, 100.0)
+    finally:
+        pulse.LATEST = old
 
 
 if __name__ == "__main__":

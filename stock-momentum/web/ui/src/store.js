@@ -1,11 +1,11 @@
 import { reactive } from "vue";
 import * as api from "./api.js";
 
-// How often the page pulls fresh figures. pulse.py writes a new 1-minute candle
-// bar each minute, so ~60s keeps the chart within a bar of live. The header
-// figures (latest.json, ~90s server timer) just refresh a touch more often than
-// they change -- harmless.
-export const POLL_SECONDS = 60;
+// How often the page pulls fresh figures. pulse.py patches latest.json every
+// ~10s, so a 20s poll keeps the header's big number close to live. The candle
+// bars only change once a minute and rebalances monthly -- re-fetching those on
+// the same 20s tick is a few cheap local file reads on the mini PC.
+export const POLL_SECONDS = 20;
 
 // Candlestick timeframes the chart offers; must match data.py TF_SECONDS + "1M".
 export const TIMEFRAMES = ["1m", "5m", "15m", "30m", "60m", "4h", "1d", "1M"];
