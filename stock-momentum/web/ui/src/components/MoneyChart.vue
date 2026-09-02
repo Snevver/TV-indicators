@@ -19,6 +19,7 @@ const props = defineProps({
 const host = ref(null);
 const legend = ref(null);          // {o,h,l,c,up} under the cursor, or the last bar
 let chart = null, candleSeries = null, series = [], ro = null;
+let lastBar = null, framedCount = -99;
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -64,11 +65,25 @@ function rowLine(rows) {
   return out;
 }
 
-function setLegend(bar) {
+// Paid-in amount in force at time t (the step line's last value at or before t).
+function paidAt(t) {
+  let v = null;
+  for (const p of props.paidIn) {
+    if (Number(p.time) <= t) v = +p.value;
+    else break;
+  }
+  if (v == null && props.paidIn.length) v = +props.paidIn[props.paidIn.length - 1].value;
+  return v;
+}
+
+function setLegend(bar, t) {
   if (!bar) { legend.value = null; return; }
+  const base = paidAt(t || lastBar?.time || 0);
   legend.value = {
     o: bar.open, h: bar.high, l: bar.low, c: bar.close,
     up: bar.close >= bar.open,
+    // % the account is above (or below) what's been paid in, at this bar.
+    pct: base ? (bar.close - base) / base * 100 : null,
   };
 }
 
@@ -110,14 +125,12 @@ function build() {
 
   chart.subscribeCrosshairMove((param) => {
     const bar = candleSeries && param.seriesData.get(candleSeries);
-    if (bar) setLegend(bar);
-    else setLegend(lastBar);          // cursor off the chart -> show the last bar
+    if (bar) setLegend(bar, param.time);
+    else setLegend(lastBar, lastBar?.time);   // cursor off chart -> last bar
   });
 
   paint();
 }
-
-let lastBar = null;
 
 function clear() {
   series.forEach((s) => { try { chart.removeSeries(s); } catch (_) {} });
@@ -140,7 +153,7 @@ function paint() {
     candleSeries.setData(bars);
     series.push(candleSeries);
     lastBar = bars[bars.length - 1];
-    setLegend(lastBar);
+    setLegend(lastBar, lastBar.time);
   } else {
     const line = rowLine(props.rows);
     if (line.length) {
@@ -168,7 +181,24 @@ function paint() {
     series.push(pi);
   }
 
-  chart.timeScale().fitContent();
+  // Frame the candles. The paid-in step line can span weeks; fitContent() would
+  // squash the bars into a sliver, so zoom to the bars' own extent (with a
+  // little pad). Only on the first load or a big change (timeframe / track
+  // switch) -- a routine poll must not yank back a manual zoom or pan.
+  const ts = chart.timeScale();
+  if (bars.length) {
+    if (Math.abs(bars.length - framedCount) > 3) {
+      const span = bars.length > 1 ? bars[1].time - bars[0].time : 60;
+      ts.setVisibleRange({
+        from: bars[0].time - span,
+        to: bars[bars.length - 1].time + span * 4,
+      });
+      framedCount = bars.length;
+    }
+  } else {
+    framedCount = -99;
+    ts.fitContent();
+  }
 }
 
 onMounted(() => {
@@ -187,6 +217,10 @@ watch(() => [props.candles, props.paidIn, props.rows], paint, { deep: true });
       <span>H <b>{{ f(legend.h) }}</b></span>
       <span>L <b>{{ f(legend.l) }}</b></span>
       <span>C <b>{{ f(legend.c) }}</b></span>
+      <span v-if="legend.pct != null" class="pct" :class="legend.pct >= 0 ? 'up' : 'down'">
+        {{ legend.pct >= 0 ? "▲" : "▼" }} {{ Math.abs(legend.pct).toFixed(2) }}%
+        <span class="vp">vs paid in</span>
+      </span>
     </div>
     <div class="host" ref="host"></div>
   </div>
@@ -196,12 +230,16 @@ watch(() => [props.candles, props.paidIn, props.rows], paint, { deep: true });
 .chartbox { width: 100%; position: relative }
 .host { width: 100%; height: 100% }
 .ohlc {
-  position: absolute; top: 6px; left: 8px; z-index: 3;
-  display: flex; gap: 12px; pointer-events: none;
+  position: absolute; top: 6px; left: 8px; right: 8px; z-index: 3;
+  display: flex; gap: 6px 12px; flex-wrap: wrap; pointer-events: none;
   font-family: var(--f-mono); font-size: .72rem; letter-spacing: .02em;
   color: var(--faint);
 }
 .ohlc b { font-weight: 600 }
 .ohlc.up b { color: var(--up) }
 .ohlc.down b { color: var(--down) }
+.ohlc .pct { font-weight: 600 }
+.ohlc .pct.up { color: var(--up) }
+.ohlc .pct.down { color: var(--down) }
+.ohlc .vp { font-weight: 400; color: var(--faint); opacity: .7 }
 </style>

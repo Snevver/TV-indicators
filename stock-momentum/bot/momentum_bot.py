@@ -1306,22 +1306,21 @@ def refresh_live(state) -> int:
     fx = live_fx()
     fresh = _track_row(bk, m, fx["sym"], fx["ccy"], "t212")
 
-    # The dashboard should read what Trading 212 shows for the account, to the
-    # cent. mark() reconstructs the total from the bot's cash ledger (which only
-    # re-squares on the nightly run, against an *estimated* FX fee) plus a
-    # per-share mark -- so it can sit a few euros off the app. The broker
-    # snapshot is already in hand; use its own account figures for the shown
-    # row. state.json is untouched -- that stays the strategy's own accounting.
+    # The dashboard shows the STRATEGY's holdings value -- Trading 212's
+    # invested + ppl (the Investments-tab figure) -- not mark()'s reconstruction
+    # from the bot's cash ledger (which only re-squares nightly, against an
+    # estimated FX fee) and not the account total (which would fold in free
+    # funds the strategy never touches). The broker snapshot is already in hand.
+    # state.json is untouched -- that stays the strategy's own accounting.
     ac = (snap or {}).get("account_cash") or {}
-    broker_total = float(ac.get("total") or 0.0)
-    if broker_total > 0:
-        held = float(ac.get("invested") or 0.0) + float(ac.get("ppl") or 0.0)
+    held = float(ac.get("invested") or 0.0) + float(ac.get("ppl") or 0.0)
+    if held > 0:
         dep = float(bk.get("deposited") or 0.0)
-        fresh["total"] = round(broker_total, 2)
+        fresh["total"] = round(held, 2)
         fresh["invested"] = round(held, 2)
-        fresh["cash"] = round(broker_total - held, 2)      # == free funds
-        fresh["pnl"] = round(broker_total - dep, 2)
-        fresh["pnl_pct"] = round((broker_total / dep - 1) * 100, 2) if dep else 0.0
+        fresh["cash"] = 0.0            # account free funds are not the strategy's
+        fresh["pnl"] = round(held - dep, 2)
+        fresh["pnl_pct"] = round((held / dep - 1) * 100, 2) if dep else 0.0
 
     moved = any(abs(fresh[k] - float(row.get(k) or 0)) >= 0.01
                 for k in ("total", "invested", "cash", "pnl", "unrealised"))

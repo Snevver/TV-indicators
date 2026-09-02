@@ -6,8 +6,9 @@ systemd fires this once a minute. It reads the live account value about every
 samples it took) to samples_1m.csv and exits. Nothing renders below a 1-minute
 bar, so raw 10s ticks are not kept -- the minute bar is the smallest unit.
 
-Value = Trading 212's own account `total` (free + invested + ppl), i.e. the
-number the app shows. One HTTP GET per sample, no yfinance -- so it is safe at
+Value = Trading 212's invested + ppl (the Investments-tab figure: what the
+holdings are worth right now). Account free funds are excluded -- the strategy
+does not control them. One HTTP GET per sample, no yfinance -- so it is safe at
 10s where a price download would be rate-limited. Live only; the demo track
 stays on the hourly tracker line.
 
@@ -43,15 +44,13 @@ SAMPLES_PER_MIN = 6          # one every ~10s
 
 
 def value():
-    """Live account value now, straight from Trading 212 -- its own `total`
-    (free + invested + ppl), the number the app shows. Falls back to the parts
-    if `total` is missing. None on any failure -- the caller skips the sample."""
+    """The strategy's holdings value now, from Trading 212: invested + ppl
+    (cost basis plus open P/L -- the Investments-tab figure). Account free funds
+    are NOT included: the strategy does not control them. None on any failure --
+    the caller skips the sample."""
     try:
         c = t212.cash()
-        total = float(c.get("total") or 0.0)
-        if total > 0:
-            return round(total, 2)
-        return round(float(c.get("free") or 0.0) + float(c.get("invested") or 0.0)
+        return round(float(c.get("invested") or 0.0)
                      + float(c.get("ppl") or 0.0), 2)
     except Exception as exc:                              # noqa: BLE001
         print(f"  ! {type(exc).__name__}: {exc}")

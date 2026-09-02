@@ -31,18 +31,15 @@ def test_append_bar_writes_header_once_then_rows():
         pulse.SAMPLES_1M = old
 
 
-def test_value_uses_the_broker_account_total():
+def test_value_is_invested_plus_ppl_ignoring_free_funds():
     if pulse.t212 is None:
         print("   (skip: t212 did not import)")
         return
     old_cash = pulse.t212.cash
-    pulse.t212.cash = lambda: {"free": 0.42, "invested": 1980.10,
-                               "ppl": 12.65, "total": 1993.17}
+    pulse.t212.cash = lambda: {"free": 25000.0, "invested": 1980.10,
+                               "ppl": 12.65, "total": 26992.75}
     try:
-        assert pulse.value() == 1993.17
-        # No `total` -> fall back to the parts.
-        pulse.t212.cash = lambda: {"free": 0.42, "invested": 1980.10, "ppl": 12.65}
-        assert pulse.value() == round(0.42 + 1980.10 + 12.65, 2)
+        assert pulse.value() == round(1980.10 + 12.65, 2)   # free funds excluded
     finally:
         pulse.t212.cash = old_cash
 

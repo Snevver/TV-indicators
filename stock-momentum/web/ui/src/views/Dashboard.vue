@@ -39,6 +39,13 @@ const nextIn = computed(() =>
     ? null
     : Math.max(0, Math.round((store.nextPollAt - now.value) / 1000)));
 
+// Fullscreen the chart panel (native Fullscreen API; the chart auto-resizes).
+const chartHud = ref(null);
+function toggleFs() {
+  if (document.fullscreenElement) document.exitFullscreen?.();
+  else chartHud.value?.requestFullscreen?.();
+}
+
 
 const health = computed(() => [
   { label: "Bot", value: h.value.bar || "—",
@@ -81,12 +88,13 @@ const health = computed(() => [
 
       <div class="cols">
         <div class="focus">
-          <div v-if="hourly.length || candles.length" class="hud">
+          <div v-if="hourly.length || candles.length" ref="chartHud" class="hud chartpanel">
             <div class="hud-head">
               <h2>{{ acct }} · portfolio</h2>
               <div class="seg small">
                 <button v-for="t in TIMEFRAMES" :key="t" :class="{ on: store.tf === t }"
                         @click="setTimeframe(t)">{{ t }}</button>
+                <button class="fs" @click="toggleFs" title="Fullscreen">⛶</button>
               </div>
             </div>
             <div class="hud-body">
@@ -157,7 +165,14 @@ const health = computed(() => [
   gap: 14px; flex-wrap: wrap }
 .tick { display: inline-flex; align-items: center; gap: 8px }
 .seg.small button { padding: 5px 12px; font-size: .68rem }
+.fs { padding: 5px 9px; font-size: .72rem; line-height: 1 }
 .waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
+
+/* Native fullscreen: fill the screen, let the chart grow into it. */
+.chartpanel:fullscreen { background: var(--void); padding: 14px 18px;
+  clip-path: none; display: flex; flex-direction: column }
+.chartpanel:fullscreen .hud-body { flex: 1; display: flex; flex-direction: column }
+.chartpanel:fullscreen :deep(.chartbox) { flex: 1; height: auto !important }
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
 .key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px; vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
