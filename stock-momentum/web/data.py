@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime, timezone
 
 BOT = os.environ.get("MOMENTUM_BOT_DIR") or os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bot")
@@ -26,10 +27,18 @@ HISTORY = os.path.join(BOT, "history.csv")
 REBALANCES = os.path.join(BOT, "rebalances.csv")
 HOURLY = os.path.join(BOT, "hourly.csv")
 MODEL = os.path.join(BOT, "model.csv")
+SAMPLES_1M = os.path.join(BOT, "samples_1m.csv")
 PYTHON = os.environ.get("MOMENTUM_PYTHON") or os.path.join(BOT, ".venv", "bin", "python")
 
 TRACKS = ("demo", "live")
 TRACK_LABEL = {"demo": "Demo", "live": "Live"}
+
+# Candlestick timeframes. Values are bucket size in seconds; "1M" is a calendar
+# month and handled specially. The chart buckets samples_1m.csv up into these.
+TF_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600,
+              "4h": 14400, "1d": 86400}
+TFS = set(TF_SECONDS) | {"1M"}
+MAX_BARS = 1000                     # most recent N bars per response
 
 
 def _json(path, default):
@@ -121,6 +130,61 @@ def model(track: str) -> list:
             out.append({"time": r.get("date", ""), "value": v})
     out.sort(key=lambda r: r["time"])
     return out
+
+
+def _epoch(s) -> int:
+    """Parse pulse.py's 'YYYY-MM-DDTHH:MMZ' (or a ':SS' variant) to int UTC
+    seconds. 0 on anything unparseable -- the caller drops the row."""
+    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:00Z"):
+        try:
+            return int(datetime.strptime(str(s), fmt)
+                       .replace(tzinfo=timezone.utc).timestamp())
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def _month_start(ts: int) -> int:
+    d = datetime.fromtimestamp(ts, timezone.utc)
+    return int(datetime(d.year, d.month, 1, tzinfo=timezone.utc).timestamp())
+
+
+def candles(track: str, tf: str) -> list:
+    """[{time, open, high, low, close}] oldest first, for one track, bucketed
+    from the 1-minute bars pulse.py writes (samples_1m.csv). `time` is int UTC
+    seconds (what lightweight-charts wants). Unknown tf or missing file -> [].
+    Only the most recent MAX_BARS bars are returned."""
+    if tf not in TFS:
+        return []
+    rows = []
+    for r in _rows(SAMPLES_1M):
+        if r.get("track") != track:
+            continue
+        ts = _epoch(r.get("time"))
+        o, h, l, c = (_maybe(r.get(k)) for k in ("open", "high", "low", "close"))
+        if ts and None not in (o, h, l, c):
+            rows.append((ts, o, h, l, c))
+    rows.sort()
+
+    if tf == "1m":
+        bars = [{"time": t, "open": o, "high": h, "low": l, "close": c}
+                for t, o, h, l, c in rows]
+        return bars[-MAX_BARS:]
+
+    step = TF_SECONDS.get(tf)
+    buckets = {}                        # bucket-start -> [open, high, low, close]
+    for t, o, h, l, c in rows:
+        b = _month_start(t) if tf == "1M" else t - t % step
+        cur = buckets.get(b)
+        if cur is None:
+            buckets[b] = [o, h, l, c]
+        else:
+            cur[1] = max(cur[1], h)
+            cur[2] = min(cur[2], l)
+            cur[3] = c
+    bars = [{"time": b, "open": v[0], "high": v[1], "low": v[2], "close": v[3]}
+            for b, v in sorted(buckets.items())]
+    return bars[-MAX_BARS:]
 
 
 def _maybe(v):

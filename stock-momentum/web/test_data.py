@@ -131,6 +131,63 @@ def test_rebalances_splits_lists_and_sorts_newest_first():
         assert [r["buys"] for r in data.rebalances("demo")] == [["ZZZ"]]
 
 
+# -------------------------------------------------------------------- candles
+
+_BARS = ("time,track,open,high,low,close\n"
+         "2026-09-03T14:00Z,live,100,105,99,104\n"
+         "2026-09-03T14:01Z,live,104,106,103,105\n"
+         "2026-09-03T14:02Z,live,105,105,101,102\n"
+         "2026-09-03T14:05Z,live,102,110,102,108\n"
+         "2026-09-03T14:00Z,demo,50,50,50,50\n")
+
+
+def test_candles_passthrough_1m_filters_track_and_sorts():
+    with tempfile.TemporaryDirectory() as d:
+        data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
+        _write(data.SAMPLES_1M, _BARS)
+        bars = data.candles("live", "1m")
+        assert [b["time"] for b in bars] == sorted(b["time"] for b in bars)
+        assert len(bars) == 4                      # demo row excluded
+        assert bars[0] == {"time": data._epoch("2026-09-03T14:00Z"),
+                           "open": 100.0, "high": 105.0, "low": 99.0, "close": 104.0}
+
+
+def test_candles_buckets_5m_ohlc():
+    with tempfile.TemporaryDirectory() as d:
+        data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
+        _write(data.SAMPLES_1M, _BARS)
+        bars = data.candles("live", "5m")
+        # 14:00-14:04 -> one bar from the three 14:0x rows; 14:05 -> its own bar
+        assert len(bars) == 2
+        assert bars[0]["open"] == 100.0 and bars[0]["close"] == 102.0
+        assert bars[0]["high"] == 106.0 and bars[0]["low"] == 99.0
+        assert bars[1] == {"time": data._epoch("2026-09-03T14:05Z"),
+                           "open": 102.0, "high": 110.0, "low": 102.0, "close": 108.0}
+
+
+def test_candles_month_bucket():
+    with tempfile.TemporaryDirectory() as d:
+        data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
+        _write(data.SAMPLES_1M,
+               "time,track,open,high,low,close\n"
+               "2026-09-10T00:00Z,live,10,12,9,11\n"
+               "2026-09-20T00:00Z,live,11,15,11,14\n"
+               "2026-10-01T00:00Z,live,14,14,13,13\n")
+        bars = data.candles("live", "1M")
+        assert len(bars) == 2
+        assert bars[0]["open"] == 10.0 and bars[0]["high"] == 15.0 and bars[0]["close"] == 14.0
+
+
+def test_candles_unknown_tf_and_missing_file_are_empty():
+    with tempfile.TemporaryDirectory() as d:
+        data.SAMPLES_1M = os.path.join(d, "nope.csv")
+        assert data.candles("live", "1d") == []
+        _write(os.path.join(d, "s.csv"), "time,track,open,high,low,close\n")
+        data.SAMPLES_1M = os.path.join(d, "s.csv")
+        assert data.candles("live", "7h") == []       # not a real tf
+        assert data.candles("live", "1m") == []       # header only
+
+
 # -------------------------------------------------------------------- run_bot
 
 def test_run_bot_rejects_an_unknown_action():

@@ -1,0 +1,23 @@
+# 10-second live account sampler for the dashboard's candlestick / detailed
+# line chart. Fired once a minute; it samples ~6 times, writes one 1-minute
+# OHLC row to samples_1m.csv, and exits. One Trading 212 GET per sample, no
+# yfinance -- safe at this cadence. Live only. See pulse.py.
+#
+# Install (edit CHANGEME first):
+#   sudo cp momentum-pulse.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-pulse.timer
+
+[Unit]
+Description=Sample the live account value every 10s for the candle chart
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/bot
+EnvironmentFile=-/etc/momentum-bot.env
+EnvironmentFile=-/home/CHANGEME/.config/momentum/momentum.env
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python pulse.py
+TimeoutStartSec=90

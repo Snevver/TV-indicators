@@ -150,6 +150,7 @@ broad-market ETF, from `bot/hourly.csv` (written hourly by `bot/tracker.py`).
 | Account, holdings, ranking | `bot/latest.json`, rewritten on every bot run |
 | The daily curves | `bot/history.csv`, one row per day per funded track |
 | Money over time | `bot/hourly.csv`, one row per account per hour (`tracker.py`) |
+| Candlestick / detailed line | `bot/samples_1m.csv`, one 1-min OHLC bar for the live account (`pulse.py` samples every ~10s); bucketed up to the chosen timeframe on read |
 | Rebalances | `bot/rebalances.csv` |
 | Everything else | `bot/state.json` |
 

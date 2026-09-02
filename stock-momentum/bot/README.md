@@ -89,6 +89,13 @@ broad-market ETF (`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`). Both go to
 `hourly.csv`, which is what the dashboard's money-over-time chart draws. It reads
 `state.json` and yfinance only, no broker call.
 
+`pulse.py` (its own systemd unit, fired every minute) samples the **live**
+account value about every 10 seconds -- cash ledger plus Trading 212's
+`invested + ppl`, one GET per sample, no yfinance -- and writes one 1-minute
+OHLC bar to `samples_1m.csv`. The dashboard buckets those bars up into whatever
+candlestick timeframe you pick (1m/5m/.../1M) and also uses them for the
+detailed account line. Live only; append-only; kept indefinitely.
+
 `MOMENTUM_START_BUDGET` (default `0`) is how much of your Trading 212 free funds
 the strategy begins with. The **first** live rebalance sizes the opening eight
 positions to it and draws it from free funds when you approve the buys — the bot
@@ -323,18 +330,22 @@ in a 600 file.
 
 ```bash
 sudo cp systemd/momentum-bot.{service,timer} systemd/momentum-smoke.{service,timer} \
-        systemd/momentum-tracker.{service,timer} /etc/systemd/system/
+        systemd/momentum-tracker.{service,timer} systemd/momentum-pulse.{service,timer} \
+        /etc/systemd/system/
 sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-bot.service \
         /etc/systemd/system/momentum-smoke.service \
-        /etc/systemd/system/momentum-tracker.service
+        /etc/systemd/system/momentum-tracker.service \
+        /etc/systemd/system/momentum-pulse.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now momentum-bot.timer momentum-smoke.timer momentum-tracker.timer
+sudo systemctl enable --now momentum-bot.timer momentum-smoke.timer \
+        momentum-tracker.timer momentum-pulse.timer
 ```
 
 `momentum-bot` runs the monthly rebalance on both accounts (demo, then live).
 `momentum-smoke` polls every minute for your ✅ on the live batch and for the
 smoke test. `momentum-tracker` values each book hourly for the
-dashboard's money-over-time chart.
+dashboard's money-over-time chart. `momentum-pulse` samples the live account
+every ~10s for the candlestick / detailed line chart.
 
 Substitute in `/etc`, not in the checkout — editing the tracked file makes the
 next `git pull` conflict. Adjust the paths in the installed copy by hand if you

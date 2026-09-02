@@ -18,6 +18,8 @@ async function req(path, opts = {}) {
 export const getState = (track) => req(`/api/state?track=${track}`);
 export const getHistory = (track) => req(`/api/history?track=${track}`);
 export const getHourly = (track) => req(`/api/hourly?track=${track}`);
+export const getCandles = (track, tf) =>
+  req(`/api/candles?track=${track}&tf=${tf}`);
 export const getRebalances = (track) => req(`/api/rebalances?track=${track}`);
 export const getConfig = () => req("/api/config");
 

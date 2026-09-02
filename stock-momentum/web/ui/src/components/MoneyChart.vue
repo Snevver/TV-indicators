@@ -1,14 +1,20 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
-import { createChart, LineStyle, AreaSeries, LineSeries } from "lightweight-charts";
+import { createChart, LineStyle, AreaSeries, LineSeries, CandlestickSeries }
+  from "lightweight-charts";
 
 // Your account against what the same money would be worth in an S&P 500 ETF.
-// `rows` is [{time, total, bench}] with an ISO hour string; either value may be
-// null. The account line is `total` (holdings + cash) because that is the whole
-// of the money being compared. Range is driven from the parent via range().
+// The account series is `candles` (OHLC bars from samples_1m.csv, bucketed to
+// the chosen timeframe) -- drawn as candlesticks when mode === "candle", else
+// as an area line of the bar closes. `rows` [{time, total, bench}] is still the
+// hourly source for the amber S&P line (and a fallback account line before the
+// sampler has produced anything). `model` is the daily backtest.
 const props = defineProps({
   rows: { type: Array, default: () => [] },
-  model: { type: Array, default: () => [] },   // [{time, value}] daily backtest
+  model: { type: Array, default: () => [] },
+  candles: { type: Array, default: () => [] },   // [{time, open, high, low, close}]
+  mode: { type: String, default: "line" },       // "line" | "candle"
+  rangeHours: { type: Number, default: 0 },      // line mode: visible window; 0 = all
   sym: { type: String, default: "$" },
   height: { type: Number, default: 320 },
 });
@@ -29,6 +35,31 @@ function points(rows, key) {
     const t = at(r);
     if (!t || t <= last || r[key] == null) continue;
     out.push({ time: t, value: Number(r[key]) });
+    last = t;
+  }
+  return out;
+}
+
+// Candle bars: server sends `time` already as int UTC seconds.
+function ohlc(bars) {
+  const out = [];
+  let last = 0;
+  for (const b of bars) {
+    const t = Number(b.time);
+    if (!t || t <= last) continue;
+    out.push({ time: t, open: +b.open, high: +b.high, low: +b.low, close: +b.close });
+    last = t;
+  }
+  return out;
+}
+
+function closes(bars) {
+  const out = [];
+  let last = 0;
+  for (const b of bars) {
+    const t = Number(b.time);
+    if (!t || t <= last || b.close == null) continue;
+    out.push({ time: t, value: +b.close });
     last = t;
   }
   return out;
@@ -81,18 +112,33 @@ const benchFlat = ref(false);
 function paint() {
   if (!chart) return;
   clear();
-  const acctPts = points(props.rows, "total");
-  if (!acctPts.length) return;
 
-  const acct = chart.addSeries(AreaSeries, {
-    lineColor: css("--cyan"), lineWidth: 2,
-    topColor: "rgba(0,240,255,.26)", bottomColor: "rgba(0,240,255,0)",
-    priceLineVisible: false, lastValueVisible: true,
-    crosshairMarkerBorderColor: css("--void"),
-    crosshairMarkerBackgroundColor: css("--cyan"),
-  });
-  acct.setData(acctPts);
-  series.push(acct);
+  const candlePts = ohlc(props.candles);
+  const linePts = props.candles.length ? closes(props.candles)
+                                       : points(props.rows, "total");
+
+  if (props.mode === "candle" && candlePts.length) {
+    const cs = chart.addSeries(CandlestickSeries, {
+      upColor: css("--up"), downColor: css("--down"),
+      borderUpColor: css("--up"), borderDownColor: css("--down"),
+      wickUpColor: css("--up"), wickDownColor: css("--down"),
+      priceLineVisible: false, lastValueVisible: true,
+    });
+    cs.setData(candlePts);
+    series.push(cs);
+  } else if (linePts.length) {
+    const acct = chart.addSeries(AreaSeries, {
+      lineColor: css("--cyan"), lineWidth: 2,
+      topColor: "rgba(0,240,255,.26)", bottomColor: "rgba(0,240,255,0)",
+      priceLineVisible: false, lastValueVisible: true,
+      crosshairMarkerBorderColor: css("--void"),
+      crosshairMarkerBackgroundColor: css("--cyan"),
+    });
+    acct.setData(linePts);
+    series.push(acct);
+  } else {
+    return;
+  }
 
   const benchPts = points(props.rows, "bench");
   benchFlat.value = benchPts.length > 2 &&
@@ -107,34 +153,40 @@ function paint() {
     series.push(bench);
   }
 
-  // The frozen backtest, run forward from the funding date. Daily, so it steps
-  // where the live line is smooth -- deliberately a quiet reference line.
-  // Daily, and it only says something once a rebalance or two have passed --
-  // before that it is a 2-point stub next to two smooth hourly lines. Hold it
-  // back until it is a real line.
-  const modelPts = points(props.model, "value");
-  if (modelPts.length >= 8) {
-    const bt = chart.addSeries(LineSeries, {
-      color: css("--faint"), lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: false,
-      crosshairMarkerVisible: false,
-    });
-    bt.setData(modelPts);
-    series.push(bt);
+  // The frozen backtest, run forward from the funding date. Daily -- too coarse
+  // to sit under intraday candles, so line mode only. Held back until it is a
+  // real line (>= 8 points) rather than a 2-point stub.
+  if (props.mode !== "candle") {
+    const modelPts = points(props.model, "value");
+    if (modelPts.length >= 8) {
+      const bt = chart.addSeries(LineSeries, {
+        color: css("--faint"), lineWidth: 1,
+        priceLineVisible: false, lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      bt.setData(modelPts);
+      series.push(bt);
+    }
   }
 
-  chart.timeScale().fitContent();
+  applyWindow();
 }
 
-// Show the last `hours` of data, or everything when hours is 0.
-function range(hours) {
-  const rows = props.rows || [];
-  if (!chart || !rows.length) return;
-  if (!hours) return chart.timeScale().fitContent();
-  const last = at(rows[rows.length - 1]);
-  chart.timeScale().setVisibleRange({ from: last - hours * 3600, to: last });
+// Line mode with a range picked: show that many trailing hours. Otherwise fit
+// everything (candles always fit -- the timeframe already bounds the bar count).
+function applyWindow() {
+  if (!chart) return;
+  const bars = props.candles;
+  if (props.mode === "line" && props.rangeHours && bars.length) {
+    const last = Number(bars[bars.length - 1].time);
+    chart.timeScale().setVisibleRange({
+      from: last - props.rangeHours * 3600, to: last,
+    });
+  } else {
+    chart.timeScale().fitContent();
+  }
 }
-defineExpose({ range, benchFlat });
+defineExpose({ benchFlat });
 
 onMounted(() => {
   build();
@@ -142,7 +194,8 @@ onMounted(() => {
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => [props.rows, props.model], paint, { deep: true });
+watch(() => [props.rows, props.model, props.candles, props.mode, props.rangeHours],
+      paint, { deep: true });
 </script>
 
 <template>

@@ -1,0 +1,16 @@
+# Every minute. Each run samples the live account ~6 times (one every ~10s) and
+# writes a single 1-minute OHLC bar. A missed minute is just a one-bar gap the
+# chart smooths over, so this is not Persistent and does not catch up.
+
+[Unit]
+Description=Kick off a 1-minute account-value sample
+
+[Timer]
+# 'minutely' is *-*-* *:*:00. Do NOT write *:*:0/60 -- the seconds field is
+# 0-59, so a step of 60 is out of range and systemd refuses the whole unit.
+OnCalendar=minutely
+AccuracySec=5s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

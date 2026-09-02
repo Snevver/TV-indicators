@@ -248,6 +248,16 @@ def api_hourly():
     return jsonify({"series": s, "rows": data.hourly(s), "model": data.model(s)})
 
 
+@app.route("/api/candles")
+@login_required
+def api_candles():
+    tf = request.args.get("tf", "1m")
+    if tf not in data.TFS:
+        return jsonify({"error": f"unknown tf {tf!r}"}), 400
+    s = _track()
+    return jsonify({"track": s, "tf": tf, "bars": data.candles(s, tf)})
+
+
 @app.route("/api/config", methods=["GET", "POST"])
 @login_required
 def api_config():

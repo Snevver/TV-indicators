@@ -27,6 +27,10 @@ deposits.csv.tmp
 hourly.csv
 hourly.csv.tmp
 
+# 1-minute OHLC bars pulse.py samples for the candle chart.
+samples_1m.csv
+samples_1m.csv.tmp
+
 # The frozen backtest run forward from the funding date, for the chart. Derived
 # from prices + state, rewritten every --json run.
 model.csv
