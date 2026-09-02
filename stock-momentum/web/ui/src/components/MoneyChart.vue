@@ -2,46 +2,30 @@
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { createChart, LineStyle, LineType, AreaSeries, LineSeries,
          CandlestickSeries } from "lightweight-charts";
+import { money } from "../format.js";
 
-// Your account against what the same money would be worth in an S&P 500 ETF.
-// The account series is `candles` (OHLC bars from samples_1m.csv, bucketed to
-// the chosen timeframe) -- drawn as candlesticks when mode === "candle", else
-// as an area line of the bar closes. `rows` [{time, total, bench}] is still the
-// hourly source for the amber S&P line (and a fallback account line before the
-// sampler has produced anything). `model` is the daily backtest.
+// The account as candlesticks (OHLC bars from samples_1m.csv, bucketed to the
+// chosen timeframe), plus a dashed step line at what's been paid in so it's
+// clear when the account is above or below cost. `rows` is only a fallback
+// account line for the moment before any bars exist.
 const props = defineProps({
-  rows: { type: Array, default: () => [] },
-  model: { type: Array, default: () => [] },
   candles: { type: Array, default: () => [] },   // [{time, open, high, low, close}]
-  paidIn: { type: Array, default: () => [] },    // [{time, value}] running total paid in
-  mode: { type: String, default: "line" },       // "line" | "candle"
-  rangeHours: { type: Number, default: 0 },      // line mode: visible window; 0 = all
+  paidIn: { type: Array, default: () => [] },    // [{time, value}]
+  rows: { type: Array, default: () => [] },      // [{time, total}] hourly, fallback only
   sym: { type: String, default: "$" },
-  height: { type: Number, default: 320 },
+  height: { type: Number, default: 380 },
 });
 
 const host = ref(null);
-let chart = null, series = [], ro = null;
+const legend = ref(null);          // {o,h,l,c,up} under the cursor, or the last bar
+let chart = null, candleSeries = null, series = [], ro = null;
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const f = (v) => money(v, props.sym);
 
 const at = (r) => Math.floor(Date.parse(r.time) / 1000);
 
-// lightweight-charts wants strictly ascending, unique timestamps and no nulls.
-function points(rows, key) {
-  const out = [];
-  let last = 0;
-  for (const r of rows) {
-    const t = at(r);
-    if (!t || t <= last || r[key] == null) continue;
-    out.push({ time: t, value: Number(r[key]) });
-    last = t;
-  }
-  return out;
-}
-
-// Candle bars: server sends `time` already as int UTC seconds.
 function ohlc(bars) {
   const out = [];
   let last = 0;
@@ -54,16 +38,38 @@ function ohlc(bars) {
   return out;
 }
 
-function closes(bars) {
+function stepline(pts) {
   const out = [];
   let last = 0;
-  for (const b of bars) {
-    const t = Number(b.time);
-    if (!t || t <= last || b.close == null) continue;
-    out.push({ time: t, value: +b.close });
+  for (const p of pts) {
+    const t = Number(p.time);
+    if (!t || t <= last || p.value == null) continue;
+    out.push({ time: t, value: +p.value });
     last = t;
   }
   return out;
+}
+
+// Fallback only: an account line from the hourly rows, used until candle bars
+// exist.
+function rowLine(rows) {
+  const out = [];
+  let last = 0;
+  for (const r of rows) {
+    const t = at(r);
+    if (!t || t <= last || r.total == null) continue;
+    out.push({ time: t, value: Number(r.total) });
+    last = t;
+  }
+  return out;
+}
+
+function setLegend(bar) {
+  if (!bar) { legend.value = null; return; }
+  legend.value = {
+    o: bar.open, h: bar.high, l: bar.low, c: bar.close,
+    up: bar.close >= bar.open,
+  };
 }
 
 function build() {
@@ -82,11 +88,13 @@ function build() {
       vertLines: { color: "rgba(140,175,215,.06)" },
       horzLines: { color: "rgba(140,175,215,.08)" },
     },
-    rightPriceScale: { borderColor: "rgba(140,175,215,.12)" },
+    rightPriceScale: {
+      borderColor: "rgba(140,175,215,.12)",
+      scaleMargins: { top: 0.12, bottom: 0.1 },   // candles use most of the height
+    },
     timeScale: {
       borderColor: "rgba(140,175,215,.12)",
       timeVisible: true, secondsVisible: false,
-      fixLeftEdge: true, fixRightEdge: true,
     },
     crosshair: {
       mode: 0,
@@ -95,57 +103,60 @@ function build() {
       horzLine: { color: css("--cyan"), width: 1, style: LineStyle.Dashed,
                   labelBackgroundColor: css("--cyan-dim") },
     },
-    handleScale: { axisPressedMouseMove: false },
+    // Drag the PRICE axis to stretch the candles vertically (TradingView-style);
+    // double-click it to reset. Time axis drag stays off.
+    handleScale: { axisPressedMouseMove: { time: false, price: true } },
   });
+
+  chart.subscribeCrosshairMove((param) => {
+    const bar = candleSeries && param.seriesData.get(candleSeries);
+    if (bar) setLegend(bar);
+    else setLegend(lastBar);          // cursor off the chart -> show the last bar
+  });
+
   paint();
 }
+
+let lastBar = null;
 
 function clear() {
   series.forEach((s) => { try { chart.removeSeries(s); } catch (_) {} });
   series = [];
+  candleSeries = null;
 }
-
-// null unless every visible bench point is the same value -- that is the stale
-// "flat at the deposit" data from before the tracker fetched the ETF hourly, and
-// the parent uses this to show a one-line caveat rather than a mystery.
-const benchFlat = ref(false);
 
 function paint() {
   if (!chart) return;
   clear();
 
-  const candlePts = ohlc(props.candles);
-  const linePts = props.candles.length ? closes(props.candles)
-                                       : points(props.rows, "total");
-
-  if (props.mode === "candle" && candlePts.length) {
-    const cs = chart.addSeries(CandlestickSeries, {
+  const bars = ohlc(props.candles);
+  if (bars.length) {
+    candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: css("--up"), downColor: css("--down"),
       borderUpColor: css("--up"), borderDownColor: css("--down"),
       wickUpColor: css("--up"), wickDownColor: css("--down"),
       priceLineVisible: false, lastValueVisible: true,
     });
-    cs.setData(candlePts);
-    series.push(cs);
-  } else if (linePts.length) {
-    const acct = chart.addSeries(AreaSeries, {
-      lineColor: css("--cyan"), lineWidth: 2,
-      topColor: "rgba(0,240,255,.26)", bottomColor: "rgba(0,240,255,0)",
-      priceLineVisible: false, lastValueVisible: true,
-      crosshairMarkerBorderColor: css("--void"),
-      crosshairMarkerBackgroundColor: css("--cyan"),
-    });
-    acct.setData(linePts);
-    series.push(acct);
+    candleSeries.setData(bars);
+    series.push(candleSeries);
+    lastBar = bars[bars.length - 1];
+    setLegend(lastBar);
   } else {
-    return;
+    const line = rowLine(props.rows);
+    if (line.length) {
+      const acct = chart.addSeries(AreaSeries, {
+        lineColor: css("--cyan"), lineWidth: 2,
+        topColor: "rgba(0,240,255,.26)", bottomColor: "rgba(0,240,255,0)",
+        priceLineVisible: false, lastValueVisible: true,
+      });
+      acct.setData(line);
+      series.push(acct);
+    }
+    lastBar = null;
+    setLegend(null);
   }
 
-  // Paid-in: a flat step line at cost, so it's obvious when the account is in
-  // profit (above) or down (below). Both modes.
-  const paid = props.paidIn
-    .map((p) => ({ time: Number(p.time), value: +p.value }))
-    .filter((p, i, a) => p.time && (i === 0 || p.time > a[i - 1].time));
+  const paid = stepline(props.paidIn);
   if (paid.length) {
     const pi = chart.addSeries(LineSeries, {
       color: css("--faint"), lineWidth: 1, lineStyle: LineStyle.Dashed,
@@ -157,57 +168,8 @@ function paint() {
     series.push(pi);
   }
 
-  // The S&P benchmark -- what the same deposits would be worth in an ETF. A
-  // coarse hourly line; it reads oddly under fine candles, so line mode only.
-  if (props.mode !== "candle") {
-    const benchPts = points(props.rows, "bench");
-    benchFlat.value = benchPts.length > 2 &&
-      benchPts.every((p) => Math.abs(p.value - benchPts[0].value) < 0.005);
-    if (benchPts.length) {
-      const bench = chart.addSeries(LineSeries, {
-        color: css("--amber"), lineWidth: 1, lineStyle: LineStyle.Dashed,
-        priceLineVisible: false, lastValueVisible: true,
-        crosshairMarkerVisible: false,
-      });
-      bench.setData(benchPts);
-      series.push(bench);
-    }
-  }
-
-  // The frozen backtest, run forward from the funding date. Daily -- too coarse
-  // to sit under intraday candles, so line mode only. Held back until it is a
-  // real line (>= 8 points) rather than a 2-point stub.
-  if (props.mode !== "candle") {
-    const modelPts = points(props.model, "value");
-    if (modelPts.length >= 8) {
-      const bt = chart.addSeries(LineSeries, {
-        color: css("--faint"), lineWidth: 1,
-        priceLineVisible: false, lastValueVisible: false,
-        crosshairMarkerVisible: false,
-      });
-      bt.setData(modelPts);
-      series.push(bt);
-    }
-  }
-
-  applyWindow();
+  chart.timeScale().fitContent();
 }
-
-// Line mode with a range picked: show that many trailing hours. Otherwise fit
-// everything (candles always fit -- the timeframe already bounds the bar count).
-function applyWindow() {
-  if (!chart) return;
-  const bars = props.candles;
-  if (props.mode === "line" && props.rangeHours && bars.length) {
-    const last = Number(bars[bars.length - 1].time);
-    chart.timeScale().setVisibleRange({
-      from: last - props.rangeHours * 3600, to: last,
-    });
-  } else {
-    chart.timeScale().fitContent();
-  }
-}
-defineExpose({ benchFlat });
 
 onMounted(() => {
   build();
@@ -215,14 +177,31 @@ onMounted(() => {
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => [props.rows, props.model, props.candles, props.paidIn, props.mode,
-             props.rangeHours], paint, { deep: true });
+watch(() => [props.candles, props.paidIn, props.rows], paint, { deep: true });
 </script>
 
 <template>
-  <div class="chartbox" ref="host" :style="{ height: height + 'px' }"></div>
+  <div class="chartbox" :style="{ height: height + 'px' }">
+    <div v-if="legend" class="ohlc" :class="legend.up ? 'up' : 'down'">
+      <span>O <b>{{ f(legend.o) }}</b></span>
+      <span>H <b>{{ f(legend.h) }}</b></span>
+      <span>L <b>{{ f(legend.l) }}</b></span>
+      <span>C <b>{{ f(legend.c) }}</b></span>
+    </div>
+    <div class="host" ref="host"></div>
+  </div>
 </template>
 
 <style scoped>
 .chartbox { width: 100%; position: relative }
+.host { width: 100%; height: 100% }
+.ohlc {
+  position: absolute; top: 6px; left: 8px; z-index: 3;
+  display: flex; gap: 12px; pointer-events: none;
+  font-family: var(--f-mono); font-size: .72rem; letter-spacing: .02em;
+  color: var(--faint);
+}
+.ohlc b { font-weight: 600 }
+.ohlc.up b { color: var(--up) }
+.ohlc.down b { color: var(--down) }
 </style>

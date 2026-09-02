@@ -90,11 +90,12 @@ broad-market ETF (`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`). Both go to
 `state.json` and yfinance only, no broker call.
 
 `pulse.py` (its own systemd unit, fired every minute) samples the **live**
-account value about every 10 seconds -- cash ledger plus Trading 212's
-`invested + ppl`, one GET per sample, no yfinance -- and writes one 1-minute
-OHLC bar to `samples_1m.csv`. The dashboard buckets those bars up into whatever
-candlestick timeframe you pick (1m/5m/.../1M) and also uses them for the
-detailed account line. Live only; append-only; kept indefinitely.
+account value about every 10 seconds -- Trading 212's own account `total`
+(free + invested + ppl), the figure the app shows, one GET per sample, no
+yfinance -- and writes one 1-minute OHLC bar to `samples_1m.csv`. The dashboard
+buckets those bars up into whatever candlestick timeframe you pick
+(1m/5m/.../1M). Live only; append-only; kept indefinitely. `--refresh-live`
+writes the same broker `total` into `latest.json` so the header agrees.
 
 `MOMENTUM_START_BUDGET` (default `0`) is how much of your Trading 212 free funds
 the strategy begins with. The **first** live rebalance sizes the opening eight

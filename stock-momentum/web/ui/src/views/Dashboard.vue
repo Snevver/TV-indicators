@@ -1,7 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
-import { store, setTrack, setMode, setTimeframe, setRange, TIMEFRAMES, RANGES }
-  from "../store.js";
+import { store, setTrack, setTimeframe, TIMEFRAMES } from "../store.js";
 import { money, ago } from "../format.js";
 import Hero from "../components/Hero.vue";
 import Holdings from "../components/Holdings.vue";
@@ -19,10 +18,8 @@ const empty = computed(() => !Object.keys(s.value.positions || {}).length);
 const t212off = computed(() => !h.value?.t212?.configured);
 const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
-const modelRows = computed(() => store.model?.[store.track] || []);
 const candles = computed(() => store.candles?.[store.track] || []);
 const paidIn = computed(() => store.paidIn?.[store.track] || []);
-const rangeHours = computed(() => ({ "24H": 24, "1M": 720, ALL: 0 }[store.range] ?? 0));
 
 // Most recent benchmark mark, for the command bar's vs-S&P line.
 const lastBench = computed(() => {
@@ -42,7 +39,6 @@ const nextIn = computed(() =>
     ? null
     : Math.max(0, Math.round((store.nextPollAt - now.value) / 1000)));
 
-const canCandle = computed(() => store.track === "live");
 
 const health = computed(() => [
   { label: "Bot", value: h.value.bar || "—",
@@ -87,34 +83,19 @@ const health = computed(() => [
         <div class="focus">
           <div v-if="hourly.length || candles.length" class="hud">
             <div class="hud-head">
-              <h2>You vs the S&amp;P 500</h2>
-              <div class="controls">
-                <div class="seg small">
-                  <button :class="{ on: store.mode === 'line' }"
-                          @click="setMode('line')">Line</button>
-                  <button :class="{ on: store.mode === 'candle' }" :disabled="!canCandle"
-                          @click="setMode('candle')">Candles</button>
-                </div>
-                <div v-if="store.mode === 'line'" class="seg small">
-                  <button v-for="r in RANGES" :key="r" :class="{ on: store.range === r }"
-                          @click="setRange(r)">{{ r }}</button>
-                </div>
-                <div v-else class="seg small">
-                  <button v-for="t in TIMEFRAMES" :key="t" :class="{ on: store.tf === t }"
-                          @click="setTimeframe(t)">{{ t }}</button>
-                </div>
+              <h2>{{ acct }} · portfolio</h2>
+              <div class="seg small">
+                <button v-for="t in TIMEFRAMES" :key="t" :class="{ on: store.tf === t }"
+                        @click="setTimeframe(t)">{{ t }}</button>
               </div>
             </div>
             <div class="hud-body">
-              <MoneyChart :rows="hourly" :model="modelRows" :candles="candles"
-                          :paid-in="paidIn" :mode="store.mode" :range-hours="rangeHours"
-                          :sym="sym" :height="360" />
+              <MoneyChart :candles="candles" :paid-in="paidIn" :rows="hourly"
+                          :sym="sym" :height="400" />
               <div class="key">
-                <span><i class="sw cy"></i>{{ acct }} · total</span>
+                <span><i class="sw cy"></i>{{ acct }} · account</span>
                 <span v-if="paidIn.length"><i class="sw pi"></i>Paid in</span>
-                <span v-if="store.mode !== 'candle'"><i class="sw am"></i>S&amp;P 500 ETF</span>
-                <span v-if="store.mode !== 'candle' && modelRows.length >= 8"><i class="sw fn"></i>Strategy · backtested</span>
-                <span v-else-if="store.mode !== 'candle'" class="fine">· backtest line appears after ~2 weeks</span>
+                <span class="fine">· drag the price axis to stretch the candles</span>
               </div>
             </div>
           </div>
@@ -176,8 +157,6 @@ const health = computed(() => [
   gap: 14px; flex-wrap: wrap }
 .tick { display: inline-flex; align-items: center; gap: 8px }
 .seg.small button { padding: 5px 12px; font-size: .68rem }
-.seg.small button:disabled { opacity: .35; cursor: not-allowed }
-.controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end }
 .waiting { padding: 18px 20px; display: flex; flex-direction: column; gap: 7px }
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
 .key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px; vertical-align: middle }

@@ -7,12 +7,8 @@ import * as api from "./api.js";
 // they change -- harmless.
 export const POLL_SECONDS = 60;
 
-// Candle timeframes the chart offers; must match data.py TF_SECONDS + "1M".
+// Candlestick timeframes the chart offers; must match data.py TF_SECONDS + "1M".
 export const TIMEFRAMES = ["1m", "5m", "15m", "30m", "60m", "4h", "1d", "1M"];
-export const RANGES = ["24H", "1M", "ALL"];
-// In line mode the range button also picks the bucket size. All three are
-// hour-or-up so the line keeps its pre-pulse history (see data.candles).
-const RANGE_TF = { "24H": "15m", "1M": "60m", ALL: "1d" };
 
 const ls = (k, ok, dflt) => (ok.includes(localStorage.getItem(k))
   ? localStorage.getItem(k) : dflt);
@@ -22,9 +18,7 @@ const ls = (k, ok, dflt) => (ok.includes(localStorage.getItem(k))
 // show; the money-over-time chart holds both.
 export const store = reactive({
   track: localStorage.getItem("track") === "demo" ? "demo" : "live",
-  mode: ls("mode", ["line", "candle"], "line"),
-  tf: ls("tf", TIMEFRAMES, "5m"),
-  range: ls("range", RANGES, "ALL"),
+  tf: ls("tf", TIMEFRAMES, "15m"),
   state: null,
   history: null,
   rebalances: [],
@@ -38,30 +32,11 @@ export const store = reactive({
   error: "",
 });
 
-// The bucket size to request: the picker in candle mode, the range's implied
-// size in line mode. Demo has no sampler, so nothing to fetch.
-export function effectiveTf() {
-  return store.mode === "candle" ? store.tf : RANGE_TF[store.range];
-}
-
 export function setTrack(track) {
   if (track !== "demo" && track !== "live") return;
   store.track = track;
   localStorage.setItem("track", track);
-  // Demo has no candle data; drop back to the line there.
-  if (track === "demo" && store.mode === "candle") {
-    store.mode = "line";
-    localStorage.setItem("mode", "line");
-  }
   store.loading = true;
-  load();
-}
-
-export function setMode(mode) {
-  if (mode !== "line" && mode !== "candle") return;
-  if (mode === "candle" && store.track === "demo") return;
-  store.mode = mode;
-  localStorage.setItem("mode", mode);
   load();
 }
 
@@ -69,13 +44,6 @@ export function setTimeframe(tf) {
   if (!TIMEFRAMES.includes(tf)) return;
   store.tf = tf;
   localStorage.setItem("tf", tf);
-  load();
-}
-
-export function setRange(range) {
-  if (!RANGES.includes(range)) return;
-  store.range = range;
-  localStorage.setItem("range", range);
   load();
 }
 
@@ -87,7 +55,7 @@ export async function load() {
     const [s, h, r, hd, hl, cd] = await Promise.all([
       api.getState(track), api.getHistory(track), api.getRebalances(track),
       api.getHourly("demo"), api.getHourly("live"),
-      wantCandles ? api.getCandles(track, effectiveTf()) : Promise.resolve(null),
+      wantCandles ? api.getCandles(track, store.tf) : Promise.resolve(null),
     ]);
     store.state = s; store.history = h; store.rebalances = r.rows || [];
     store.hourly = { demo: hd.rows || [], live: hl.rows || [] };

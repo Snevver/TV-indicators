@@ -1,9 +1,8 @@
 """pulse.py: the 1-minute OHLC writer and the value formula. `python test_pulse.py`.
 
-No network -- t212.cash and the state file are monkeypatched.
+No network -- t212.cash is monkeypatched.
 """
 import csv
-import json
 import os
 import sys
 import tempfile
@@ -32,21 +31,20 @@ def test_append_bar_writes_header_once_then_rows():
         pulse.SAMPLES_1M = old
 
 
-def test_value_is_cash_plus_invested_plus_ppl():
+def test_value_uses_the_broker_account_total():
     if pulse.t212 is None:
         print("   (skip: t212 did not import)")
         return
-    d = tempfile.mkdtemp()
-    st = os.path.join(d, "state.json")
-    with open(st, "w") as fh:
-        json.dump({"tracks": {"live": {"cash": 7.90}}}, fh)
-    old_state, old_cash = pulse.STATE, pulse.t212.cash
-    pulse.STATE = st
-    pulse.t212.cash = lambda: {"invested": 1980.10, "ppl": 12.65}
+    old_cash = pulse.t212.cash
+    pulse.t212.cash = lambda: {"free": 0.42, "invested": 1980.10,
+                               "ppl": 12.65, "total": 1993.17}
     try:
-        assert pulse.value() == round(7.90 + 1980.10 + 12.65, 2)
+        assert pulse.value() == 1993.17
+        # No `total` -> fall back to the parts.
+        pulse.t212.cash = lambda: {"free": 0.42, "invested": 1980.10, "ppl": 12.65}
+        assert pulse.value() == round(0.42 + 1980.10 + 12.65, 2)
     finally:
-        pulse.STATE, pulse.t212.cash = old_state, old_cash
+        pulse.t212.cash = old_cash
 
 
 def test_value_is_none_when_the_api_raises():
