@@ -212,21 +212,6 @@ def test_candles_unknown_tf_and_missing_file_are_empty():
         assert data.candles("live", "1m") == []       # header only
 
 
-def test_paid_in_cumulates_and_extends_to_now():
-    with tempfile.TemporaryDirectory() as d:
-        data.DEPOSITS = os.path.join(d, "deposits.csv")
-        _write(data.DEPOSITS,
-               "time,track,amount\n"
-               "2020-01-01,live,2000.00\n"
-               "2020-06-01,live,100.00\n"
-               "2020-01-01,demo,500.00\n")
-        pts = data.paid_in("live")
-        assert [p["value"] for p in pts[:2]] == [2000.0, 2100.0]
-        assert len(pts) == 3 and pts[-1]["value"] == 2100.0   # extended to now
-        assert pts[-1]["time"] > pts[-2]["time"]
-        assert data.paid_in("nope") == []
-
-
 # -------------------------------------------------------------------- run_bot
 
 def test_run_bot_rejects_an_unknown_action():

@@ -28,7 +28,6 @@ REBALANCES = os.path.join(BOT, "rebalances.csv")
 HOURLY = os.path.join(BOT, "hourly.csv")
 MODEL = os.path.join(BOT, "model.csv")
 SAMPLES_1M = os.path.join(BOT, "samples_1m.csv")
-DEPOSITS = os.path.join(BOT, "deposits.csv")
 PYTHON = os.environ.get("MOMENTUM_PYTHON") or os.path.join(BOT, ".venv", "bin", "python")
 
 TRACKS = ("demo", "live")
@@ -189,32 +188,6 @@ def candles(track: str, tf: str) -> list:
     bars = [{"time": b, "open": v[0], "high": v[1], "low": v[2], "close": v[3]}
             for b, v in sorted(buckets.items())]
     return bars[-MAX_BARS:]
-
-
-def paid_in(track: str) -> list:
-    """[{time, value}] -- the running total paid into `track`, a step line the
-    chart draws so you can see when the account is above or below cost. From
-    deposits.csv; extended to now so the step reaches the right edge. [] if
-    nothing was ever deposited."""
-    events = []
-    for r in _rows(DEPOSITS):
-        if r.get("track") != track:
-            continue
-        ts = _epoch(r.get("time"))
-        amt = _maybe(r.get("amount"))
-        if ts and amt is not None:
-            events.append((ts, amt))
-    if not events:
-        return []
-    events.sort()
-    total, pts = 0.0, []
-    for ts, amt in events:
-        total += amt
-        pts.append({"time": ts, "value": round(total, 2)})
-    now = int(datetime.now(timezone.utc).timestamp())
-    if now > pts[-1]["time"]:
-        pts.append({"time": now, "value": pts[-1]["value"]})
-    return pts
 
 
 def _maybe(v):

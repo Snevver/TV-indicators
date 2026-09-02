@@ -313,7 +313,7 @@ sudo systemctl enable --now \
 | `momentum-smoke` | every minute | `--poll --env live` — acts on your ✅ / ❌, and on the smoke test. Reads two small files and exits when nothing is pending. |
 | `momentum-live` | every ~90s | `--refresh-live` for demo and live — a cheap `latest.json` refresh (Trading 212 read only, no price download) so the dashboard's header figure moves between nightly runs. |
 | `momentum-tracker` | hourly | `tracker.py` — values each book (cash + shares × latest price, the strategy's slice, not the whole account) and the benchmark ETF (`MOMENTUM_BENCH_TICKER`, default `SXR8.DE`) into `hourly.csv`. yfinance only, no broker call. |
-| `momentum-pulse` | every minute | `pulse.py` — samples the **live** account's holdings value (Trading 212 `invested + ppl`) every ~10s and writes one 1-minute OHLC bar to `samples_1m.csv` for the candlestick chart. Live only. |
+| `momentum-pulse` | every minute | `pulse.py` — samples the **live** account's open profit/loss (Trading 212 `ppl`, in euros) every ~10s and writes one 1-minute OHLC bar to `samples_1m.csv` for the candlestick chart. Live only. |
 
 Edit the copies in `/etc`, not the checkout, or the next `git pull` conflicts.
 The shipped `momentum-live.service` runs `--refresh-live --env demo` only — add
@@ -413,8 +413,7 @@ ranking from `research/timelines.py` rather than re-deriving them.
 | Account, holdings, ranking, header total | `bot/latest.json`, rewritten every bot run (and every ~90s by `--refresh-live`) |
 | Daily curves | `bot/history.csv`, one row per day per funded track |
 | "You vs the S&P 500" line context | `bot/hourly.csv`, one row per account per hour (`tracker.py`) |
-| Candlestick chart | `bot/samples_1m.csv` — 1-min OHLC bars for the live account (`pulse.py`, ~10s samples), bucketed to the chosen timeframe on read. No older data folded in: the chart starts where clean sampling started. |
-| "Paid in" line | `bot/deposits.csv` |
+| Candlestick chart (P/L) | `bot/samples_1m.csv` — 1-min OHLC bars of the live account's open profit/loss (`pulse.py`, ~10s samples), bucketed to the chosen timeframe. It is P/L not capital, so a monthly contribution doesn't put a step in it. No older data folded in: the chart starts where clean sampling started. |
 | Rebalance log | `bot/rebalances.csv` |
 | Everything else | `bot/state.json` |
 
@@ -555,11 +554,11 @@ All in `stock-momentum/bot/`, all gitignored — this machine's, not the repo's.
 |---|---|
 | `state.json` | The basket, the month it was set, and the book per track: share counts, cost basis, cash, everything paid in, banked P&L. Deleting it starts over. **Back it up rather than deleting it.** |
 | `rebalances.csv` | One row per rebalance per track (date, buys, sells, basket, account value, cash, paid in, P&L, track). Your audit trail. |
-| `deposits.csv` | Dated cash-in events, per track — feeds the dashboard's "Paid in" line. |
+| `deposits.csv` | Dated cash-in events, per track. |
 | `latest.json` | The dashboard's render cache: current holdings, ranking, header figures. |
 | `history.csv` | One row per day per funded track — the daily curves. |
 | `hourly.csv` | One row per account per hour — value + benchmark ETF (`tracker.py`). |
-| `samples_1m.csv` | 1-minute OHLC bars of the live account's holdings value (`pulse.py`), append-only, kept indefinitely — the candlestick chart. |
+| `samples_1m.csv` | 1-minute OHLC bars of the live account's open P/L in euros (`pulse.py`), append-only, kept indefinitely — the candlestick chart. |
 | `model.csv` | The frozen backtest run forward from the funding date, rewritten every `--json` run. |
 | `instruments.json` | Cached Trading 212 instrument list (~16k rows), refreshed daily. |
 | `pending.json` / `pending-demo.json` | The month's batch mid-flight — what was sent and what came back. |

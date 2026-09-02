@@ -1306,21 +1306,26 @@ def refresh_live(state) -> int:
     fx = live_fx()
     fresh = _track_row(bk, m, fx["sym"], fx["ccy"], "t212")
 
-    # The dashboard shows the STRATEGY's holdings value -- Trading 212's
-    # invested + ppl (the Investments-tab figure) -- not mark()'s reconstruction
-    # from the bot's cash ledger (which only re-squares nightly, against an
-    # estimated FX fee) and not the account total (which would fold in free
-    # funds the strategy never touches). The broker snapshot is already in hand.
-    # state.json is untouched -- that stays the strategy's own accounting.
+    # Show what Trading 212 shows for the account, to the cent -- not mark()'s
+    # reconstruction from the bot's cash ledger (which re-squares only nightly,
+    # against an *estimated* FX fee). `total` / `invested` are the holdings
+    # market value (cost basis + ppl); `pnl` is `ppl` alone -- the positions'
+    # open profit, the number the app's P/L shows. It deliberately does NOT
+    # subtract the one-off EUR->USD conversion fee: that is an entry cost, not
+    # performance, and folding it in made the P/L read ~EUR9 worse than the app.
+    # Account free funds are excluded (not the strategy's). state.json is
+    # untouched -- that stays the strategy's own accounting.
     ac = (snap or {}).get("account_cash") or {}
-    held = float(ac.get("invested") or 0.0) + float(ac.get("ppl") or 0.0)
+    ppl = float(ac.get("ppl") or 0.0)
+    held = float(ac.get("invested") or 0.0) + ppl
     if held > 0:
-        dep = float(bk.get("deposited") or 0.0)
+        basis = held - ppl                        # cost basis of the positions
         fresh["total"] = round(held, 2)
         fresh["invested"] = round(held, 2)
-        fresh["cash"] = 0.0            # account free funds are not the strategy's
-        fresh["pnl"] = round(held - dep, 2)
-        fresh["pnl_pct"] = round((held / dep - 1) * 100, 2) if dep else 0.0
+        fresh["cash"] = 0.0
+        fresh["pnl"] = round(ppl, 2)
+        fresh["unrealised"] = round(ppl, 2)
+        fresh["pnl_pct"] = round(ppl / basis * 100, 2) if basis else 0.0
 
     moved = any(abs(fresh[k] - float(row.get(k) or 0)) >= 0.01
                 for k in ("total", "invested", "cash", "pnl", "unrealised"))

@@ -1,33 +1,33 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
-import { createChart, LineStyle, LineType, AreaSeries, LineSeries,
-         CandlestickSeries } from "lightweight-charts";
-import { money } from "../format.js";
+import { createChart, LineStyle, AreaSeries, CandlestickSeries }
+  from "lightweight-charts";
+import { signed } from "../format.js";
 
-// The account as candlesticks (OHLC bars from samples_1m.csv, bucketed to the
-// chosen timeframe), plus a dashed step line at what's been paid in so it's
-// clear when the account is above or below cost. `rows` is a fallback account
-// line, used only when `fallback` is set (the demo track, which has no sampler).
+// The account's open profit/loss (euros) as candlesticks -- OHLC bars from
+// samples_1m.csv, bucketed to the chosen timeframe. It is P/L, not capital, so a
+// monthly contribution doesn't put a step in it. A faint line marks break-even.
+// `rows` is a fallback account line, used only when `fallback` is set (the demo
+// track, which has no sampler).
 const props = defineProps({
-  candles: { type: Array, default: () => [] },   // [{time, open, high, low, close}]
-  paidIn: { type: Array, default: () => [] },    // [{time, value}]
-  rows: { type: Array, default: () => [] },      // [{time, total}] hourly, fallback only
-  fallback: { type: Boolean, default: false },   // draw the hourly line when no bars
+  candles: { type: Array, default: () => [] },   // [{time, open, high, low, close}] = P/L
+  rows: { type: Array, default: () => [] },       // [{time, total}] hourly, fallback only
+  fallback: { type: Boolean, default: false },
+  deposited: { type: Number, default: 0 },        // for the % readout
   sym: { type: String, default: "$" },
   height: { type: Number, default: 380 },
 });
 
 const host = ref(null);
-const legend = ref(null);          // {o,h,l,c,up} under the cursor, or the last bar
+const legend = ref(null);          // {o,h,l,c,up,pct} under the cursor, or the last bar
 // Series are created once and kept across polls -- tearing them down and
-// re-adding every refresh is what reset the view. On a refresh we only
-// setData().
-let chart = null, candleS = null, lineS = null, paidS = null, ro = null;
+// re-adding every refresh is what reset the view. On a refresh we only setData().
+let chart = null, candleS = null, lineS = null, zeroLine = null, ro = null;
 let lastBar = null, framedCount = -99, hovering = false;
 
 const css = (n) =>
   getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const f = (v) => money(v, props.sym);
+const f = (v) => signed(v, props.sym);
 
 const at = (r) => Math.floor(Date.parse(r.time) / 1000);
 
@@ -43,20 +43,7 @@ function ohlc(bars) {
   return out;
 }
 
-function stepline(pts) {
-  const out = [];
-  let last = 0;
-  for (const p of pts) {
-    const t = Number(p.time);
-    if (!t || t <= last || p.value == null) continue;
-    out.push({ time: t, value: +p.value });
-    last = t;
-  }
-  return out;
-}
-
-// Fallback only: an account line from the hourly rows, used until candle bars
-// exist.
+// Fallback only: an account line from the hourly rows, until candle bars exist.
 function rowLine(rows) {
   const out = [];
   let last = 0;
@@ -69,25 +56,12 @@ function rowLine(rows) {
   return out;
 }
 
-// Paid-in amount in force at time t (the step line's last value at or before t).
-function paidAt(t) {
-  let v = null;
-  for (const p of props.paidIn) {
-    if (Number(p.time) <= t) v = +p.value;
-    else break;
-  }
-  if (v == null && props.paidIn.length) v = +props.paidIn[props.paidIn.length - 1].value;
-  return v;
-}
-
-function setLegend(bar, t) {
+function setLegend(bar) {
   if (!bar) { legend.value = null; return; }
-  const base = paidAt(t || lastBar?.time || 0);
   legend.value = {
     o: bar.open, h: bar.high, l: bar.low, c: bar.close,
-    up: bar.close >= bar.open,
-    // % the account is above (or below) what's been paid in, at this bar.
-    pct: base ? (bar.close - base) / base * 100 : null,
+    up: bar.close >= 0,
+    pct: props.deposited ? bar.close / props.deposited * 100 : null,
   };
 }
 
@@ -109,7 +83,7 @@ function build() {
     },
     rightPriceScale: {
       borderColor: "rgba(140,175,215,.12)",
-      scaleMargins: { top: 0.12, bottom: 0.1 },   // candles use most of the height
+      scaleMargins: { top: 0.12, bottom: 0.1 },
     },
     timeScale: {
       borderColor: "rgba(140,175,215,.12)",
@@ -122,16 +96,15 @@ function build() {
       horzLine: { color: css("--cyan"), width: 1, style: LineStyle.Dashed,
                   labelBackgroundColor: css("--cyan-dim") },
     },
-    // Drag the PRICE axis to stretch the candles vertically (TradingView-style);
-    // double-click it to reset. Time axis drag stays off.
+    // Drag the PRICE axis to stretch the candles vertically; double-click resets.
     handleScale: { axisPressedMouseMove: { time: false, price: true } },
   });
 
   chart.subscribeCrosshairMove((param) => {
     hovering = param.time != null;
     const bar = candleS && param.seriesData.get(candleS);
-    if (bar) setLegend(bar, param.time);
-    else setLegend(lastBar, lastBar?.time);   // cursor off chart -> last bar
+    if (bar) setLegend(bar);
+    else setLegend(lastBar);          // cursor off chart -> last bar
   });
 
   render();
@@ -154,12 +127,16 @@ function render() {
         wickUpColor: css("--up"), wickDownColor: css("--down"),
         priceLineVisible: false, lastValueVisible: true,
       });
+      zeroLine = candleS.createPriceLine({
+        price: 0, color: css("--faint"), lineWidth: 1,
+        lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "break-even",
+      });
     }
     candleS.setData(bars);
     lastBar = bars[bars.length - 1];
-    if (!hovering) setLegend(lastBar, lastBar.time);
+    if (!hovering) setLegend(lastBar);
   } else {
-    candleS = drop(candleS);
+    candleS = drop(candleS); zeroLine = null;
     lastBar = null;
     if (line.length) {
       if (!lineS) {
@@ -176,25 +153,9 @@ function render() {
     if (!hovering) setLegend(null);
   }
 
-  const paid = stepline(props.paidIn);
-  if (paid.length) {
-    if (!paidS) {
-      paidS = chart.addSeries(LineSeries, {
-        color: css("--faint"), lineWidth: 1, lineStyle: LineStyle.Dashed,
-        lineType: LineType.WithSteps,
-        priceLineVisible: false, lastValueVisible: true,
-        crosshairMarkerVisible: false,
-      });
-    }
-    paidS.setData(paid);
-  } else {
-    paidS = drop(paidS);
-  }
-
-  // Frame the candles to their own extent (the weeks-long paid-in line would
-  // otherwise squash them). Only on the first load or a big change -- timeframe
-  // or track switch, where the bar count jumps. A routine poll adds one bar and
-  // must not touch the user's zoom/pan.
+  // Frame to the bars' own extent, once -- on first load or a big change
+  // (timeframe / track switch, where the bar count jumps). A routine poll adds
+  // one bar and must not touch the user's zoom/pan.
   const ts = chart.timeScale();
   if (bars.length) {
     if (Math.abs(bars.length - framedCount) > 3) {
@@ -214,19 +175,17 @@ function render() {
 
 // Explicit resize, not autoSize. The observed element (.host) is sized by
 // .chartbox, whose height is a definite pixel value from the `height` prop --
-// never `auto`, never dependent on the chart's own size -- so resize() can't
-// feed back into a grow loop (the fullscreen-stretch bug).
+// never dependent on the chart's own size -- so resize() can't feed back into a
+// grow loop (the fullscreen-stretch bug).
 onMounted(() => {
   build();
   ro = new ResizeObserver(() => {
-    if (chart && host.value) {
-      chart.resize(host.value.clientWidth, host.value.clientHeight);
-    }
+    if (chart && host.value) chart.resize(host.value.clientWidth, host.value.clientHeight);
   });
   ro.observe(host.value);
 });
 onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
-watch(() => [props.candles, props.paidIn, props.rows], render, { deep: true });
+watch(() => [props.candles, props.rows, props.deposited], render, { deep: true });
 </script>
 
 <template>
@@ -236,9 +195,8 @@ watch(() => [props.candles, props.paidIn, props.rows], render, { deep: true });
       <span>H <b>{{ f(legend.h) }}</b></span>
       <span>L <b>{{ f(legend.l) }}</b></span>
       <span>C <b>{{ f(legend.c) }}</b></span>
-      <span v-if="legend.pct != null" class="pct" :class="legend.pct >= 0 ? 'up' : 'down'">
-        {{ legend.pct >= 0 ? "▲" : "▼" }} {{ Math.abs(legend.pct).toFixed(2) }}%
-        <span class="vp">vs paid in</span>
+      <span v-if="legend.pct != null" class="pct">
+        {{ legend.pct >= 0 ? "+" : "" }}{{ legend.pct.toFixed(2) }}%
       </span>
     </div>
     <div class="host" ref="host"></div>
@@ -255,10 +213,7 @@ watch(() => [props.candles, props.paidIn, props.rows], render, { deep: true });
   color: var(--faint);
 }
 .ohlc b { font-weight: 600 }
-.ohlc.up b { color: var(--up) }
-.ohlc.down b { color: var(--down) }
+.ohlc.up b, .ohlc.up .pct { color: var(--up) }
+.ohlc.down b, .ohlc.down .pct { color: var(--down) }
 .ohlc .pct { font-weight: 600 }
-.ohlc .pct.up { color: var(--up) }
-.ohlc .pct.down { color: var(--down) }
-.ohlc .vp { font-weight: 400; color: var(--faint); opacity: .7 }
 </style>

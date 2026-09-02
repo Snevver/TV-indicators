@@ -6,11 +6,12 @@ systemd fires this once a minute. It reads the live account value about every
 samples it took) to samples_1m.csv and exits. Nothing renders below a 1-minute
 bar, so raw 10s ticks are not kept -- the minute bar is the smallest unit.
 
-Value = Trading 212's invested + ppl (the Investments-tab figure: what the
-holdings are worth right now). Account free funds are excluded -- the strategy
-does not control them. One HTTP GET per sample, no yfinance -- so it is safe at
-10s where a price download would be rate-limited. Live only; the demo track
-stays on the hourly tracker line.
+Value = Trading 212's `ppl` -- open profit/loss on the positions, in euros, the
+same number the app shows. Profit, not capital: when the monthly contribution is
+deployed the new shares enter at cost basis and add ~0 to ppl, so there is no
+step in the chart. One HTTP GET per sample, no yfinance -- safe at 10s where a
+price download would be rate-limited. Live only; the demo track stays on the
+hourly tracker line.
 
     .venv/bin/python pulse.py
 
@@ -44,14 +45,12 @@ SAMPLES_PER_MIN = 6          # one every ~10s
 
 
 def value():
-    """The strategy's holdings value now, from Trading 212: invested + ppl
-    (cost basis plus open P/L -- the Investments-tab figure). Account free funds
-    are NOT included: the strategy does not control them. None on any failure --
-    the caller skips the sample."""
+    """Open profit/loss on the positions right now, in euros -- Trading 212's
+    `ppl`, the figure the app shows. Not capital: a contribution deployed into
+    new shares enters at cost basis and moves ppl by ~0, so the chart has no
+    step. None on any failure -- the caller skips the sample."""
     try:
-        c = t212.cash()
-        return round(float(c.get("invested") or 0.0)
-                     + float(c.get("ppl") or 0.0), 2)
+        return round(float(t212.cash().get("ppl") or 0.0), 2)
     except Exception as exc:                              # noqa: BLE001
         print(f"  ! {type(exc).__name__}: {exc}")
         return None

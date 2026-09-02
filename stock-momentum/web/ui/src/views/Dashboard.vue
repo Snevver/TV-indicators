@@ -19,7 +19,6 @@ const t212off = computed(() => !h.value?.t212?.configured);
 const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
 const hourly = computed(() => store.hourly?.[store.track] || []);
 const candles = computed(() => store.candles?.[store.track] || []);
-const paidIn = computed(() => store.paidIn?.[store.track] || []);
 
 // Most recent benchmark mark, for the command bar's vs-S&P line.
 const lastBench = computed(() => {
@@ -106,7 +105,7 @@ const health = computed(() => [
           <div v-if="candles.length || (store.track === 'demo' && hourly.length)"
                ref="chartHud" class="hud chartpanel">
             <div class="hud-head">
-              <h2>{{ acct }} · portfolio</h2>
+              <h2>{{ acct }} · profit &amp; loss</h2>
               <div class="seg small">
                 <button v-for="t in TIMEFRAMES" :key="t" :class="{ on: store.tf === t }"
                         @click="setTimeframe(t)">{{ t }}</button>
@@ -114,12 +113,12 @@ const health = computed(() => [
               </div>
             </div>
             <div class="hud-body">
-              <MoneyChart :candles="candles" :paid-in="paidIn" :rows="hourly"
+              <MoneyChart :candles="candles" :rows="hourly"
                           :fallback="store.track === 'demo'"
+                          :deposited="s.deposited || 0"
                           :sym="sym" :height="chartHeight" />
               <div class="key">
-                <span><i class="sw cy"></i>{{ acct }} · account</span>
-                <span v-if="paidIn.length"><i class="sw pi"></i>Paid in</span>
+                <span><i class="sw cy"></i>{{ acct }} · open P/L</span>
                 <span class="fine">· drag the price axis to stretch the candles</span>
               </div>
             </div>
@@ -195,7 +194,6 @@ const health = computed(() => [
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 .key .am { background: var(--amber) }
 .key .fn { background: var(--faint) }
-.key .pi { background: var(--faint); height: 0; border-top: 2px dashed var(--faint) }
 .block { display: flex; flex-direction: column; gap: 10px }
 
 /* Two instrument columns: a wide focus stack (chart, holdings, log) and a
