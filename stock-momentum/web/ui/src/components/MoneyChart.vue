@@ -58,10 +58,12 @@ function rowLine(rows) {
 
 function setLegend(bar) {
   if (!bar) { legend.value = null; return; }
+  const chg = bar.close - bar.open;              // this bar's move, in P/L euros
   legend.value = {
     o: bar.open, h: bar.high, l: bar.low, c: bar.close,
-    up: bar.close >= 0,
-    pct: props.deposited ? bar.close / props.deposited * 100 : null,
+    up: chg >= 0,                                 // colour follows the candle
+    chg,
+    pct: props.deposited ? chg / props.deposited * 100 : null,
   };
 }
 
@@ -195,9 +197,8 @@ watch(() => [props.candles, props.rows, props.deposited], render, { deep: true }
       <span>H <b>{{ f(legend.h) }}</b></span>
       <span>L <b>{{ f(legend.l) }}</b></span>
       <span>C <b>{{ f(legend.c) }}</b></span>
-      <span v-if="legend.pct != null" class="pct">
-        {{ legend.pct >= 0 ? "+" : "" }}{{ legend.pct.toFixed(2) }}%
-      </span>
+      <span class="pct">{{ f(legend.chg) }}<template
+        v-if="legend.pct != null"> ({{ legend.pct >= 0 ? "+" : "" }}{{ legend.pct.toFixed(2) }}%)</template></span>
     </div>
     <div class="host" ref="host"></div>
   </div>
