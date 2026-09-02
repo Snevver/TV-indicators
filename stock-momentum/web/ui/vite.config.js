@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 
 // Built into ../static/dist and committed, so the mini PC needs no Node.
-// See ui/README.md for how to rebuild.
+// Rebuild: `npm install && npm run build` here. See the repo README ("Tests").
 export default defineConfig({
   plugins: [vue()],
   base: "/static/dist/",
