@@ -1,10 +1,11 @@
 import { reactive } from "vue";
 import * as api from "./api.js";
 
-// How often the page pulls fresh figures. The box refreshes latest.json on its
-// own ~90s timer (Trading 212 read only), so polling faster just re-reads the
-// same file; polling much slower makes the countdown feel dead.
-export const POLL_SECONDS = 90;
+// How often the page pulls fresh figures. pulse.py writes a new 1-minute candle
+// bar each minute, so ~60s keeps the chart within a bar of live. The header
+// figures (latest.json, ~90s server timer) just refresh a touch more often than
+// they change -- harmless.
+export const POLL_SECONDS = 60;
 
 // Candle timeframes the chart offers; must match data.py TF_SECONDS + "1M".
 export const TIMEFRAMES = ["1m", "5m", "15m", "30m", "60m", "4h", "1d", "1M"];
