@@ -151,7 +151,7 @@ def headers(resp):
 
 @app.context_processor
 def inject():
-    return {"csrf": session.get("csrf", ""), "TRACK_LABEL": data.TRACK_LABEL}
+    return {"csrf": session.get("csrf", "")}
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -187,12 +187,6 @@ def logout():
     return redirect(url_for("login"))
 
 
-def _track() -> str:
-    # demo or live; the dashboard toggles between the two real accounts.
-    t = request.args.get("track", "")
-    return t if t in data.TRACKS else "live"
-
-
 SPA = os.path.join(HERE, "static", "dist", "index.html")
 
 
@@ -218,34 +212,32 @@ def spa():
 @app.route("/api/state")
 @login_required
 def api_state():
-    track = _track()
-    s = data.summary(track)
+    s = data.summary()
     h = data.health()
     h["latest_hours"] = (h.pop("latest_age") / 3600
                          if h.get("latest_age") is not None else None)
     h.pop("state_age", None)
     h["hold"] = data.latest().get("hold", 8)
-    return jsonify({"track": track, "summary": s, "health": h,
+    return jsonify({"summary": s, "health": h,
                     "symbol": s.get("symbol") or data.latest().get("symbol") or "$"})
 
 
 @app.route("/api/history")
 @login_required
 def api_history():
-    return jsonify(data.curve(_track()))
+    return jsonify(data.curve())
 
 
 @app.route("/api/rebalances")
 @login_required
 def api_rebalances():
-    return jsonify({"rows": data.rebalances(_track())[:40]})
+    return jsonify({"rows": data.rebalances()[:40]})
 
 
 @app.route("/api/hourly")
 @login_required
 def api_hourly():
-    s = _track()
-    return jsonify({"series": s, "rows": data.hourly(s), "model": data.model(s)})
+    return jsonify({"rows": data.hourly(), "model": data.model()})
 
 
 @app.route("/api/candles")
@@ -254,8 +246,7 @@ def api_candles():
     tf = request.args.get("tf", "1m")
     if tf not in data.TFS:
         return jsonify({"error": f"unknown tf {tf!r}"}), 400
-    s = _track()
-    return jsonify({"track": s, "tf": tf, "bars": data.candles(s, tf)})
+    return jsonify({"tf": tf, "bars": data.candles(tf)})
 
 
 @app.route("/api/config", methods=["GET", "POST"])

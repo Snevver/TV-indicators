@@ -14,30 +14,20 @@ const ls = (k, ok, dflt) => (ok.includes(localStorage.getItem(k))
   ? localStorage.getItem(k) : dflt);
 
 // One shared store. The dashboard reads it; the poller keeps it fresh.
-// Two real Trading 212 accounts: `track` is the one the account-specific panels
-// show; the money-over-time chart holds both.
+// The live Trading 212 account only -- the bot also runs a demo account, but
+// the dashboard no longer shows it.
 export const store = reactive({
-  track: localStorage.getItem("track") === "demo" ? "demo" : "live",
   tf: ls("tf", TIMEFRAMES, "15m"),
   state: null,
   history: null,
   rebalances: [],
-  hourly: { demo: [], live: [] },
-  model: { demo: [], live: [] },      // the frozen backtest, per track
-  candles: { demo: [], live: [] },    // P/L OHLC bars for the account, per track
+  hourly: [],
+  candles: [],                // P/L OHLC bars for the account
   fetchedAt: null,
   nextPollAt: null,          // epoch ms of the next scheduled fetch, for the countdown
   loading: true,
   error: "",
 });
-
-export function setTrack(track) {
-  if (track !== "demo" && track !== "live") return;
-  store.track = track;
-  localStorage.setItem("track", track);
-  store.loading = true;
-  load();
-}
 
 export function setTimeframe(tf) {
   if (!TIMEFRAMES.includes(tf)) return;
@@ -49,23 +39,19 @@ export function setTimeframe(tf) {
 export async function load() {
   store.error = "";
   try {
-    const track = store.track;
-    const wantCandles = track === "live";
-    const [s, h, r, hd, hl, cd] = await Promise.all([
-      api.getState(track), api.getHistory(track), api.getRebalances(track),
-      api.getHourly("demo"), api.getHourly("live"),
-      wantCandles ? api.getCandles(track, store.tf) : Promise.resolve(null),
+    const [s, h, r, hd, cd] = await Promise.all([
+      api.getState(), api.getHistory(), api.getRebalances(),
+      api.getHourly(), api.getCandles(store.tf),
     ]);
     store.state = s; store.history = h; store.rebalances = r.rows || [];
-    store.hourly = { demo: hd.rows || [], live: hl.rows || [] };
-    store.model = { demo: hd.model || [], live: hl.model || [] };
-    store.candles = { ...store.candles, [track]: (cd && cd.bars) || [] };
+    store.hourly = hd.rows || [];
+    store.candles = cd.bars || [];
     store.fetchedAt = Date.now();
   } catch (e) {
     if (e.message !== "signed out") store.error = e.message;
   } finally {
     store.loading = false;
-    // Every fetch -- scheduled, manual, or a track switch -- restarts the clock.
+    // Every fetch -- scheduled or manual -- restarts the clock.
     store.nextPollAt = Date.now() + POLL_SECONDS * 1000;
   }
 }

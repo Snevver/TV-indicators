@@ -30,9 +30,6 @@ MODEL = os.path.join(BOT, "model.csv")
 SAMPLES_1M = os.path.join(BOT, "samples_1m.csv")
 PYTHON = os.environ.get("MOMENTUM_PYTHON") or os.path.join(BOT, ".venv", "bin", "python")
 
-TRACKS = ("demo", "live")
-TRACK_LABEL = {"demo": "Demo", "live": "Live"}
-
 # Candlestick timeframes. Values are bucket size in seconds; "1M" is a calendar
 # month and handled specially. The chart buckets samples_1m.csv up into these.
 TF_SECONDS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600,
@@ -55,12 +52,12 @@ def _json(path, default):
 
 
 def state() -> dict:
+    # The bot still runs both accounts and writes both tracks here; the
+    # dashboard only ever reads "live".
     s = _json(STATE, {})
     if "tracks" not in s:                       # schema 1, or nothing yet
-        s = {"tracks": {"live": s, "demo": {}}} if s else {"tracks": {}}
-    s.get("tracks", {}).pop("paper", None)      # retired; demo took its place
-    for t in TRACKS:
-        s["tracks"].setdefault(t, {})
+        s = {"tracks": {"live": s}} if s else {"tracks": {}}
+    s["tracks"].setdefault("live", {})
     return s
 
 
@@ -83,11 +80,12 @@ def _f(v, default=0.0):
         return default
 
 
-def history(track: str) -> list:
-    """[{date, total, invested, cash, deposited, pnl, ...}] oldest first."""
+def history() -> list:
+    """[{date, total, invested, cash, deposited, pnl, ...}] oldest first, live
+    account only -- the bot also writes demo rows to this file, filtered out."""
     out = []
     for r in _rows(HISTORY):
-        if r.get("track") != track:
+        if r.get("track") != "live":
             continue
         out.append({"date": r.get("date", ""),
                     **{k: _f(r.get(k)) for k in
@@ -98,8 +96,8 @@ def history(track: str) -> list:
     return out
 
 
-def hourly(series: str) -> list:
-    """[{time, total, bench}] oldest first, for one account (demo or live).
+def hourly() -> list:
+    """[{time, total, bench}] oldest first, live account.
 
     Written hourly by tracker.py: the real account value and what the same
     deposits would be worth in the benchmark ETF. `bench` is None on rows the
@@ -107,7 +105,7 @@ def hourly(series: str) -> list:
     """
     out = []
     for r in _rows(HOURLY):
-        if r.get("series") != series:
+        if r.get("series") != "live":
             continue
         out.append({"time": r.get("time", ""),
                     "total": _maybe(r.get("total")),
@@ -116,14 +114,14 @@ def hourly(series: str) -> list:
     return out
 
 
-def model(track: str) -> list:
+def model() -> list:
     """[{time, value}] oldest first: the frozen backtest run forward from this
     book's funding date, seeded with what was paid in. Written by the bot's
     --json run (model.csv). Missing file -> empty list, and the chart just
     omits the line."""
     out = []
     for r in _rows(MODEL):
-        if r.get("track") != track:
+        if r.get("track") != "live":
             continue
         v = _maybe(r.get("value"))
         if v is not None:
@@ -150,8 +148,8 @@ def _month_start(ts: int) -> int:
     return int(datetime(d.year, d.month, 1, tzinfo=timezone.utc).timestamp())
 
 
-def candles(track: str, tf: str) -> list:
-    """[{time, open, high, low, close}] oldest first, for one track, bucketed
+def candles(tf: str) -> list:
+    """[{time, open, high, low, close}] oldest first, live account, bucketed
     from pulse.py's 1-minute bars (samples_1m.csv). `time` is int UTC seconds
     (what lightweight-charts wants). Unknown tf -> []. Most recent MAX_BARS bars
     only. Nothing older than samples_1m.csv is folded in -- the chart starts
@@ -161,7 +159,7 @@ def candles(track: str, tf: str) -> list:
 
     rows = []
     for r in _rows(SAMPLES_1M):
-        if r.get("track") != track:
+        if r.get("track") != "live":
             continue
         ts = _epoch(r.get("time"))
         o, h, l, c = (_maybe(r.get(k)) for k in ("open", "high", "low", "close"))
@@ -205,13 +203,13 @@ def _maybe(v):
         return None
 
 
-def rebalances(track: str) -> list:
-    """Newest first, for one account — the dashboard shows the most recent month
+def rebalances() -> list:
+    """Newest first, live account — the dashboard shows the most recent month
     at the top. Rows written before the track column existed have a blank track
     and are treated as live (the log was a live-only view then)."""
     out = []
     for r in _rows(REBALANCES):
-        if (r.get("track") or "live") != track:
+        if (r.get("track") or "live") != "live":
             continue
         out.append({"date": r.get("date", ""),
                     "buys": [t for t in (r.get("buys") or "").split() if t],
@@ -223,15 +221,15 @@ def rebalances(track: str) -> list:
     return out
 
 
-def curve(track: str) -> dict:
+def curve() -> dict:
     """The equity series plus the derived numbers the charts need.
 
     Falls back to state.json's per-rebalance `equity` list when history.csv has
     nothing yet, so a freshly installed dashboard still draws something.
     """
-    rows = history(track)
+    rows = history()
     if not rows:
-        eq = (state()["tracks"].get(track) or {}).get("equity") or []
+        eq = (state()["tracks"].get("live") or {}).get("equity") or []
         rows = [{"date": d, "total": _f(v), "deposited": 0.0, "invested": _f(v),
                  "cash": 0.0, "pnl": 0.0, "realised": 0.0, "unrealised": 0.0,
                  "positions": 0} for d, v in eq]
@@ -264,14 +262,15 @@ def curve(track: str) -> dict:
             "monthly": monthly, "peak": peak, "maxdd": min(dd) if dd else 0.0}
 
 
-def summary(track: str) -> dict:
-    """The 'Now' panel. Prefers latest.json; falls back to raw state."""
+def summary() -> dict:
+    """The 'Now' panel. Prefers latest.json; falls back to raw state. Live
+    account only."""
     lat = latest()
-    t = (lat.get("tracks") or {}).get(track)
+    t = (lat.get("tracks") or {}).get("live")
     if t:
         return {**t, "stale": False, "bar": lat.get("bar", ""),
                 "generated": lat.get("generated", "")}
-    bk = state()["tracks"].get(track) or {}
+    bk = state()["tracks"].get("live") or {}
     invested = 0.0                      # no prices without a bot run
     return {"total": _f(bk.get("cash")) + invested, "invested": invested,
             "cash": _f(bk.get("cash")), "deposited": _f(bk.get("deposited")),
@@ -294,7 +293,7 @@ def health() -> dict:
             return None
 
     return {"latest_age": age(LATEST), "state_age": age(STATE),
-            "has_history": bool(history("demo") or history("live")),
+            "has_history": bool(history()),
             "bar": lat.get("bar", ""), "mode": lat.get("mode", ""),
             "track": lat.get("track", ""), "currency": lat.get("currency", ""),
             "next_rebalance": lat.get("next_rebalance", ""),

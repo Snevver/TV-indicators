@@ -34,23 +34,23 @@ def test_missing_files_give_empty_results():
         data.HOURLY = os.path.join(d, "nope.csv")
         data.HISTORY = os.path.join(d, "nope2.csv")
         data.REBALANCES = os.path.join(d, "nope3.csv")
-        assert data.hourly("live") == []
-        assert data.history("live") == []
-        assert data.rebalances("live") == []
-        assert data.curve("live")["dates"] == []
+        assert data.hourly() == []
+        assert data.history() == []
+        assert data.rebalances() == []
+        assert data.curve()["dates"] == []
 
 
 # ---------------------------------------------------------------------- hourly
 
-def test_hourly_filters_by_series_and_sorts():
+def test_hourly_filters_to_live_and_sorts():
     with tempfile.TemporaryDirectory() as d:
         data.HOURLY = os.path.join(d, "hourly.csv")
         _write(data.HOURLY,
                "time,series,total,bench\n"
                "2026-08-27T12:00Z,live,1008.00,1002.00\n"
                "2026-08-27T11:00Z,live,1005.00,\n"          # bench not priced
-               "2026-08-27T12:00Z,demo,1012.00,1003.00\n")
-        rows = data.hourly("live")
+               "2026-08-27T12:00Z,demo,1012.00,1003.00\n")  # other account, filtered out
+        rows = data.hourly()
         assert [r["time"] for r in rows] == \
             ["2026-08-27T11:00Z", "2026-08-27T12:00Z"]      # sorted
         assert rows[0]["bench"] is None                     # blank -> None
@@ -59,16 +59,16 @@ def test_hourly_filters_by_series_and_sorts():
 
 # ---------------------------------------------------------------------- model
 
-def test_model_filters_by_track_sorts_and_tolerates_blanks():
+def test_model_filters_to_live_sorts_and_tolerates_blanks():
     with tempfile.TemporaryDirectory() as d:
         data.MODEL = os.path.join(d, "model.csv")
         _write(data.MODEL,
                "date,track,value\n"
-               "2026-08-28,demo,1001.10\n"
-               "2026-08-27,demo,1000.00\n"
-               "2026-08-28,live,999.00\n"
-               "2026-08-29,demo,\n")                    # blank -> dropped
-        rows = data.model("demo")
+               "2026-08-28,live,1001.10\n"
+               "2026-08-27,live,1000.00\n"
+               "2026-08-28,demo,999.00\n"                # other account, filtered out
+               "2026-08-29,live,\n")                      # blank -> dropped
+        rows = data.model()
         assert [r["time"] for r in rows] == ["2026-08-27", "2026-08-28"]
         assert rows[1]["value"] == 1001.10
 
@@ -76,12 +76,12 @@ def test_model_filters_by_track_sorts_and_tolerates_blanks():
 def test_model_missing_file_is_empty():
     with tempfile.TemporaryDirectory() as d:
         data.MODEL = os.path.join(d, "nope.csv")
-        assert data.model("demo") == []
+        assert data.model() == []
 
 
 # --------------------------------------------------------------------- history
 
-def test_history_reads_only_its_track():
+def test_history_reads_only_live():
     with tempfile.TemporaryDirectory() as d:
         data.HISTORY = os.path.join(d, "history.csv")
         _write(data.HISTORY,
@@ -89,8 +89,8 @@ def test_history_reads_only_its_track():
                "unrealised,positions\n"
                "2026-08-02,live,1000,900,100,1000,0,0,0,8\n"
                "2026-08-02,demo,500,450,50,500,0,0,0,8\n")
-        rows = data.history("demo")
-        assert len(rows) == 1 and rows[0]["total"] == 500.0
+        rows = data.history()
+        assert len(rows) == 1 and rows[0]["total"] == 1000.0
         assert rows[0]["positions"] == 8
 
 
@@ -105,7 +105,7 @@ def test_curve_derives_drawdown_from_history():
                "2026-08-01,live,100,0,100,100,0,0,0,0\n"
                "2026-09-01,live,120,0,120,100,20,0,0,0\n"
                "2026-10-01,live,90,0,90,100,-10,0,0,0\n")
-        c = data.curve("live")
+        c = data.curve()
         assert c["total"] == [100.0, 120.0, 90.0]
         assert c["peak"] == 120.0
         assert abs(c["maxdd"] - (-25.0)) < 1e-9             # 90 is 25% below 120
@@ -122,13 +122,12 @@ def test_rebalances_splits_lists_and_sorts_newest_first():
                "date,buys,sells,basket,account,cash,deposited,pnl,track\n"
                "2026-08-01,AAA BBB,,AAA BBB,1000,10,1000,0,\n"        # legacy blank -> live
                "2026-09-01,CCC,AAA,BBB CCC,1100,5,1100,100,live\n"
-               "2026-09-01,ZZZ,,ZZZ,50,1,50,0,demo\n")               # other track, filtered out
-        rows = data.rebalances("live")
+               "2026-09-01,ZZZ,,ZZZ,50,1,50,0,demo\n")               # other account, filtered out
+        rows = data.rebalances()
         assert [r["date"] for r in rows] == ["2026-09-01", "2026-08-01"]   # newest first, demo dropped
         assert rows[0]["buys"] == ["CCC"] and rows[0]["sells"] == ["AAA"]
         assert rows[1]["buys"] == ["AAA", "BBB"]
         assert rows[0]["account"] == 1100.0
-        assert [r["buys"] for r in data.rebalances("demo")] == [["ZZZ"]]
 
 
 # -------------------------------------------------------------------- candles
@@ -145,12 +144,12 @@ def _no_hourly(d):
     data.HOURLY = os.path.join(d, "no-hourly.csv")
 
 
-def test_candles_passthrough_1m_filters_track_and_sorts():
+def test_candles_passthrough_1m_filters_to_live_and_sorts():
     with tempfile.TemporaryDirectory() as d:
         _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.SAMPLES_1M, _BARS)
-        bars = data.candles("live", "1m")
+        bars = data.candles("1m")
         assert [b["time"] for b in bars] == sorted(b["time"] for b in bars)
         assert len(bars) == 4                      # demo row excluded
         assert bars[0] == {"time": data._epoch("2026-09-03T14:00Z"),
@@ -162,7 +161,7 @@ def test_candles_buckets_5m_ohlc():
         _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.SAMPLES_1M, _BARS)
-        bars = data.candles("live", "5m")
+        bars = data.candles("5m")
         # 14:00-14:04 -> one bar from the three 14:0x rows; 14:05 -> its own bar
         assert len(bars) == 2
         assert bars[0]["open"] == 100.0 and bars[0]["close"] == 102.0
@@ -180,7 +179,7 @@ def test_candles_month_bucket():
                "2026-09-10T00:00Z,live,10,12,9,11\n"
                "2026-09-20T00:00Z,live,11,15,11,14\n"
                "2026-10-01T00:00Z,live,14,14,13,13\n")
-        bars = data.candles("live", "1M")
+        bars = data.candles("1M")
         assert len(bars) == 2
         assert bars[0]["open"] == 10.0 and bars[0]["high"] == 15.0 and bars[0]["close"] == 14.0
 
@@ -196,7 +195,7 @@ def test_candles_ignores_hourly_history_entirely():
         _write(data.SAMPLES_1M, _BARS)                  # samples start 2026-09-03
         sep3 = data._epoch("2026-09-03")               # bucket floors land on/after this
         for tf in ("5m", "60m", "1d"):
-            bars = data.candles("live", tf)
+            bars = data.candles(tf)
             assert bars and all(b["time"] >= sep3 for b in bars), tf
             assert all(b["high"] < 200 for b in bars), tf   # no 1990/1995 hourly rows
 
@@ -205,11 +204,11 @@ def test_candles_unknown_tf_and_missing_file_are_empty():
     with tempfile.TemporaryDirectory() as d:
         _no_hourly(d)
         data.SAMPLES_1M = os.path.join(d, "nope.csv")
-        assert data.candles("live", "1d") == []
+        assert data.candles("1d") == []
         _write(os.path.join(d, "s.csv"), "time,track,open,high,low,close\n")
         data.SAMPLES_1M = os.path.join(d, "s.csv")
-        assert data.candles("live", "7h") == []       # not a real tf
-        assert data.candles("live", "1m") == []       # header only
+        assert data.candles("7h") == []       # not a real tf
+        assert data.candles("1m") == []       # header only
 
 
 # -------------------------------------------------------------------- run_bot

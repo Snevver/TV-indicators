@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
-import { store, setTrack, setTimeframe, TIMEFRAMES } from "../store.js";
+import { store, setTimeframe, TIMEFRAMES } from "../store.js";
 import { money, ago } from "../format.js";
 import Hero from "../components/Hero.vue";
 import Holdings from "../components/Holdings.vue";
@@ -8,7 +8,6 @@ import MoneyChart from "../components/MoneyChart.vue";
 import RegimeGauge from "../components/RegimeGauge.vue";
 import Scoreboard from "../components/Scoreboard.vue";
 import RankingPanel from "../components/RankingPanel.vue";
-import HealthStrip from "../components/HealthStrip.vue";
 import LaunchPreview from "../components/LaunchPreview.vue";
 
 const s = computed(() => store.state?.summary || {});
@@ -16,13 +15,10 @@ const h = computed(() => store.state?.health || {});
 const sym = computed(() => store.state?.symbol || "$");
 const empty = computed(() => !Object.keys(s.value.positions || {}).length);
 const t212off = computed(() => !h.value?.t212?.configured);
-const acct = computed(() => (store.track === "demo" ? "Demo" : "Live"));
-const hourly = computed(() => store.hourly?.[store.track] || []);
-const candles = computed(() => store.candles?.[store.track] || []);
 
 // Most recent benchmark mark, for the command bar's vs-S&P line.
 const lastBench = computed(() => {
-  const r = hourly.value;
+  const r = store.hourly;
   for (let i = r.length - 1; i >= 0; i--)
     if (r[i].bench != null) return Number(r[i].bench);
   return null;
@@ -59,26 +55,11 @@ onBeforeUnmount(() => {
   document.removeEventListener("fullscreenchange", syncChartHeight);
   window.removeEventListener("resize", syncChartHeight);
 });
-
-
-const health = computed(() => [
-  { label: "Bot", value: h.value.bar || "—",
-    state: h.value.latest_hours != null && h.value.latest_hours < 36 ? "on" : "warn" },
-  { label: "Trading 212", value: h.value.t212?.configured ? "linked" : "off",
-    state: h.value.t212?.configured ? "on" : "off" },
-  { label: "Last traded", value: s.value.last_rebalance || "never", state: "on" },
-  { label: "Feed", value: store.error ? "error" : "nominal",
-    state: store.error ? "warn" : "on" },
-]);
 </script>
 
 <template>
   <div class="deck">
     <div class="topbar">
-      <div class="seg">
-        <button :class="{ on: store.track === 'live' }" @click="setTrack('live')">Live</button>
-        <button :class="{ on: store.track === 'demo' }" @click="setTrack('demo')">Demo</button>
-      </div>
       <span class="tick tag">
         <i class="led on"></i>updated {{ ago(store.fetchedAt) }}<template
           v-if="nextIn != null"> · next in {{ nextIn }}s</template>
@@ -96,16 +77,15 @@ const health = computed(() => [
     </section>
 
     <template v-else>
-      <Hero :s="s" :sym="sym" :label="acct" :bench="lastBench" />
+      <Hero :s="s" :sym="sym" label="Live" :bench="lastBench" />
 
       <LaunchPreview v-if="empty" :s="s" :h="h" :sym="sym" />
 
       <div class="cols">
         <div class="focus">
-          <div v-if="candles.length || (store.track === 'demo' && hourly.length)"
-               ref="chartHud" class="hud chartpanel">
+          <div v-if="store.candles.length" ref="chartHud" class="hud chartpanel">
             <div class="hud-head">
-              <h2>{{ acct }} · profit &amp; loss</h2>
+              <h2>Live · profit &amp; loss</h2>
               <div class="seg small">
                 <button v-for="t in TIMEFRAMES" :key="t" :class="{ on: store.tf === t }"
                         @click="setTimeframe(t)">{{ t }}</button>
@@ -113,12 +93,10 @@ const health = computed(() => [
               </div>
             </div>
             <div class="hud-body">
-              <MoneyChart :candles="candles" :rows="hourly"
-                          :fallback="store.track === 'demo'"
-                          :deposited="s.deposited || 0"
+              <MoneyChart :candles="store.candles" :deposited="s.deposited || 0"
                           :sym="sym" :height="chartHeight" />
               <div class="key">
-                <span><i class="sw cy"></i>{{ acct }} · open P/L</span>
+                <span><i class="sw cy"></i>Live · open P/L</span>
                 <span class="fine">· drag the price axis to stretch the candles</span>
               </div>
             </div>
@@ -166,11 +144,6 @@ const health = computed(() => [
           </div>
         </div>
       </div>
-
-      <section class="block">
-        <span class="tag">System</span>
-        <HealthStrip :items="health" />
-      </section>
     </template>
   </div>
 </template>
@@ -192,9 +165,6 @@ const health = computed(() => [
 .key { display: flex; gap: 18px; padding: 8px 4px 2px; font-size: .74rem; color: var(--faint) }
 .key .sw { display: inline-block; width: 14px; height: 2px; margin-right: 7px; vertical-align: middle }
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
-.key .am { background: var(--amber) }
-.key .fn { background: var(--faint) }
-.block { display: flex; flex-direction: column; gap: 10px }
 
 /* Two instrument columns: a wide focus stack (chart, holdings, log) and a
    narrower rail (regime, scoreboard, ranking). Each column is its own flex

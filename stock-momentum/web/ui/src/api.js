@@ -15,12 +15,11 @@ async function req(path, opts = {}) {
   return r.json();
 }
 
-export const getState = (track) => req(`/api/state?track=${track}`);
-export const getHistory = (track) => req(`/api/history?track=${track}`);
-export const getHourly = (track) => req(`/api/hourly?track=${track}`);
-export const getCandles = (track, tf) =>
-  req(`/api/candles?track=${track}&tf=${tf}`);
-export const getRebalances = (track) => req(`/api/rebalances?track=${track}`);
+export const getState = () => req("/api/state");
+export const getHistory = () => req("/api/history");
+export const getHourly = () => req("/api/hourly");
+export const getCandles = (tf) => req(`/api/candles?tf=${tf}`);
+export const getRebalances = () => req("/api/rebalances");
 export const getConfig = () => req("/api/config");
 
 export const saveConfig = (values) =>
