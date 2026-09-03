@@ -2,9 +2,9 @@
 
 The point of this page is to answer "what would this have done between X and Y",
 so the logic has to be the same logic that produced every published figure. The
-constants and the ranking below are copied from research/timelines.py, which is
-the script the reports were generated from — not re-derived, because a
-re-derivation that drifts by one day would quietly make this page lie.
+constants and the ranking below are copied verbatim from the script the reports
+were generated from — not re-derived, because a re-derivation that drifts by one
+day would quietly make this page lie.
 
 Reads the daily export that ships in the repo. That file is ~45MB gzipped and
 takes a few seconds to parse, so the pivoted frame is cached in memory for the

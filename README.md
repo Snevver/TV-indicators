@@ -402,8 +402,9 @@ restarting.
 `/simulate` runs the same rules over any past window against holding all 40 and
 against the index. It reads `_data-export/data/` (ships in the repo); a cold
 parse of that ~45MB export takes ~12s and is warmed in a background thread at
-startup, so each run after is ~1s. `simulate.py` copies its constants and
-ranking from `research/timelines.py` rather than re-deriving them.
+startup, so each run after is ~1s. `simulate.py`'s constants and ranking are
+copied verbatim from the script the published figures were generated from,
+rather than re-derived.
 
 ### Where the dashboard's numbers come from
 
@@ -637,20 +638,14 @@ npm run build   # writes ../static/dist — commit the result
 |---|---|
 | `stock-momentum/bot/` | The live bot, its systemd units, and `tracker.py` / `pulse.py`. |
 | `stock-momentum/web/` | The dashboard (Flask + Vue). Built bundle committed. |
-| `stock-momentum/research/` | The backtests behind every number quoted here. |
-| `_data-export/` | Daily OHLCV export the research scripts read — its own [README](_data-export/README.md). Claude's sandbox cannot reach market-data hosts, so you fetch and push, it pulls. |
-
-**Measured results, or it does not ship.** A rule never backtested against costs
-is a hypothesis. `research/` carries the code that produced every figure here, so
-any claim can be re-run rather than taken on trust. Results quoted are
-out-of-sample, from slices held back from the search.
+| `_data-export/` | Daily OHLCV export the `/simulate` page reads — its own [README](_data-export/README.md). Claude's sandbox cannot reach market-data hosts, so you fetch and push, it pulls. |
 
 **No secrets in git.** The Discord webhook, the Trading 212 keys and the
 dashboard password live in mode-600 files on the machine that runs the bot.
 `state.json`, `history.csv` and the rest of the local run state are gitignored
 for the same reason.
 
-**No large price data in git.** Daily CSVs are kept because the research needs
+**No large price data in git.** Daily CSVs are kept because `/simulate` needs
 them; intraday bars run to hundreds of megabytes and are rebuildable from
 `_data-export/export_for_claude.py`.
 
