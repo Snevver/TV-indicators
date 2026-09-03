@@ -248,18 +248,6 @@ def test_reconcile_without_priceable_positions_falls_back_to_fx():
     bot._FX.clear()
 
 
-def test_model_curve_flat_prices_hold_value():
-    import pandas as pd
-    dates = pd.bdate_range("2025-01-01", periods=400)
-    px = pd.DataFrame(100.0, index=dates,
-                      columns=[f"T{i}" for i in range(40)])   # all flat -> no churn
-    curve = bot.model_curve(px, str(dates[200].date()), 1000.0)
-    assert curve, "should produce daily points once past the lookback window"
-    assert curve[0][0] >= str(dates[200].date())
-    # opening buy costs 10bps; nothing moves or rebalances after that
-    assert all(abs(v - 999.0) < 1.0 for _, v in curve), curve[:3]
-
-
 def test_regime_gauge_spread_and_label():
     import numpy as np, pandas as pd
     wide = pd.Series(np.linspace(0.5, -0.3, 40))          # top mean >> bottom mean
@@ -268,40 +256,6 @@ def test_regime_gauge_spread_and_label():
     flat = pd.Series([0.1] * 40)
     assert bot.regime_gauge(flat)["label"] == "compressed"
     assert bot.regime_gauge(pd.Series([0.1] * 4)) == {}   # too few names
-
-
-def test_scoreboard_compares_live_to_model_per_month():
-    bk = {"equity": [["2026-08-27", 1000.0], ["2026-09-01", 1030.0],
-                     ["2026-10-01", 1010.0]]}
-    model = [("2026-08-27", 1000.0), ("2026-09-01", 1025.0), ("2026-10-01", 1005.0)]
-    sb = bot._scoreboard(bk, model)
-    assert [r["month"] for r in sb["rows"]] == ["2026-09", "2026-10"]
-    assert sb["rows"][0]["live_pct"] == 3.0 and sb["rows"][0]["model_pct"] == 2.5
-    assert sb["rows"][0]["gap_pct"] == 0.5
-    assert sb["total"]["gap_pct"] == 0.5                  # 1.0% live vs 0.5% model
-
-
-def test_scoreboard_empty_until_the_second_rebalance():
-    assert bot._scoreboard({"equity": [["2026-08-27", 1000.0]]}, []) == \
-        {"rows": [], "total": {}}
-
-
-def test_model_curve_empty_before_the_lookback_window():
-    import pandas as pd
-    dates = pd.bdate_range("2025-01-01", periods=100)      # < LOOKBACK + SKIP + 1
-    px = pd.DataFrame(100.0, index=dates, columns=[f"T{i}" for i in range(40)])
-    assert bot.model_curve(px, str(dates[0].date()), 1000.0) == []
-
-
-def test_model_curve_seeds_on_a_mid_month_funding_date():
-    import pandas as pd
-    dates = pd.bdate_range("2025-01-01", periods=400)
-    px = pd.DataFrame(100.0, index=dates, columns=[f"T{i}" for i in range(40)])
-    # A start date well past the lookback window but NOT a month boundary: the
-    # curve must still begin there, not wait for the next month-start.
-    start = str(dates[200].date())
-    curve = bot.model_curve(px, start, 1000.0)
-    assert curve and curve[0][0] == start
 
 
 def test_t212_held_prices_value_each_name_at_the_current_rate():

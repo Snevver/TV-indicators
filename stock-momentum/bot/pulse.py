@@ -62,8 +62,8 @@ def sample():
 def patch_latest(ppl: float, cost_basis: float) -> None:
     """Update latest.json's live money fields from one tick. Same figures the
     momentum-live refresh writes (holdings market value; P/L = ppl, no FX-fee
-    subtraction), just far more often. Leaves positions / ranking / scoreboard
-    to the ~90s full refresh. Silently does nothing if latest.json isn't ready."""
+    subtraction), just far more often. Leaves positions / ranking to the ~90s
+    full refresh. Silently does nothing if latest.json isn't ready."""
     try:
         with open(LATEST, encoding="utf-8") as fh:
             payload = json.load(fh)

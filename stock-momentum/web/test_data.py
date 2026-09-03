@@ -57,28 +57,6 @@ def test_hourly_filters_to_live_and_sorts():
         assert rows[1]["total"] == 1008.0
 
 
-# ---------------------------------------------------------------------- model
-
-def test_model_filters_to_live_sorts_and_tolerates_blanks():
-    with tempfile.TemporaryDirectory() as d:
-        data.MODEL = os.path.join(d, "model.csv")
-        _write(data.MODEL,
-               "date,track,value\n"
-               "2026-08-28,live,1001.10\n"
-               "2026-08-27,live,1000.00\n"
-               "2026-08-28,demo,999.00\n"                # other account, filtered out
-               "2026-08-29,live,\n")                      # blank -> dropped
-        rows = data.model()
-        assert [r["time"] for r in rows] == ["2026-08-27", "2026-08-28"]
-        assert rows[1]["value"] == 1001.10
-
-
-def test_model_missing_file_is_empty():
-    with tempfile.TemporaryDirectory() as d:
-        data.MODEL = os.path.join(d, "nope.csv")
-        assert data.model() == []
-
-
 # --------------------------------------------------------------------- history
 
 def test_history_reads_only_live():

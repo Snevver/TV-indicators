@@ -6,7 +6,6 @@ import Hero from "../components/Hero.vue";
 import Holdings from "../components/Holdings.vue";
 import MoneyChart from "../components/MoneyChart.vue";
 import RegimeGauge from "../components/RegimeGauge.vue";
-import Scoreboard from "../components/Scoreboard.vue";
 import RankingPanel from "../components/RankingPanel.vue";
 import LaunchPreview from "../components/LaunchPreview.vue";
 
@@ -134,7 +133,6 @@ onBeforeUnmount(() => {
 
         <div class="rail">
           <RegimeGauge :regime="h.regime" />
-          <Scoreboard :board="s.scoreboard" />
           <div class="hud" v-if="h.ranking?.length">
             <div class="hud-head"><h2>Live ranking</h2>
               <span class="tag">6-month momentum · skip last month</span></div>
@@ -167,9 +165,9 @@ onBeforeUnmount(() => {
 .key .cy { background: var(--cyan); box-shadow: 0 0 8px var(--cyan) }
 
 /* Two instrument columns: a wide focus stack (chart, holdings, log) and a
-   narrower rail (regime, scoreboard, ranking). Each column is its own flex
-   stack so panels of very different heights still pack tight. One column
-   below 1300px. */
+   narrower rail (regime, ranking). Each column is its own flex stack so
+   panels of very different heights still pack tight. One column below
+   1300px. */
 .cols { display: flex; flex-direction: column; gap: 16px }
 .focus, .rail { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
 @media (min-width: 1300px) {

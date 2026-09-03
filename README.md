@@ -559,7 +559,6 @@ All in `stock-momentum/bot/`, all gitignored — this machine's, not the repo's.
 | `history.csv` | One row per day per funded track — the daily curves. |
 | `hourly.csv` | One row per account per hour — value + benchmark ETF (`tracker.py`). |
 | `samples_1m.csv` | 1-minute OHLC bars of the live account's open P/L in euros (`pulse.py`), append-only, kept indefinitely — the candlestick chart. |
-| `model.csv` | The frozen backtest run forward from the funding date, rewritten every `--json` run. |
 | `instruments.json` | Cached Trading 212 instrument list (~16k rows), refreshed daily. |
 | `pending.json` / `pending-demo.json` | The month's batch mid-flight — what was sent and what came back. |
 

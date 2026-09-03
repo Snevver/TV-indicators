@@ -237,7 +237,7 @@ def api_rebalances():
 @app.route("/api/hourly")
 @login_required
 def api_hourly():
-    return jsonify({"rows": data.hourly(), "model": data.model()})
+    return jsonify({"rows": data.hourly()})
 
 
 @app.route("/api/candles")
