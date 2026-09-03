@@ -136,7 +136,8 @@ function render() {
         upColor: css("--up"), downColor: css("--down"),
         borderUpColor: css("--up"), borderDownColor: css("--down"),
         wickUpColor: css("--up"), wickDownColor: css("--down"),
-        priceLineVisible: false, lastValueVisible: true,
+        priceLineVisible: true, priceLineStyle: LineStyle.Dotted, priceLineWidth: 1,
+        lastValueVisible: true,
       });
       zeroLine = candleS.createPriceLine({
         price: 0, color: css("--faint"), lineWidth: 1,
