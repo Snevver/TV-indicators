@@ -30,7 +30,6 @@ both accounts stand.
 - [Troubleshooting](#troubleshooting)
 - [Tests](#tests)
 - [Repo layout & house rules](#repo-layout--house-rules)
-- [The TradingView indicator (optional)](#the-tradingview-indicator-optional)
 
 ---
 
@@ -639,7 +638,6 @@ npm run build   # writes ../static/dist — commit the result
 | `stock-momentum/bot/` | The live bot, its systemd units, and `tracker.py` / `pulse.py`. |
 | `stock-momentum/web/` | The dashboard (Flask + Vue). Built bundle committed. |
 | `stock-momentum/research/` | The backtests behind every number quoted here. |
-| `stock-momentum/indicators/` | The TradingView Pine version. The bot does not depend on it. |
 | `_data-export/` | Daily OHLCV export the research scripts read — its own [README](_data-export/README.md). Claude's sandbox cannot reach market-data hosts, so you fetch and push, it pulls. |
 
 **Measured results, or it does not ship.** A rule never backtested against costs
@@ -656,26 +654,6 @@ for the same reason.
 them; intraday bars run to hundreds of megabytes and are rebuildable from
 `_data-export/export_for_claude.py`.
 
-This repo used to hold four indicators. The other three — an ETF rotation, a
-wickless-candle retest and a mean-reversion family — were removed once this one
-was the only one being traded. They are in the git history if wanted back.
-
----
-
-## The TradingView indicator (optional)
-
-`stock-momentum/indicators/stock-momentum.pine` — put it on any of the 40 names
-and it shows BUY/SELL labels on rebalance bars plus the live ranking table. It is
-**not** what you are trading: the bot computes the ranking itself from the same
-logic the backtest used, so the two cannot drift apart. Delete the indicator and
-nothing about the live signal changes. It is also not parser-verified by
-TradingView.
-
-If you pay for TradingView you can get the Discord alerts from it instead of the
-bot: add an alert on any chart with the indicator, condition **Any alert()
-function call**, **Once Per Bar Close**, tick **Webhook URL** and paste your
-Discord webhook, leave the message box **empty** (the script writes the JSON —
-Discord rejects plain text). One alert covers all 40 names; it fires on the first
-bar of each month and only when the basket changes. Webhooks are **paid-plan
-only** — on the free tier the alert fires but does not POST. Running both the
-bot and the TradingView alert is fine and gives you a cross-check.
+This repo used to hold four indicators, then a fifth optional TradingView Pine
+reimplementation of this one for on-chart alerts. All of them are gone now that
+only the bot's own signal is used — they are in the git history if wanted back.
