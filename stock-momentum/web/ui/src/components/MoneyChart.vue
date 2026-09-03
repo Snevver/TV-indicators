@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
-import { createChart, LineStyle, AreaSeries, CandlestickSeries }
+import { createChart, LineStyle, AreaSeries, CandlestickSeries, TickMarkType }
   from "lightweight-charts";
 import { signed } from "../format.js";
 
@@ -30,6 +30,13 @@ const css = (n) =>
 const f = (v) => signed(v, props.sym);
 
 const at = (r) => Math.floor(Date.parse(r.time) / 1000);
+
+// Lightweight Charts labels its time axis in UTC by default, not the
+// viewer's local timezone -- these hand it Date, which formats local.
+const tickTime = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const tickDate = (t) => new Date(t * 1000).toLocaleDateString([], { day: "2-digit", month: "short" });
+const tickMarkFormatter = (t, kind) =>
+  kind >= TickMarkType.Time ? tickTime(t) : tickDate(t);
 
 function ohlc(bars) {
   const out = [];
@@ -90,7 +97,9 @@ function build() {
     timeScale: {
       borderColor: "rgba(140,175,215,.12)",
       timeVisible: true, secondsVisible: false,
+      tickMarkFormatter,
     },
+    localization: { timeFormatter: tickTime },
     crosshair: {
       mode: 0,
       vertLine: { color: css("--cyan"), width: 1, style: LineStyle.Dashed,
