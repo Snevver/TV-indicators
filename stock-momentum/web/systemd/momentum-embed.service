@@ -1,0 +1,36 @@
+# The public chart -- the only piece of this project meant to face the
+# internet. Point a Cloudflare Tunnel (or similar) at 127.0.0.1:6768 and
+# nowhere else on this box.
+#
+# Install:
+#   sudo cp momentum-embed.service /etc/systemd/system/
+#   sudo sed -i "s/CHANGEME/$USER/g" /etc/systemd/system/momentum-embed.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now momentum-embed
+
+[Unit]
+Description=Momentum public chart (read-only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=CHANGEME
+WorkingDirectory=/home/CHANGEME/tv-indicators/stock-momentum/web
+ExecStart=/home/CHANGEME/tv-indicators/stock-momentum/bot/.venv/bin/python embed.py
+Restart=always
+RestartSec=5
+
+# Read-only, on purpose: this process has no business writing anything, ever.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/home/CHANGEME/tv-indicators/stock-momentum/bot
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
