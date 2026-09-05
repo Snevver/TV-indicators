@@ -142,13 +142,19 @@ PAGE = """<!doctype html>
 </div>
 <script>
 const TFS = __TFS__;
-let tf = TFS.includes("1d") ? "1d" : TFS[0];
+let saved = null;
+try { saved = localStorage.getItem("tf"); } catch (e) {}
+let tf = TFS.includes(saved) ? saved : (TFS.includes("1d") ? "1d" : TFS[0]);
 
 const tfBar = document.getElementById("tfs");
 for (const t of TFS) {
   const b = document.createElement("button");
   b.textContent = t;
-  b.onclick = () => { tf = t; render(); load(); };
+  b.onclick = () => {
+    tf = t;
+    try { localStorage.setItem("tf", tf); } catch (e) {}
+    render(); load();
+  };
   tfBar.appendChild(b);
 }
 function render() {
