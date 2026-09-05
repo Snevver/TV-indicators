@@ -169,7 +169,15 @@ const chart = LightweightCharts.createChart(host, {
   grid: { vertLines: { color: "rgba(140,175,215,.06)" },
           horzLines: { color: "rgba(140,175,215,.08)" } },
   rightPriceScale: { borderColor: "rgba(140,175,215,.12)" },
-  timeScale: { borderColor: "rgba(140,175,215,.12)", timeVisible: true, secondsVisible: false },
+  // Lightweight Charts labels its time axis in UTC by default, not the
+  // viewer's local timezone -- handing it a Date formats in local time instead.
+  timeScale: {
+    borderColor: "rgba(140,175,215,.12)", timeVisible: true, secondsVisible: false,
+    tickMarkFormatter: (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  },
+  localization: {
+    timeFormatter: (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  },
 });
 const series = chart.addSeries(LightweightCharts.CandlestickSeries, {
   upColor: "#6EFF7B", downColor: "#FF4D6D",
