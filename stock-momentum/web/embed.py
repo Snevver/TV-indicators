@@ -18,6 +18,8 @@ with:
 """
 from __future__ import annotations
 
+import json
+
 from flask import Flask, jsonify, request
 
 import data
@@ -43,7 +45,9 @@ def candles():
 
 @app.route("/")
 def index():
-    return PAGE
+    # Ordered oldest-timeframe-first for the button row; TFS itself is a set.
+    tfs = [tf for tf in ("1m", "5m", "15m", "30m", "60m", "4h", "1d", "1M") if tf in data.TFS]
+    return PAGE.replace("__TFS__", json.dumps(tfs))
 
 
 # One file, inline. This page has no other assets and isn't worth a build step.
@@ -56,14 +60,39 @@ PAGE = """<!doctype html>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@5.0.7/dist/lightweight-charts.standalone.production.js"></script>
 <style>
   html,body{margin:0;height:100%;background:#04070D;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  #host{width:100%;height:100%}
+  #wrap{display:flex;flex-direction:column;height:100%}
+  #tfs{display:flex;gap:4px;padding:6px 8px;flex:none}
+  #tfs button{
+    background:transparent;border:1px solid rgba(140,175,215,.2);border-radius:4px;
+    color:#7789A3;font:inherit;font-size:.72rem;padding:3px 8px;cursor:pointer;
+  }
+  #tfs button.on{color:#00F0FF;border-color:#00F0FF}
+  #host{flex:1;min-height:0}
   #err{color:#7789A3;font-size:.8rem;padding:10px;display:none}
 </style>
 </head>
 <body>
-<div id="host"></div>
-<div id="err">no data yet</div>
+<div id="wrap">
+  <div id="tfs"></div>
+  <div id="host"></div>
+  <div id="err">no data yet</div>
+</div>
 <script>
+const TFS = __TFS__;
+let tf = TFS.includes("1d") ? "1d" : TFS[0];
+
+const tfBar = document.getElementById("tfs");
+for (const t of TFS) {
+  const b = document.createElement("button");
+  b.textContent = t;
+  b.onclick = () => { tf = t; render(); load(); };
+  tfBar.appendChild(b);
+}
+function render() {
+  for (const b of tfBar.children) b.classList.toggle("on", b.textContent === tf);
+}
+render();
+
 const host = document.getElementById("host");
 const chart = LightweightCharts.createChart(host, {
   width: host.clientWidth, height: host.clientHeight,
@@ -82,7 +111,7 @@ new ResizeObserver(() => chart.resize(host.clientWidth, host.clientHeight)).obse
 
 async function load() {
   try {
-    const r = await fetch("/candles?tf=1d");
+    const r = await fetch("/candles?tf=" + encodeURIComponent(tf));
     const { bars } = await r.json();
     document.getElementById("err").style.display = bars.length ? "none" : "block";
     if (bars.length) series.setData(bars);
