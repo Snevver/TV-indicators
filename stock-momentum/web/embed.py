@@ -130,14 +130,18 @@ PAGE = """<!doctype html>
     color:#7789A3;font:inherit;font-size:.72rem;padding:3px 8px;cursor:pointer;
   }
   #tfs button.on{color:#00F0FF;border-color:#00F0FF}
-  #host{flex:1;min-height:0}
+  #host{flex:1;min-height:0;position:relative}
   #err{color:#7789A3;font-size:.8rem;padding:10px;display:none}
+  #closed{
+    position:absolute;bottom:8px;left:8px;z-index:3;pointer-events:none;
+    color:#7789A3;font-size:.68rem;letter-spacing:.02em;display:none;
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="tfs"></div>
-  <div id="host"></div>
+  <div id="host"><div id="closed">markets closed &middot; not currently trading hours</div></div>
   <div id="err">no data yet</div>
 </div>
 <script>
@@ -185,6 +189,15 @@ const series = chart.addSeries(LightweightCharts.CandlestickSeries, {
   wickUpColor: "#6EFF7B", wickDownColor: "#FF4D6D",
 });
 new ResizeObserver(() => chart.resize(host.clientWidth, host.clientHeight)).observe(host);
+
+// Weekend check, not a real market calendar -- enough to explain why the
+// chart isn't moving without building a full trading-hours model.
+function checkClosed() {
+  document.getElementById("closed").style.display =
+    [0, 6].includes(new Date().getUTCDay()) ? "block" : "none";
+}
+checkClosed();
+setInterval(checkClosed, 60000);
 
 async function load() {
   try {

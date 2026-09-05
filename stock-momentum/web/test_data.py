@@ -134,6 +134,21 @@ def test_candles_passthrough_1m_filters_to_live_and_sorts():
                            "open": 100.0, "high": 105.0, "low": 99.0, "close": 104.0}
 
 
+def test_candles_drops_weekend_rows():
+    with tempfile.TemporaryDirectory() as d:
+        _no_hourly(d)
+        data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
+        _write(data.SAMPLES_1M,
+               "time,track,open,high,low,close\n"
+               "2026-09-04T20:00Z,live,100,101,99,100\n"   # Friday close
+               "2026-09-05T12:00Z,live,100,100,100,100\n"  # Saturday, flat -> dropped
+               "2026-09-06T12:00Z,live,100,100,100,100\n"  # Sunday, flat -> dropped
+               "2026-09-07T13:30Z,live,101,103,100,102\n") # Monday open
+        bars = data.candles("1m")
+        assert [b["time"] for b in bars] == [
+            data._epoch("2026-09-04T20:00Z"), data._epoch("2026-09-07T13:30Z")]
+
+
 def test_candles_buckets_5m_ohlc():
     with tempfile.TemporaryDirectory() as d:
         _no_hourly(d)
@@ -154,9 +169,9 @@ def test_candles_month_bucket():
         data.SAMPLES_1M = os.path.join(d, "samples_1m.csv")
         _write(data.SAMPLES_1M,
                "time,track,open,high,low,close\n"
-               "2026-09-10T00:00Z,live,10,12,9,11\n"
-               "2026-09-20T00:00Z,live,11,15,11,14\n"
-               "2026-10-01T00:00Z,live,14,14,13,13\n")
+               "2026-09-10T00:00Z,live,10,12,9,11\n"     # Thursday
+               "2026-09-21T00:00Z,live,11,15,11,14\n"    # Monday
+               "2026-10-01T00:00Z,live,14,14,13,13\n")   # Thursday
         bars = data.candles("1M")
         assert len(bars) == 2
         assert bars[0]["open"] == 10.0 and bars[0]["high"] == 15.0 and bars[0]["close"] == 14.0

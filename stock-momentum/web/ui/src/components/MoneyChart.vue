@@ -16,6 +16,10 @@ const props = defineProps({
 
 const host = ref(null);
 const legend = ref(null);          // {o,h,l,c,up,pct} under the cursor, or the last bar
+// Weekend check, not a real market calendar -- good enough to explain why the
+// chart isn't moving without building a full trading-hours model.
+const closed = ref(false);
+let clockId = null;
 // Series are created once and kept across polls -- tearing them down and
 // re-adding every refresh is what reset the view. On a refresh we only setData().
 let chart = null, candleS = null, zeroLine = null, ro = null;
@@ -156,8 +160,14 @@ onMounted(() => {
     if (chart && host.value) chart.resize(host.value.clientWidth, host.value.clientHeight);
   });
   ro.observe(host.value);
+  const checkClosed = () => { closed.value = [0, 6].includes(new Date().getUTCDay()); };
+  checkClosed();
+  clockId = setInterval(checkClosed, 60_000);
 });
-onBeforeUnmount(() => { ro?.disconnect(); chart?.remove(); chart = null; });
+onBeforeUnmount(() => {
+  ro?.disconnect(); chart?.remove(); chart = null;
+  clearInterval(clockId);
+});
 watch(() => [props.candles, props.deposited], render, { deep: true });
 </script>
 
@@ -171,6 +181,7 @@ watch(() => [props.candles, props.deposited], render, { deep: true });
       <span class="pct">{{ f(legend.chg) }}<template
         v-if="legend.pct != null"> ({{ legend.pct >= 0 ? "+" : "" }}{{ legend.pct.toFixed(2) }}%)</template></span>
     </div>
+    <div v-if="closed" class="closed">markets closed &middot; not currently trading hours</div>
     <div class="host" ref="host"></div>
   </div>
 </template>
@@ -188,4 +199,9 @@ watch(() => [props.candles, props.deposited], render, { deep: true });
 .ohlc.up b, .ohlc.up .pct { color: var(--up) }
 .ohlc.down b, .ohlc.down .pct { color: var(--down) }
 .ohlc .pct { font-weight: 600 }
+.closed {
+  position: absolute; bottom: 8px; left: 8px; z-index: 3; pointer-events: none;
+  font-family: var(--f-mono); font-size: .68rem; letter-spacing: .02em;
+  color: var(--faint);
+}
 </style>

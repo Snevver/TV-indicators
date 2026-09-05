@@ -131,12 +131,21 @@ def _month_start(ts: int) -> int:
     return int(datetime(d.year, d.month, 1, tzinfo=timezone.utc).timestamp())
 
 
+def _is_weekend(ts: int) -> bool:
+    return datetime.fromtimestamp(ts, timezone.utc).weekday() >= 5
+
+
 def candles(tf: str) -> list:
     """[{time, open, high, low, close}] oldest first, live account, bucketed
     from pulse.py's 1-minute bars (samples_1m.csv). `time` is int UTC seconds
     (what lightweight-charts wants). Unknown tf -> []. Most recent MAX_BARS bars
     only. Nothing older than samples_1m.csv is folded in -- the chart starts
-    where clean 1-minute sampling started."""
+    where clean 1-minute sampling started.
+
+    pulse.py samples around the clock, so the weekend is just the last known
+    price repeated as flat candles -- dropped here rather than shown. Lightweight
+    Charts spaces bars by index, not by elapsed time, so leaving them out closes
+    Friday's close right up against Monday's open with no gap on the axis."""
     if tf not in TFS:
         return []
 
@@ -146,7 +155,7 @@ def candles(tf: str) -> list:
             continue
         ts = _epoch(r.get("time"))
         o, h, l, c = (_maybe(r.get(k)) for k in ("open", "high", "low", "close"))
-        if ts and None not in (o, h, l, c):
+        if ts and None not in (o, h, l, c) and not _is_weekend(ts):
             rows.append((ts, o, h, l, c))
     rows.sort()
 
