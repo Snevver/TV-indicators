@@ -26,6 +26,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import tempfile
 import time
 from datetime import datetime, timezone
 
@@ -79,10 +80,18 @@ def patch_latest(ppl: float, cost_basis: float) -> None:
                 "pnl_pct": round(ppl / cost_basis * 100, 2) if cost_basis else 0.0,
                 "as_of": now})
     payload["generated"] = now
-    tmp = LATEST + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=1, default=str)
-    os.replace(tmp, LATEST)
+    # Unique name per writer: momentum_bot.py's own refresh writes this same
+    # file, and a fixed ".tmp" path let two writers race on it -- see the note
+    # in momentum_bot.py's write_latest for the corruption that causes.
+    fd, tmp = tempfile.mkstemp(dir=HERE, prefix=".latest.json.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=1, default=str)
+        os.replace(tmp, LATEST)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def append_bar(ts, track, o, h, l, c) -> None:

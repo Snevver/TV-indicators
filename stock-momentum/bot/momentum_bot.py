@@ -46,6 +46,7 @@ import calendar
 import json
 import os
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 
@@ -1138,10 +1139,19 @@ def snapshot_payload(state, prices, scores, bar, held_px=None) -> dict:
 
 
 def write_latest(payload: dict) -> None:
-    tmp = LATEST + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=1, default=str)
-    os.replace(tmp, LATEST)
+    # A unique name per writer: pulse.py patches this same file every ~10s, and
+    # a fixed ".tmp" path let the two race -- one process's open("w") truncates
+    # the other's in-flight write, and os.replace then moves a half-overwritten
+    # file into place (two JSON documents concatenated, "Extra data" on load).
+    fd, tmp = tempfile.mkstemp(dir=HERE, prefix=".latest.json.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=1, default=str)
+        os.replace(tmp, LATEST)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def refresh_live(state) -> int:
